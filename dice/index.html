@@ -26,7 +26,7 @@
 
     <nav class="tab-nav" role="tablist">
       <button class="tab-btn active" role="tab" aria-selected="true" data-tab="emoklore">エモクロア判定</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="extra">おまけダイス</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="extra">ダイスロール</button>
       <button class="tab-btn" role="tab" aria-selected="false" data-tab="status">ステータス</button>
       <button class="tab-btn" role="tab" aria-selected="false" data-tab="note">メモ</button>
     </nav>
@@ -53,6 +53,20 @@
               <button class="stepper-btn" data-target="targetValue" data-delta="1" aria-label="増やす">＋</button>
             </div>
           </div>
+        </div>
+
+        <button id="roll-btn" class="roll-btn">
+          <span class="roll-btn-icon">🎲</span>
+          <span>ダイスを振る</span>
+        </button>
+
+        <div id="emoklore-result" class="result-area" aria-live="polite" aria-label="ダイスの結果">
+          <div id="dice-display" class="dice-grid"></div>
+          <div class="success-summary">
+            <span class="success-label">成功数</span>
+            <span id="success-count" class="success-count">—</span>
+          </div>
+          <div id="result-label" class="result-label"></div>
         </div>
 
         <div class="status-bar">
@@ -114,44 +128,29 @@
           </div>
         </div>
 
-        <button id="roll-btn" class="roll-btn">
-          <span class="roll-btn-icon">🎲</span>
-          <span>ダイスを振る</span>
-        </button>
-
-        <div id="emoklore-result" class="result-area hidden" aria-live="polite" aria-label="ダイスの結果">
-          <div id="dice-display" class="dice-grid"></div>
-          <div class="success-summary">
-            <span class="success-label">成功数</span>
-            <span id="success-count" class="success-count">0</span>
-          </div>
-          <div id="result-label" class="result-label"></div>
-        </div>
-
       </section>
 
-      <!-- おまけダイスタブ -->
-      <section id="tab-extra" class="tab-panel hidden" role="tabpanel" aria-label="おまけダイス">
+      <!-- ダイスロールタブ -->
+      <section id="tab-extra" class="tab-panel hidden" role="tabpanel" aria-label="ダイスロール">
 
         <div class="dice-type-grid">
-          <button class="dice-type-btn active" data-sides="2">D2</button>
+          <button class="dice-type-btn" data-sides="2">D2</button>
           <button class="dice-type-btn" data-sides="3">D3</button>
           <button class="dice-type-btn" data-sides="4">D4</button>
           <button class="dice-type-btn" data-sides="6">D6</button>
           <button class="dice-type-btn" data-sides="10">D10</button>
           <button class="dice-type-btn" data-sides="20">D20</button>
           <button class="dice-type-btn" data-sides="100">D100</button>
+          <button class="dice-type-btn" id="extra-custom-btn">D?</button>
         </div>
 
-        <div class="controls-grid single">
-          <div class="control-item">
-            <div class="control-label">個数</div>
-            <div class="stepper">
-              <button class="stepper-btn" data-target="extraCount" data-delta="-1" aria-label="減らす">－</button>
-              <span id="extraCount-display" class="stepper-value">1</span>
-              <button class="stepper-btn" data-target="extraCount" data-delta="1" aria-label="増やす">＋</button>
-            </div>
-          </div>
+        <div id="extra-custom-row" class="extra-custom-row hidden">
+          <input type="number" id="extra-custom-sides" class="custom-sides-input" min="2" max="9999" inputmode="numeric" placeholder="面数を入力">
+          <button id="extra-custom-add-btn" class="custom-add-btn">追加</button>
+        </div>
+
+        <div id="extra-pool" class="extra-pool">
+          <span class="pool-empty">ダイスの種類をタップして追加</span>
         </div>
 
         <button id="extra-roll-btn" class="roll-btn">

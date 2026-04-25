@@ -6,8 +6,8 @@ const STORAGE_KEY = 'emoklore-dice-v1';
 const state = {
   diceCount:   1,
   targetValue: 5,
-  extraSides:  6,
-  extraCount:  1,
+  extraPool:   [], // [{ sides: N, count: M }, ...]
+  lastPool:    [], // 前回振ったプール
   mode:        'lively',  // 'lively' | 'simple'
   soundOn:     true,
   history:     [],        // [{ text }], max 3, newest first
@@ -235,31 +235,28 @@ function rollEmoklore() {
   if (state.mode === 'lively') {
     // Build rolling dice
     diceDisplay.innerHTML = '';
+    let tumbledCount = 0;
+
+    const cyclers = [];
     const dieEls = results.map((_, i) => {
       const el = document.createElement('div');
       el.className = 'die rolling';
-      el.style.animationDelay = `${i * Math.min(60, 60)}ms`;
+      el.style.animationDelay = `${i * 60}ms`;
       el.textContent = rollDie(10);
       diceDisplay.appendChild(el);
+      cyclers.push(setInterval(() => { el.textContent = rollDie(10); }, 70));
       return el;
     });
 
-    // Cycle numbers while rolling
-    const cyclers = dieEls.map(el =>
-      setInterval(() => { el.textContent = rollDie(10); }, 70)
-    );
+    // 各ダイスはdiceTumble終了次第すぐ数字を表示（ポップなし）
+    dieEls.forEach((el, i) => {
+      el.addEventListener('animationend', () => {
+        clearInterval(cyclers[i]);
 
-    const revealAt = 880 + (count - 1) * 55;
-
-    setTimeout(() => {
-      cyclers.forEach(clearInterval);
-
-      // Reveal actual values
-      dieEls.forEach((el, i) => {
         const v    = results[i];
         const dcls = classifyDie(v, target);
         el.textContent = '';
-        el.className   = `die ${dcls} reveal`;
+        el.className   = `die ${dcls}`;
         el.textContent = v;
         if (dcls === 'critical' || dcls === 'error') {
           const badge = document.createElement('span');
@@ -267,28 +264,29 @@ function rollEmoklore() {
           badge.textContent = dcls === 'critical' ? '★' : '✕';
           el.appendChild(badge);
         }
-        el.addEventListener('animationend', () => el.classList.remove('reveal'), { once: true });
-      });
 
-      // Success count pop
-      setTimeout(() => {
-        successCountEl.textContent = successes;
-        successCountEl.classList.add('pop');
-        successCountEl.addEventListener('animationend',
-          () => successCountEl.classList.remove('pop'), { once: true });
+        tumbledCount++;
+        if (tumbledCount < count) return;
 
-        // Result label fade-in
+        // 全数字が揃ったら成功数を表示
         setTimeout(() => {
-          resultLabelEl.textContent = label;
-          resultLabelEl.className = `result-label ${cls} visible`;
-          playResultSound(cls);
-          btn.disabled = false;
+          successCountEl.textContent = successes;
+          successCountEl.classList.add('pop');
+          successCountEl.addEventListener('animationend',
+            () => successCountEl.classList.remove('pop'), { once: true });
 
-          const sign = successes > 0 ? '+' : '';
-          addHistory(`${count}d10(判${target}) → ${label} (${sign}${successes})`);
-        }, 240);
-      }, 160);
-    }, revealAt);
+          setTimeout(() => {
+            resultLabelEl.textContent = label;
+            resultLabelEl.className = `result-label ${cls} visible`;
+            playResultSound(cls);
+            btn.disabled = false;
+
+            const sign = successes > 0 ? '+' : '';
+            addHistory(`${count}d10(判${target}) → ${label} (${sign}${successes})`);
+          }, 240);
+        }, 160);
+      }, { once: true });
+    });
 
   } else {
     // Simple mode: instant
@@ -307,15 +305,64 @@ function rollEmoklore() {
 }
 
 // ── Extra dice roll ────────────────────────────────────────────────────
+function addToPool(sides) {
+  const existing = state.extraPool.find(e => e.sides === sides);
+  if (existing) { existing.count++; } else { state.extraPool.push({ sides, count: 1 }); }
+  renderPool();
+}
+
+function changePoolCount(sides, delta) {
+  const existing = state.extraPool.find(e => e.sides === sides);
+  if (!existing) return;
+  existing.count = Math.max(0, existing.count + delta);
+  if (existing.count === 0) state.extraPool = state.extraPool.filter(e => e.sides !== sides);
+  renderPool();
+}
+
+function renderPool() {
+  const poolEl = document.getElementById('extra-pool');
+  if (state.extraPool.length === 0) {
+    poolEl.innerHTML = '<span class="pool-empty">ダイスをタップして追加</span>';
+    return;
+  }
+  poolEl.innerHTML = state.extraPool.map(({ sides, count }, i) =>
+    (i > 0 ? '<span class="pool-sep">＋</span>' : '') +
+    `<div class="pool-item">
+      <button class="pool-btn" data-sides="${sides}" data-delta="-1">－</button>
+      <span class="pool-label">${count}D${sides}</span>
+      <button class="pool-btn" data-sides="${sides}" data-delta="1">＋</button>
+    </div>`
+  ).join('');
+  poolEl.querySelectorAll('.pool-btn').forEach(btn => {
+    btn.addEventListener('click', () =>
+      changePoolCount(parseInt(btn.dataset.sides), parseInt(btn.dataset.delta))
+    );
+  });
+}
+
 function rollExtra() {
   const btn = document.getElementById('extra-roll-btn');
   if (btn.disabled) return;
+
+  // プールが空なら前回と同じ構成を使う（裏機能）
+  if (state.extraPool.length === 0) {
+    if (state.lastPool.length === 0) return;
+    state.extraPool = state.lastPool.map(e => ({ ...e }));
+  }
   btn.disabled = true;
 
-  const sides   = state.extraSides;
-  const count   = state.extraCount;
-  const results = rollDice(count, sides);
-  const total   = results.reduce((a, b) => a + b, 0);
+  // 前回プールを保存してリセット
+  state.lastPool = state.extraPool.map(e => ({ ...e }));
+  state.extraPool = [];
+  renderPool();
+
+  // プールをフラット化
+  const allDice = [];
+  state.lastPool.forEach(({ sides, count }) => {
+    for (let i = 0; i < count; i++) allDice.push({ sides, value: rollDie(sides) });
+  });
+  const total = allDice.reduce((a, d) => a + d.value, 0);
+  const historyText = state.extraPool.map(({ sides, count }) => `${count}D${sides}`).join('+') + ` → 合計 ${total}`;
 
   playRollSound();
 
@@ -326,55 +373,51 @@ function rollExtra() {
   resultArea.classList.remove('hidden', 'entering');
   void resultArea.offsetWidth;
   resultArea.classList.add('entering');
-
   totalEl.innerHTML = '';
 
   if (state.mode === 'lively') {
     diceDisplay.innerHTML = '';
-    const dieEls = results.map((_, i) => {
+    let tumbledCount = 0;
+    const cyclers = [];
+
+    const dieEls = allDice.map(({ sides }, i) => {
       const el = document.createElement('div');
       el.className = 'die rolling';
-      el.style.animationDelay = `${i * Math.min(60, 60)}ms`;
+      el.style.animationDelay = `${i * 60}ms`;
       el.textContent = rollDie(sides);
       diceDisplay.appendChild(el);
+      cyclers.push(setInterval(() => { el.textContent = rollDie(sides); }, 70));
       return el;
     });
 
-    const cyclers = dieEls.map(el =>
-      setInterval(() => { el.textContent = rollDie(sides); }, 70)
-    );
+    dieEls.forEach((el, i) => {
+      el.addEventListener('animationend', () => {
+        clearInterval(cyclers[i]);
+        el.className = 'die success';
+        el.textContent = allDice[i].value;
 
-    const revealAt = 880 + (count - 1) * 55;
-
-    setTimeout(() => {
-      cyclers.forEach(clearInterval);
-
-      dieEls.forEach((el, i) => {
-        el.className = 'die success reveal';
-        el.textContent = results[i];
-        el.addEventListener('animationend', () => el.classList.remove('reveal'), { once: true });
-      });
-
-      totalEl.innerHTML =
-        `<span class="extra-total-label">合計</span><strong>${total}</strong>`;
-
-      btn.disabled = false;
-      addHistory(`${count}D${sides} → 合計 ${total}`);
-    }, revealAt);
+        tumbledCount++;
+        if (tumbledCount === allDice.length) {
+          setTimeout(() => {
+            totalEl.innerHTML = `<span class="extra-total-label">合計</span><strong>${total}</strong>`;
+            btn.disabled = false;
+            addHistory(historyText);
+          }, 160);
+        }
+      }, { once: true });
+    });
 
   } else {
     diceDisplay.innerHTML = '';
-    results.forEach(v => {
+    allDice.forEach(({ value }) => {
       const el = document.createElement('div');
       el.className = 'die success';
-      el.textContent = v;
+      el.textContent = value;
       diceDisplay.appendChild(el);
     });
-    totalEl.innerHTML =
-      `<span class="extra-total-label">合計</span><strong>${total}</strong>`;
-
+    totalEl.innerHTML = `<span class="extra-total-label">合計</span><strong>${total}</strong>`;
     btn.disabled = false;
-    addHistory(`${count}D${sides} → 合計 ${total}`);
+    addHistory(historyText);
   }
 }
 
@@ -396,9 +439,8 @@ function setupTabs() {
 
 function setupSteppers() {
   const limits = {
-    diceCount:   { min: 1, max: 10 },
+    diceCount:   { min: 1, max: Infinity },
     targetValue: { min: 1, max: 10 },
-    extraCount:  { min: 1, max: 10 },
   };
   document.querySelectorAll('.stepper-btn[data-target]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -413,14 +455,29 @@ function setupSteppers() {
 }
 
 function setupDiceTypeButtons() {
-  document.querySelectorAll('.dice-type-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.dice-type-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      state.extraSides = parseInt(btn.dataset.sides, 10);
-      saveState();
-    });
+  document.querySelectorAll('.dice-type-btn[data-sides]').forEach(btn => {
+    btn.addEventListener('click', () => addToPool(parseInt(btn.dataset.sides, 10)));
   });
+
+  const customBtn    = document.getElementById('extra-custom-btn');
+  const customRow    = document.getElementById('extra-custom-row');
+  const customInput  = document.getElementById('extra-custom-sides');
+  const customAddBtn = document.getElementById('extra-custom-add-btn');
+
+  customBtn.addEventListener('click', () => {
+    customRow.classList.toggle('hidden');
+    if (!customRow.classList.contains('hidden')) customInput.focus();
+  });
+
+  function addCustomDie() {
+    const sides = parseInt(customInput.value, 10);
+    if (!sides || sides < 2) return;
+    addToPool(sides);
+    customInput.value = '';
+    customRow.classList.add('hidden');
+  }
+  customAddBtn.addEventListener('click', addCustomDie);
+  customInput.addEventListener('keydown', e => { if (e.key === 'Enter') addCustomDie(); });
 }
 
 function setupSettings() {
@@ -453,13 +510,9 @@ function setupSettings() {
 }
 
 function syncUIToState() {
-  ['diceCount', 'targetValue', 'extraCount'].forEach(key => {
+  ['diceCount', 'targetValue'].forEach(key => {
     const el = document.getElementById(`${key}-display`);
     if (el) el.textContent = state[key];
-  });
-
-  document.querySelectorAll('.dice-type-btn').forEach(btn => {
-    btn.classList.toggle('active', parseInt(btn.dataset.sides, 10) === state.extraSides);
   });
 
   document.querySelectorAll('.mode-btn').forEach(btn => {
