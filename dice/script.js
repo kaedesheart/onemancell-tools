@@ -477,15 +477,15 @@ function syncUIToState() {
 const MEMO_KEY = 'emoklore-memo-v1';
 
 const memo = {
-  hpCurrent:    0,
-  hpMax:        0,
-  mpCurrent:    0,
-  mpMax:        0,
+  hpCurrent:    11,
+  hpMax:        11,
+  mpCurrent:    7,
+  mpMax:        7,
   initiative:   0,
   emotionOmote: '',
   emotionUra:   '',
   emotionRoots: '',
-  infinityLevel: 0,
+  infinityLevel: 1,
 };
 
 // 感情データ
@@ -497,11 +497,22 @@ const EMOTIONS = {
   '傷':   ['後悔', '孤独', '諦観', '絶望', '否定', '疑念', '罪悪感', '狂気', '劣等感'],
 };
 
+const EMOTION_ATTR = {};
+for (const [group, list] of Object.entries(EMOTIONS)) {
+  list.forEach(e => { EMOTION_ATTR[e] = group; });
+}
+
+function formatEmotion(name) {
+  if (!name) return '—';
+  const attr = EMOTION_ATTR[name];
+  return attr ? `${name}(${attr})` : name;
+}
+
 function buildEmotionHTML() {
   let html = '<option value="">── 未設定 ──</option>';
   for (const [group, list] of Object.entries(EMOTIONS)) {
     html += `<optgroup label="${group}">`;
-    list.forEach(e => { html += `<option>${e}</option>`; });
+    list.forEach(e => { html += `<option value="${e}">${e}(${group})</option>`; });
     html += '</optgroup>';
   }
   return html;
@@ -575,13 +586,27 @@ function syncMemoUI() {
   if (infinityEl) infinityEl.textContent = memo.infinityLevel;
   updateBar('status-hp-bar', memo.hpCurrent, memo.hpMax);
   updateBar('status-mp-bar', memo.mpCurrent, memo.mpMax);
+
+  // 共鳴感情（エモクロア判定タブ）
+  const emoDisplays = {
+    'status-emotion-omote': memo.emotionOmote,
+    'status-emotion-ura':   memo.emotionUra,
+    'status-emotion-roots': memo.emotionRoots,
+  };
+  for (const [id, val] of Object.entries(emoDisplays)) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = formatEmotion(val);
+  }
+
 }
 
 // ── HP/MP履歴 debounce ─────────────────────────────────────────────────
-let hpHistoryTimer  = null;
-let hpHistoryBefore = null;
-let mpHistoryTimer  = null;
-let mpHistoryBefore = null;
+let hpHistoryTimer       = null;
+let hpHistoryBefore      = null;
+let mpHistoryTimer       = null;
+let mpHistoryBefore      = null;
+let infinityHistoryTimer  = null;
+let infinityHistoryBefore = null;
 
 function scheduleHpHistory() {
   clearTimeout(hpHistoryTimer);
@@ -611,6 +636,20 @@ function scheduleMpHistory() {
   }, 1500);
 }
 
+function scheduleInfinityHistory() {
+  clearTimeout(infinityHistoryTimer);
+  infinityHistoryTimer = setTimeout(() => {
+    const after = memo.infinityLevel;
+    if (infinityHistoryBefore !== null && after !== infinityHistoryBefore) {
+      const diff = after - infinityHistoryBefore;
+      const sign = diff > 0 ? '＋' : '－';
+      addHistory(`∞共鳴 ${infinityHistoryBefore}→${after} (${sign}${Math.abs(diff)})`);
+    }
+    infinityHistoryBefore = null;
+    infinityHistoryTimer  = null;
+  }, 1500);
+}
+
 function setupMemo() {
   // ステッパーボタン（data-memo 属性を持つもの）
   document.querySelectorAll('.stepper-btn[data-memo]').forEach(btn => {
@@ -618,19 +657,20 @@ function setupMemo() {
       const key   = btn.dataset.memo;
       const delta = parseInt(btn.dataset.delta, 10);
 
-      if (key === 'hpCurrent' && hpHistoryBefore === null) hpHistoryBefore = memo.hpCurrent;
-      if (key === 'mpCurrent' && mpHistoryBefore === null) mpHistoryBefore = memo.mpCurrent;
+      if (key === 'hpCurrent'      && hpHistoryBefore      === null) hpHistoryBefore      = memo.hpCurrent;
+      if (key === 'mpCurrent'      && mpHistoryBefore      === null) mpHistoryBefore      = memo.mpCurrent;
+      if (key === 'infinityLevel'  && infinityHistoryBefore === null) infinityHistoryBefore = memo.infinityLevel;
 
       let val = memo[key] + delta;
 
       if (key === 'hpMax')     val = Math.max(0, val);
       if (key === 'mpMax')     val = Math.max(0, val);
-      // hpCurrent / mpCurrent はマイナスあり（下限なし）
-      if (key === 'infinityLevel') val = Math.max(0, val);
+      // hpCurrent / mpCurrent / infinityLevel はマイナスあり（下限なし）
 
       memo[key] = val;
-      if (key === 'hpCurrent') scheduleHpHistory();
-      if (key === 'mpCurrent') scheduleMpHistory();
+      if (key === 'hpCurrent')     scheduleHpHistory();
+      if (key === 'mpCurrent')     scheduleMpHistory();
+      if (key === 'infinityLevel') scheduleInfinityHistory();
       syncMemoUI();
       saveMemo();
     });
@@ -683,6 +723,7 @@ function setupMemo() {
   Object.entries(emotionMap).forEach(([id, key]) => {
     document.getElementById(id).addEventListener('change', e => {
       memo[key] = e.target.value;
+      syncMemoUI();
       saveMemo();
     });
   });
@@ -696,6 +737,61 @@ function setupNote() {
   try { area.value = localStorage.getItem(NOTE_KEY) || ''; } catch (_) {}
   area.addEventListener('input', () => {
     try { localStorage.setItem(NOTE_KEY, area.value); } catch (_) {}
+  });
+}
+
+// ── Install / Add to Home Screen ──────────────────────────────────────
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  const row = document.getElementById('install-row');
+  if (row) row.style.display = 'none';
+});
+
+function setupInstallButton() {
+  const installRow = document.getElementById('install-row');
+  const installBtn = document.getElementById('install-btn');
+  const guideOverlay = document.getElementById('ios-guide-overlay');
+
+  const isIos    = /iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase());
+  const isMobile = isIos || /android/i.test(navigator.userAgent.toLowerCase());
+
+  if (!isMobile) {
+    installRow.style.display = 'none';
+    return;
+  }
+
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+
+  if (isStandalone) {
+    installRow.style.display = 'none';
+    return;
+  }
+
+  installBtn.addEventListener('click', async () => {
+    if (deferredInstallPrompt) {
+      await deferredInstallPrompt.prompt();
+      deferredInstallPrompt = null;
+    } else if (isIos) {
+      guideOverlay.classList.remove('hidden');
+    } else {
+      installBtn.textContent = 'ブラウザのメニューから追加できます';
+      installBtn.disabled = true;
+    }
+  });
+
+  document.getElementById('ios-guide-close').addEventListener('click', () => {
+    guideOverlay.classList.add('hidden');
+  });
+  guideOverlay.addEventListener('click', e => {
+    if (e.target === guideOverlay) guideOverlay.classList.add('hidden');
   });
 }
 
@@ -714,6 +810,7 @@ function init() {
   setupSettings();
   setupMemo();
   setupNote();
+  setupInstallButton();
 
   document.getElementById('roll-btn').addEventListener('click', rollEmoklore);
   document.getElementById('extra-roll-btn').addEventListener('click', rollExtra);

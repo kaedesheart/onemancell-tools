@@ -1,0 +1,10 @@
+{
+  "name": "エモクロアダイスツール",
+  "short_name": "エモクロア",
+  "description": "エモクロアTRPG用ダイスツール",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F4F8FB",
+  "theme_color": "#5BB8D4",
+  "lang": "ja"
+}

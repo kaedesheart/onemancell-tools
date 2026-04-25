@@ -42,7 +42,7 @@ body {
   min-height: 100vh;
   -webkit-tap-highlight-color: transparent;
 }
-button { font-family: inherit; }
+button { font-family: inherit; touch-action: manipulation; }
 ul { list-style: none; }
 
 /* ── App shell ─────────────────────────────────────────────── */
@@ -574,6 +574,42 @@ ul { list-style: none; }
 }
 .memo-bar-fill.mp { background: var(--color-catastrophe); }
 
+/* ── Emotion bar（エモクロア判定タブ） ─────────────────────── */
+.emotion-bar {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  box-shadow: var(--shadow);
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.emotion-bar-header {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+.emotion-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.emotion-bar-role {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  width: 3em;
+  flex-shrink: 0;
+}
+.emotion-bar-value {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
 /* 共鳴感情 3行レイアウト */
 .emotion-grid {
   display: flex;
@@ -685,6 +721,13 @@ ul { list-style: none; }
 }
 .note-textarea:focus { outline: none; border-color: var(--accent); }
 .note-textarea::placeholder { color: var(--text-muted); opacity: 0.6; }
+.note-caution {
+  margin-top: 8px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  opacity: 0.7;
+}
 
 /* ── Footer ────────────────────────────────────────────────── */
 .settings-credit {
@@ -792,6 +835,85 @@ ul { list-style: none; }
   border-color: var(--accent);
   background: var(--accent-light);
   color: var(--accent-dark);
+}
+
+/* ── Install button ────────────────────────────────────────── */
+.install-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 2px solid var(--accent);
+  border-radius: 24px;
+  background: var(--accent-light);
+  color: var(--accent-dark);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.install-btn:active {
+  background: var(--accent);
+  color: white;
+}
+.install-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── iOS guide sheet ───────────────────────────────────────── */
+.ios-guide-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: var(--surface);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  box-shadow: var(--shadow-md);
+  animation: sheetUp 0.28s cubic-bezier(0.34, 1.0, 0.64, 1);
+}
+.ios-guide-body {
+  padding: 20px 20px 24px;
+}
+.ios-guide-steps {
+  list-style: none;
+  counter-reset: steps;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.ios-guide-steps li {
+  counter-increment: steps;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+.ios-guide-steps li::before {
+  content: counter(steps);
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+.ios-guide-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
 }
 
 /* ── Desktop ───────────────────────────────────────────────── */
