@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>エモクロアダイスツール</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <header class="header">
+      <div class="header-inner">
+        <h1 class="header-title">🎲 エモクロアダイスツール</h1>
+        <button id="settings-btn" class="icon-btn" aria-label="設定を開く">⚙</button>
+      </div>
+    </header>
+
+    <section class="history-section" aria-label="ロール履歴">
+      <ul id="history-list" class="history-list"></ul>
+    </section>
+
+    <nav class="tab-nav" role="tablist">
+      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="emoklore">エモクロア判定</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="extra">おまけダイス</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="status">ステータス</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="note">メモ</button>
+    </nav>
+
+    <main class="tab-container">
+
+      <!-- エモクロア判定タブ -->
+      <section id="tab-emoklore" class="tab-panel" role="tabpanel" aria-label="エモクロア判定">
+
+        <div class="controls-grid">
+          <div class="control-item">
+            <div class="control-label">技能レベル（ダイス個数）</div>
+            <div class="stepper">
+              <button class="stepper-btn" data-target="diceCount" data-delta="-1" aria-label="減らす">－</button>
+              <span id="diceCount-display" class="stepper-value">1</span>
+              <button class="stepper-btn" data-target="diceCount" data-delta="1" aria-label="増やす">＋</button>
+            </div>
+          </div>
+          <div class="control-item">
+            <div class="control-label">判定値</div>
+            <div class="stepper">
+              <button class="stepper-btn" data-target="targetValue" data-delta="-1" aria-label="減らす">－</button>
+              <span id="targetValue-display" class="stepper-value">5</span>
+              <button class="stepper-btn" data-target="targetValue" data-delta="1" aria-label="増やす">＋</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="status-bar">
+          <div class="status-row">
+            <span class="status-label">HP</span>
+            <div class="memo-bar-track status-track">
+              <div id="status-hp-bar" class="memo-bar-fill"></div>
+            </div>
+            <span id="status-hp-text" class="status-value">—</span>
+            <div class="status-btns">
+              <button class="stepper-btn stepper-btn-sm" data-memo="hpCurrent" data-delta="-1">－</button>
+              <button class="stepper-btn stepper-btn-sm" data-memo="hpCurrent" data-delta="1">＋</button>
+            </div>
+          </div>
+          <div class="status-row">
+            <span class="status-label">MP</span>
+            <div class="memo-bar-track status-track">
+              <div id="status-mp-bar" class="memo-bar-fill mp"></div>
+            </div>
+            <span id="status-mp-text" class="status-value">—</span>
+            <div class="status-btns">
+              <button class="stepper-btn stepper-btn-sm" data-memo="mpCurrent" data-delta="-1">－</button>
+              <button class="stepper-btn stepper-btn-sm" data-memo="mpCurrent" data-delta="1">＋</button>
+            </div>
+          </div>
+          <div class="status-row">
+            <span class="status-label status-label-wide">イニシアチブ値</span>
+            <span class="status-track"></span>
+            <span id="status-initiative" class="status-value status-value-lg">0</span>
+            <div class="status-btns">
+              <button class="stepper-btn stepper-btn-sm" data-memo="initiative" data-delta="-1">－</button>
+              <button class="stepper-btn stepper-btn-sm" data-memo="initiative" data-delta="1">＋</button>
+            </div>
+          </div>
+          <div class="status-row">
+            <span class="status-label status-label-wide">〈∞共鳴〉レベル</span>
+            <span class="status-track"></span>
+            <span id="status-infinity-level" class="status-value status-value-lg">0</span>
+            <div class="status-btns">
+              <button class="stepper-btn stepper-btn-sm" data-memo="infinityLevel" data-delta="-1">－</button>
+              <button class="stepper-btn stepper-btn-sm" data-memo="infinityLevel" data-delta="1">＋</button>
+            </div>
+          </div>
+        </div>
+
+        <button id="roll-btn" class="roll-btn">
+          <span class="roll-btn-icon">🎲</span>
+          <span>ダイスを振る</span>
+        </button>
+
+        <div id="emoklore-result" class="result-area hidden" aria-live="polite" aria-label="ダイスの結果">
+          <div id="dice-display" class="dice-grid"></div>
+          <div class="success-summary">
+            <span class="success-label">成功数</span>
+            <span id="success-count" class="success-count">0</span>
+          </div>
+          <div id="result-label" class="result-label"></div>
+        </div>
+
+      </section>
+
+      <!-- おまけダイスタブ -->
+      <section id="tab-extra" class="tab-panel hidden" role="tabpanel" aria-label="おまけダイス">
+
+        <div class="dice-type-grid">
+          <button class="dice-type-btn active" data-sides="2">D2</button>
+          <button class="dice-type-btn" data-sides="3">D3</button>
+          <button class="dice-type-btn" data-sides="4">D4</button>
+          <button class="dice-type-btn" data-sides="6">D6</button>
+          <button class="dice-type-btn" data-sides="10">D10</button>
+          <button class="dice-type-btn" data-sides="20">D20</button>
+          <button class="dice-type-btn" data-sides="100">D100</button>
+        </div>
+
+        <div class="controls-grid single">
+          <div class="control-item">
+            <div class="control-label">個数</div>
+            <div class="stepper">
+              <button class="stepper-btn" data-target="extraCount" data-delta="-1" aria-label="減らす">－</button>
+              <span id="extraCount-display" class="stepper-value">1</span>
+              <button class="stepper-btn" data-target="extraCount" data-delta="1" aria-label="増やす">＋</button>
+            </div>
+          </div>
+        </div>
+
+        <button id="extra-roll-btn" class="roll-btn">
+          <span class="roll-btn-icon">🎲</span>
+          <span>振る</span>
+        </button>
+
+        <div id="extra-result" class="result-area hidden" aria-live="polite" aria-label="ダイスの結果">
+          <div id="extra-dice-display" class="dice-grid extra"></div>
+          <div id="extra-total" class="extra-total"></div>
+        </div>
+
+      </section>
+
+      <!-- ステータスタブ -->
+      <section id="tab-status" class="tab-panel hidden" role="tabpanel" aria-label="ステータス">
+
+        <div class="memo-grid">
+
+          <!-- HP -->
+          <div class="memo-card">
+            <div class="memo-stat-label">HP</div>
+            <div class="memo-sub-row">
+              <span class="memo-sub-label">最大</span>
+              <div class="stepper stepper-sm">
+                <button class="stepper-btn stepper-btn-sm" data-memo="hpMax" data-delta="-1">－</button>
+                <input type="number" id="hp-max-val" class="stepper-value stepper-value-sm stepper-input" value="0" min="0" inputmode="numeric">
+                <button class="stepper-btn stepper-btn-sm" data-memo="hpMax" data-delta="1">＋</button>
+              </div>
+            </div>
+            <div class="memo-bar-track"><div id="hp-bar" class="memo-bar-fill"></div></div>
+            <div class="memo-sub-row">
+              <span class="memo-sub-label">現在</span>
+              <div class="stepper stepper-sm">
+                <button class="stepper-btn stepper-btn-sm" data-memo="hpCurrent" data-delta="-1">－</button>
+                <input type="number" id="hp-current" class="stepper-value stepper-value-sm stepper-input" value="0" min="0" inputmode="numeric">
+                <button class="stepper-btn stepper-btn-sm" data-memo="hpCurrent" data-delta="1">＋</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- MP -->
+          <div class="memo-card">
+            <div class="memo-stat-label">MP</div>
+            <div class="memo-sub-row">
+              <span class="memo-sub-label">最大</span>
+              <div class="stepper stepper-sm">
+                <button class="stepper-btn stepper-btn-sm" data-memo="mpMax" data-delta="-1">－</button>
+                <input type="number" id="mp-max-val" class="stepper-value stepper-value-sm stepper-input" value="0" min="0" inputmode="numeric">
+                <button class="stepper-btn stepper-btn-sm" data-memo="mpMax" data-delta="1">＋</button>
+              </div>
+            </div>
+            <div class="memo-bar-track"><div id="mp-bar" class="memo-bar-fill mp"></div></div>
+            <div class="memo-sub-row">
+              <span class="memo-sub-label">現在</span>
+              <div class="stepper stepper-sm">
+                <button class="stepper-btn stepper-btn-sm" data-memo="mpCurrent" data-delta="-1">－</button>
+                <input type="number" id="mp-current" class="stepper-value stepper-value-sm stepper-input" value="0" min="0" inputmode="numeric">
+                <button class="stepper-btn stepper-btn-sm" data-memo="mpCurrent" data-delta="1">＋</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- イニシアチブ値 -->
+          <div class="memo-card wide">
+            <div class="memo-stat-label">イニシアチブ値</div>
+            <div class="stepper">
+              <button class="stepper-btn" data-memo="initiative" data-delta="-1">－</button>
+              <span id="initiative-val" class="stepper-value">0</span>
+              <button class="stepper-btn" data-memo="initiative" data-delta="1">＋</button>
+            </div>
+          </div>
+
+          <!-- 共鳴感情 -->
+          <div class="memo-card wide">
+            <div class="memo-stat-label">共鳴感情</div>
+            <div class="emotion-grid">
+              <div class="emotion-row">
+                <span class="emotion-label">表</span>
+                <select id="emotion-omote" class="memo-select"></select>
+              </div>
+              <div class="emotion-row">
+                <span class="emotion-label">裏</span>
+                <select id="emotion-ura" class="memo-select"></select>
+              </div>
+              <div class="emotion-row">
+                <span class="emotion-label">ルーツ</span>
+                <select id="emotion-roots" class="memo-select"></select>
+              </div>
+            </div>
+          </div>
+
+          <!-- ∞共鳴レベル -->
+          <div class="memo-card wide">
+            <div class="memo-stat-label">〈∞共鳴〉レベル</div>
+            <div class="stepper">
+              <button class="stepper-btn" data-memo="infinityLevel" data-delta="-1">－</button>
+              <span id="infinity-level-val" class="stepper-value">0</span>
+              <button class="stepper-btn" data-memo="infinityLevel" data-delta="1">＋</button>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- メモタブ -->
+      <section id="tab-note" class="tab-panel hidden" role="tabpanel" aria-label="メモ">
+        <textarea id="note-area" class="note-textarea" placeholder="セッションメモをここに自由に書いてください…"></textarea>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- 設定モーダル -->
+  <div id="settings-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="設定">
+    <div id="settings-sheet" class="settings-sheet">
+      <div class="settings-header">
+        <h2 class="settings-title">設定</h2>
+        <button id="settings-close-btn" class="icon-btn" aria-label="設定を閉じる">✕</button>
+      </div>
+      <div class="settings-body">
+        <div class="setting-row">
+          <span class="setting-label">モード</span>
+          <div class="mode-toggle">
+            <button class="mode-btn active" data-mode="lively">にぎやか</button>
+            <button class="mode-btn" data-mode="simple">シンプル</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">サウンド</span>
+          <button id="sound-toggle-btn" class="sound-toggle on" aria-pressed="true">
+            <span class="sound-icon">🔊</span>
+            <span class="sound-label">ON</span>
+          </button>
+        </div>
+      </div>
+      <p class="settings-credit">このツールは『エモクロアTRPG』の二次創作ツールです。公式とは関係ありません。</p>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
