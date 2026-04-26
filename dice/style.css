@@ -72,14 +72,14 @@ ul { list-style: none; }
 .header-title {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--accent-dark);
   letter-spacing: 0.02em;
 }
 .header-logo {
-  height: 1.5em;
+  height: 1.9em;
   width: auto;
 }
 .icon-btn {
@@ -101,8 +101,7 @@ ul { list-style: none; }
 /* ── Ad banner ─────────────────────────────────────────────── */
 .ad-banner {
   position: relative;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--border);
+  background: var(--bg);
   overflow: hidden;
 }
 .ad-banner.hidden { display: none; }
