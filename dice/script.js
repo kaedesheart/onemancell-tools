@@ -954,6 +954,29 @@ function setupInstallButton() {
   });
 }
 
+// ── Ad banner ──────────────────────────────────────────────────────────
+async function setupAd() {
+  try {
+    const res = await fetch('ads.csv');
+    if (!res.ok) return;
+    const lines = (await res.text()).trim().split('\n').slice(1).filter(l => l.trim());
+    if (lines.length === 0) return;
+    const line  = lines[Math.floor(Math.random() * lines.length)];
+    const parts = line.split(',');
+    if (parts.length < 3) return;
+    const image = parts[0].trim();
+    const name  = parts[1].trim();
+    const url   = parts.slice(2).join(',').trim();
+    if (!image || !url) return;
+    const banner = document.getElementById('ad-banner');
+    banner.querySelector('.ad-link').href      = url;
+    banner.querySelector('.ad-thumb').src      = `adsimg/${image}`;
+    banner.querySelector('.ad-thumb').alt      = name;
+    banner.querySelector('.ad-name').textContent = name;
+    banner.classList.remove('hidden');
+  } catch (_) {}
+}
+
 // ── Boot ───────────────────────────────────────────────────────────────
 function init() {
   loadState();
@@ -976,6 +999,7 @@ function init() {
 
   document.getElementById('roll-btn').addEventListener('click', rollEmoklore);
   document.getElementById('extra-roll-btn').addEventListener('click', rollExtra);
+  setupAd();
 }
 
 document.addEventListener('DOMContentLoaded', init);
