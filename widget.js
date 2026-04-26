@@ -25,6 +25,13 @@
       url: BASE + '/mandala/',
       pick: true,
     },
+    {
+      icon: '🌙',
+      name: 'のんびりノイズ',
+      desc: '雨・波・風・焚き火を自由にミックスできるノイズミキサー',
+      url: BASE + '/noise/',
+      pick: true,
+    },
   ];
 
   function loadFont() {

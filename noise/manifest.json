@@ -1,0 +1,12 @@
+{
+  "name": "のんびりノイズ",
+  "short_name": "のんびり",
+  "description": "雨・波・風・焚き火などをブラウザで合成するカスタムホワイトノイズ",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0E1730",
+  "theme_color": "#1B2541",
+  "lang": "ja",
+  "orientation": "portrait"
+}
