@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>のんびりノイズ - onemancell tools</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1B2541">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-0: #0E1730;
+      --bg-1: #1B2541;
+      --bg-2: #243153;
+      --accent: #7CC8E8;
+      --accent-soft: #A6DCEF;
+      --accent-glow: rgba(124, 200, 232, .35);
+      --ink-50: #F2F5FA;
+      --ink-300: #B8C2D6;
+      --ink-500: #7A86A0;
+      --danger: #F08A8A;
+      --radius-md: 16px;
+      --radius-lg: 22px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100dvh;
+    }
+
+    body {
+      font-family: 'M PLUS Rounded 1c', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background:
+        radial-gradient(ellipse at top, #243153 0%, #0E1730 60%) fixed,
+        var(--bg-0);
+      color: var(--ink-50);
+      padding: 20px 16px 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .topbar {
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 6px 0;
+    }
+    .brand {
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--ink-300);
+      letter-spacing: .04em;
+      text-decoration: none;
+    }
+    .brand span { color: var(--accent); }
+    .title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--ink-50);
+    }
+    .title .em { color: var(--accent); }
+
+    .panel {
+      width: 100%;
+      max-width: 720px;
+      background: rgba(27, 37, 65, .65);
+      border: 1px solid rgba(124, 200, 232, .15);
+      border-radius: var(--radius-lg);
+      padding: 18px 18px 20px;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .master {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .master-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .play-btn {
+      flex-shrink: 0;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--bg-0);
+      border: none;
+      font-size: 1.6rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 0 0 var(--accent-glow);
+      transition: transform .12s, box-shadow .25s, background .15s;
+      touch-action: manipulation;
+      font-family: inherit;
+    }
+    .play-btn:active { transform: scale(.94); }
+    .play-btn.playing {
+      box-shadow: 0 0 0 12px var(--accent-glow);
+    }
+
+    .master-meta {
+      flex-grow: 1;
+      min-width: 140px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .master-label {
+      font-size: .72rem;
+      color: var(--ink-500);
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .master-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--ink-50);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .master-vol {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .master-vol-label {
+      font-size: .75rem;
+      color: var(--ink-300);
+      font-weight: 700;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.12);
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 3px solid var(--bg-1);
+      box-shadow: 0 2px 6px rgba(0,0,0,.4);
+      cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 3px solid var(--bg-1);
+      cursor: pointer;
+    }
+
+    .timer-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .timer-row select {
+      flex-grow: 1;
+      background: rgba(255,255,255,.06);
+      color: var(--ink-50);
+      border: 1px solid rgba(124, 200, 232, .2);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: .9rem;
+      font-weight: 500;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M3 5l3 3 3-3' stroke='%237CC8E8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    .tracks {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    @media (min-width: 540px) {
+      .tracks { grid-template-columns: 1fr 1fr; }
+    }
+
+    .track {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: var(--radius-md);
+      transition: border-color .2s, background .2s;
+    }
+    .track.on {
+      background: rgba(124, 200, 232, .08);
+      border-color: rgba(124, 200, 232, .35);
+    }
+
+    .track-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+      transition: background .2s, transform .2s;
+    }
+    .track.on .track-icon {
+      background: rgba(124, 200, 232, .25);
+    }
+
+    .track-body {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .track-name {
+      font-size: .9rem;
+      font-weight: 700;
+      color: var(--ink-50);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .track-vol-label {
+      font-size: .72rem;
+      color: var(--ink-500);
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+    }
+
+    .preset-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .preset-chip {
+      flex-grow: 1;
+      min-width: 0;
+      background: rgba(255,255,255,.05);
+      color: var(--ink-300);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 999px;
+      padding: 9px 14px;
+      font-family: inherit;
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
+      touch-action: manipulation;
+    }
+    .preset-chip:active { transform: scale(.96); }
+    .preset-chip.primary {
+      background: var(--accent);
+      color: var(--bg-0);
+      border-color: var(--accent);
+    }
+    .preset-chip.ghost {
+      flex-grow: 0;
+    }
+
+    .section-label {
+      font-size: .7rem;
+      color: var(--ink-500);
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .hint {
+      font-size: .72rem;
+      color: var(--ink-500);
+      text-align: center;
+      max-width: 720px;
+      line-height: 1.6;
+    }
+
+    #unlock-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(14, 23, 48, .85);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 999;
+      cursor: pointer;
+      color: var(--ink-50);
+      font-weight: 700;
+      transition: opacity .3s;
+    }
+    #unlock-overlay.hidden { opacity: 0; pointer-events: none; }
+    #unlock-overlay .big { font-size: 2.4rem; }
+    #unlock-overlay .sub { font-size: .85rem; color: var(--ink-300); font-weight: 500; }
+  </style>
+</head>
+<body>
+
+  <div id="unlock-overlay">
+    <div class="big">🌙</div>
+    <div>タップして はじめる</div>
+    <div class="sub">音声の再生準備をします</div>
+  </div>
+
+  <div class="topbar">
+    <a class="brand" href="/">← onemancell <span>tools</span></a>
+    <div class="title"><span class="em">のんびり</span>ノイズ</div>
+  </div>
+
+  <div class="panel">
+    <div class="master">
+      <div class="master-row">
+        <button class="play-btn" id="play-btn" aria-label="再生 / 停止">▶</button>
+        <div class="master-meta">
+          <div class="master-label">STATUS</div>
+          <div class="master-value" id="status-text">停止中</div>
+        </div>
+      </div>
+      <div class="master-vol">
+        <span class="master-vol-label">🔈</span>
+        <input type="range" id="master-vol" min="0" max="100" value="70">
+        <span class="master-vol-label">🔊</span>
+      </div>
+      <div class="timer-row">
+        <span class="master-vol-label">⏰ スリープ</span>
+        <select id="sleep-timer">
+          <option value="0">オフ</option>
+          <option value="15">15分</option>
+          <option value="30">30分</option>
+          <option value="45">45分</option>
+          <option value="60">60分</option>
+          <option value="90">90分</option>
+          <option value="120">120分</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="section-label">サウンド</div>
+    <div class="tracks" id="tracks"></div>
+  </div>
+
+  <div class="panel">
+    <div class="section-label">プリセット</div>
+    <div class="preset-row" id="preset-row">
+      <button class="preset-chip" data-preset="rain">☔ 雨の日</button>
+      <button class="preset-chip" data-preset="ocean">🌊 海辺</button>
+      <button class="preset-chip" data-preset="forest">🍃 森の風</button>
+      <button class="preset-chip" data-preset="cabin">🔥 山小屋</button>
+      <button class="preset-chip" data-preset="sleep">😴 おやすみ</button>
+    </div>
+    <div style="height:10px"></div>
+    <div class="preset-row">
+      <button class="preset-chip primary" id="save-mine">★ いまの組み合わせを保存</button>
+      <button class="preset-chip ghost" id="load-mine">↺ 呼出</button>
+      <button class="preset-chip ghost" id="reset-all">⟲ 全停止</button>
+    </div>
+  </div>
+
+  <div class="hint">
+    すべての音はブラウザ内で合成されています。<br>
+    ブックマークしたり、ホーム画面に追加してアプリのように使えます。
+  </div>
+
+  <script>
+    const TRACKS = [
+      { id: 'rain',   icon: '☔', name: '雨' },
+      { id: 'wave',   icon: '🌊', name: '波' },
+      { id: 'wind',   icon: '🍃', name: '風' },
+      { id: 'fire',   icon: '🔥', name: '焚き火' },
+      { id: 'white',  icon: '⚪', name: 'ホワイトノイズ' },
+      { id: 'pink',   icon: '🌸', name: 'ピンクノイズ' },
+      { id: 'brown',  icon: '🟫', name: 'ブラウンノイズ' },
+    ];
+
+    const state = {
+      master: 0.7,
+      playing: false,
+      tracks: Object.fromEntries(TRACKS.map(t => [t.id, { on: false, vol: 0.5 }])),
+    };
+
+    const els = {};
+
+    function buildTracks() {
+      const container = document.getElementById('tracks');
+      container.innerHTML = TRACKS.map(t => `
+        <div class="track" data-id="${t.id}">
+          <button class="track-icon" data-toggle="${t.id}" aria-label="${t.name} ON/OFF">${t.icon}</button>
+          <div class="track-body">
+            <div class="track-name">
+              <span>${t.name}</span>
+              <span class="track-vol-label" id="vol-label-${t.id}">50</span>
+            </div>
+            <input type="range" min="0" max="100" value="50" data-vol="${t.id}">
+          </div>
+        </div>
+      `).join('');
+
+      container.querySelectorAll('[data-toggle]').forEach(btn => {
+        btn.addEventListener('click', () => toggleTrack(btn.dataset.toggle));
+      });
+      container.querySelectorAll('[data-vol]').forEach(input => {
+        input.addEventListener('input', e => setTrackVol(input.dataset.vol, +e.target.value / 100));
+      });
+    }
+
+    function toggleTrack(id) {
+      state.tracks[id].on = !state.tracks[id].on;
+      renderTrack(id);
+    }
+    function setTrackVol(id, v) {
+      state.tracks[id].vol = v;
+      document.getElementById(`vol-label-${id}`).textContent = Math.round(v * 100);
+    }
+    function renderTrack(id) {
+      const el = document.querySelector(`.track[data-id="${id}"]`);
+      el.classList.toggle('on', state.tracks[id].on);
+    }
+
+    function togglePlay() {
+      state.playing = !state.playing;
+      els.playBtn.textContent = state.playing ? '■' : '▶';
+      els.playBtn.classList.toggle('playing', state.playing);
+      els.statusText.textContent = state.playing ? '再生中' : '停止中';
+    }
+
+    function unlock() {
+      els.unlockOverlay.classList.add('hidden');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      els.playBtn = document.getElementById('play-btn');
+      els.statusText = document.getElementById('status-text');
+      els.masterVol = document.getElementById('master-vol');
+      els.sleepTimer = document.getElementById('sleep-timer');
+      els.unlockOverlay = document.getElementById('unlock-overlay');
+
+      buildTracks();
+
+      els.playBtn.addEventListener('click', togglePlay);
+      els.masterVol.addEventListener('input', e => { state.master = +e.target.value / 100; });
+
+      els.unlockOverlay.addEventListener('click', unlock);
+    });
+  </script>
+</body>
+</html>
