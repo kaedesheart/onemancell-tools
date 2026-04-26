@@ -969,10 +969,12 @@ async function setupAd() {
     const url   = parts.slice(2).join(',').trim();
     if (!image || !url) return;
     const banner = document.getElementById('ad-banner');
+    const thumb  = banner.querySelector('.ad-thumb');
     banner.querySelector('.ad-link').href      = url;
-    banner.querySelector('.ad-thumb').src      = `adsimg/${image}`;
-    banner.querySelector('.ad-thumb').alt      = name;
     banner.querySelector('.ad-name').textContent = name;
+    thumb.alt   = name;
+    thumb.onerror = () => { thumb.style.display = 'none'; };
+    thumb.src   = `adsimg/${encodeURIComponent(image)}`;
     banner.classList.remove('hidden');
   } catch (_) {}
 }
