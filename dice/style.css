@@ -103,6 +103,7 @@ ul { list-style: none; }
   position: relative;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
+  overflow: hidden;
 }
 .ad-banner.hidden { display: none; }
 .ad-link {
@@ -130,16 +131,16 @@ ul { list-style: none; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-@keyframes adFlipOut {
-  from { transform: perspective(600px) rotateY(0deg);   }
-  to   { transform: perspective(600px) rotateY(90deg);  }
+@keyframes adSlideOut {
+  from { transform: translateX(0);     opacity: 1; }
+  to   { transform: translateX(-100%); opacity: 0; }
 }
-@keyframes adFlipIn {
-  from { transform: perspective(600px) rotateY(-90deg); }
-  to   { transform: perspective(600px) rotateY(0deg);   }
+@keyframes adSlideIn {
+  from { transform: translateX(100%);  opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
 }
-.ad-link.flip-out { animation: adFlipOut 0.22s ease-in  forwards; }
-.ad-link.flip-in  { animation: adFlipIn  0.22s ease-out forwards; }
+.ad-link.flip-out { animation: adSlideOut 0.22s ease-in  forwards; }
+.ad-link.flip-in  { animation: adSlideIn  0.22s ease-out forwards; }
 
 .ad-cta {
   font-size: 0.7rem;
