@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="5; url=https://onemancell.com">
-  <title>onemancell tools</title>
+<title>onemancell tools</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -121,43 +120,6 @@
     .tool-name { font-weight: 700; font-size: .95rem; }
     .tool-desc { font-size: .78rem; color: var(--ink-500); margin-top: 3px; }
 
-    .redirect-bar {
-      margin-top: 28px;
-      padding-top: 20px;
-      border-top: 1.5px solid var(--ink-100);
-      font-size: .8rem;
-      color: var(--ink-500);
-    }
-
-    .redirect-bar a {
-      color: var(--brand-dark);
-      text-decoration: none;
-      font-weight: 700;
-    }
-
-    .redirect-bar a:hover { text-decoration: underline; }
-
-    .countdown {
-      display: inline-block;
-      font-weight: 800;
-      color: var(--brand);
-      min-width: 1.2em;
-    }
-
-    .cancel-btn {
-      display: inline-block;
-      margin-top: 8px;
-      font-size: .75rem;
-      color: var(--ink-500);
-      cursor: pointer;
-      text-decoration: underline;
-      background: none;
-      border: none;
-      padding: 0;
-      font-family: inherit;
-    }
-
-    .cancel-btn:hover { color: var(--ink-700); }
   </style>
 </head>
 <body>
@@ -183,39 +145,6 @@
       </div>
     </a>
 
-    <div class="redirect-bar" id="redirect-bar">
-      <span id="countdown-msg">
-        <span class="countdown" id="countdown">5</span> 秒後に
-        <a href="https://onemancell.com">onemancell.com</a> へ移動します
-      </span>
-      <br>
-      <button class="cancel-btn" id="cancel-btn" onclick="cancelRedirect()">移動をキャンセル</button>
-    </div>
   </div>
-
-  <script>
-    let remaining = 5;
-    let timer;
-
-    function tick() {
-      remaining--;
-      const el = document.getElementById('countdown');
-      if (el) el.textContent = remaining;
-      if (remaining <= 0) {
-        clearInterval(timer);
-        window.location.href = 'https://onemancell.com';
-      }
-    }
-
-    function cancelRedirect() {
-      clearInterval(timer);
-      const meta = document.querySelector('meta[http-equiv="refresh"]');
-      if (meta) meta.remove();
-      document.getElementById('countdown-msg').textContent = '移動をキャンセルしました。';
-      document.getElementById('cancel-btn').style.display = 'none';
-    }
-
-    timer = setInterval(tick, 1000);
-  </script>
 </body>
 </html>
