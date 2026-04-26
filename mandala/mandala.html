@@ -1,0 +1,1976 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>曼荼羅</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+    }
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans", "Yu Gothic", sans-serif;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    position: relative;
+  }
+
+  /* ===== Initial input (state 1) ===== */
+  .initial {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  .initial.hidden { display: none; }
+  .initial-inner {
+    width: min(560px, 80vw);
+    aspect-ratio: 1;
+    max-height: 70vh;
+    border: 2px solid var(--fg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+  }
+  .initial .prompt { font-size: 14px; margin-bottom: 18px; text-align: center; }
+  .initial input {
+    width: 100%;
+    border: none;
+    border-bottom: 2px solid var(--fg);
+    background: transparent;
+    font-size: 22px;
+    text-align: center;
+    padding: 10px 0;
+    font-family: inherit;
+    color: var(--fg);
+    outline: none;
+  }
+  .initial input::placeholder { color: var(--fg); font-size: 16px; }
+  .initial .hint { font-size: 11px; margin-top: 18px; letter-spacing: 0.05em; }
+
+  /* ===== Mandala: centered square with outer margin ===== */
+  .mandala {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .mandala.hidden { display: none; }
+  .mandala-grid {
+    /* Square that fits within both viewport width and height (minus padding) */
+    width: min(100vw - 48px, 100vh - 48px);
+    height: min(100vw - 48px, 100vh - 48px);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+  }
+
+  .mcell {
+    border: 1px solid var(--fg);
+    margin: -0.5px;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.4;
+    font-size: 16px;
+    cursor: pointer;
+    background: var(--bg);
+    color: var(--fg);
+    word-break: break-word;
+    overflow: hidden;
+    position: relative;
+    font-weight: 500;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    transition: box-shadow 0.05s linear;
+  }
+  /* Hover/active: no visual change. Only editing state shows the thick border. */
+  .mcell:active {
+    box-shadow: inset 0 0 0 2px var(--fg);
+  }
+  /* Long-press in progress: progressively thicker border */
+  .mcell.pressing {
+    box-shadow: inset 0 0 0 4px var(--fg);
+    transition: box-shadow 0.4s ease-in;
+  }
+
+  .mcell.center {
+    /* No color inversion. Position alone signals "you are here". */
+    background: var(--bg);
+    color: var(--fg);
+  }
+  /* Root cell (level 1, center): double border to emphasize it's the project root */
+  .mcell.center.is-root {
+    box-shadow: inset 0 0 0 3px var(--bg), inset 0 0 0 4px var(--fg);
+  }
+
+  /* Parent direction marker: short line on the edge/corner where the parent was.
+     Drawn as ::before (single line) and ::after (second line for 3+ levels deep).
+     The variant classes set position; the pseudo-elements draw the line. */
+  .mcell.center .parent-mark {
+    position: absolute;
+    pointer-events: none;
+    background: var(--fg);
+  }
+  /* Edges: short thin line on the edge, with margin from corners */
+  .mcell.center.parent-N  .parent-mark { top: 3px;    left: 50%; transform: translateX(-50%); width: 18%; height: 1px; }
+  .mcell.center.parent-S  .parent-mark { bottom: 3px; left: 50%; transform: translateX(-50%); width: 18%; height: 1px; }
+  .mcell.center.parent-W  .parent-mark { left: 3px;   top: 50%;  transform: translateY(-50%); height: 18%; width: 1px; }
+  .mcell.center.parent-E  .parent-mark { right: 3px;  top: 50%;  transform: translateY(-50%); height: 18%; width: 1px; }
+  /* Corners: short L, inset from the corner */
+  .mcell.center.parent-NW .parent-mark,
+  .mcell.center.parent-NE .parent-mark,
+  .mcell.center.parent-SW .parent-mark,
+  .mcell.center.parent-SE .parent-mark {
+    width: 14%; height: 14%;
+    background: transparent;
+  }
+  .mcell.center.parent-NW .parent-mark { top: 3px;    left: 3px;
+    border-top: 1px solid var(--fg); border-left: 1px solid var(--fg);
+  }
+  .mcell.center.parent-NE .parent-mark { top: 3px;    right: 3px;
+    border-top: 1px solid var(--fg); border-right: 1px solid var(--fg);
+  }
+  .mcell.center.parent-SW .parent-mark { bottom: 3px; left: 3px;
+    border-bottom: 1px solid var(--fg); border-left: 1px solid var(--fg);
+  }
+  .mcell.center.parent-SE .parent-mark { bottom: 3px; right: 3px;
+    border-bottom: 1px solid var(--fg); border-right: 1px solid var(--fg);
+  }
+
+  /* Depth 3+: second inner line (slightly inset) */
+  .mcell.center.depth-deep .parent-mark::before {
+    content: "";
+    position: absolute;
+    background: var(--fg);
+  }
+  .mcell.center.depth-deep.parent-N  .parent-mark::before { top: 3px;    left: 0; right: 0; height: 1px; }
+  .mcell.center.depth-deep.parent-S  .parent-mark::before { bottom: 3px; left: 0; right: 0; height: 1px; }
+  .mcell.center.depth-deep.parent-W  .parent-mark::before { left: 3px;   top: 0; bottom: 0; width: 1px; }
+  .mcell.center.depth-deep.parent-E  .parent-mark::before { right: 3px;  top: 0; bottom: 0; width: 1px; }
+  .mcell.center.depth-deep.parent-NW .parent-mark::before {
+    top: 3px; left: 3px; width: calc(100% - 3px); height: calc(100% - 3px);
+    border-top: 1px solid var(--fg); border-left: 1px solid var(--fg);
+    background: transparent;
+  }
+  .mcell.center.depth-deep.parent-NE .parent-mark::before {
+    top: 3px; right: 3px; width: calc(100% - 3px); height: calc(100% - 3px);
+    border-top: 1px solid var(--fg); border-right: 1px solid var(--fg);
+    background: transparent;
+  }
+  .mcell.center.depth-deep.parent-SW .parent-mark::before {
+    bottom: 3px; left: 3px; width: calc(100% - 3px); height: calc(100% - 3px);
+    border-bottom: 1px solid var(--fg); border-left: 1px solid var(--fg);
+    background: transparent;
+  }
+  .mcell.center.depth-deep.parent-SE .parent-mark::before {
+    bottom: 3px; right: 3px; width: calc(100% - 3px); height: calc(100% - 3px);
+    border-bottom: 1px solid var(--fg); border-right: 1px solid var(--fg);
+    background: transparent;
+  }
+
+  .mcell.empty {
+    /* Truly empty: same background, no text, normal border */
+    color: var(--bg);
+  }
+  .mcell.empty .text:empty::before { content: ""; }
+
+  /* Inline editing: cell expands to ~80% of the viewport, centered.
+     A backdrop hides everything else. */
+  .editing-backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 80;
+    display: none;
+  }
+  .editing-backdrop.open { display: block; }
+
+  .mcell.editing {
+    position: fixed !important;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(80vw, 80vh);
+    height: min(80vw, 80vh);
+    z-index: 100;
+    box-shadow: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 18px;
+    padding: 24px;
+    margin: 0;
+    overflow: visible;
+  }
+
+  /* Phantom lines extending from corners of the edited cell to suggest the
+     surrounding grid context. Each line is positioned outside the cell.
+     Length ~10% of viewport for visibility. */
+  .mcell.editing .phantom {
+    position: absolute;
+    background: var(--fg);
+    pointer-events: none;
+  }
+  /* Horizontal phantoms (extend left/right from a corner) */
+  .mcell.editing .phantom.h-left  { right: 100%; height: 1px; width: 8vmin; }
+  .mcell.editing .phantom.h-right { left: 100%;  height: 1px; width: 8vmin; }
+  /* Vertical phantoms (extend up/down from a corner) */
+  .mcell.editing .phantom.v-top    { bottom: 100%; width: 1px; height: 8vmin; }
+  .mcell.editing .phantom.v-bottom { top: 100%;    width: 1px; height: 8vmin; }
+  /* Corner anchors for horizontal: align with the cell's top/bottom border edge */
+  .mcell.editing .phantom.h-left.tl,
+  .mcell.editing .phantom.h-right.tr  { top: -1px; }
+  .mcell.editing .phantom.h-left.bl,
+  .mcell.editing .phantom.h-right.br  { bottom: -1px; }
+  /* Corner anchors for vertical: align with the cell's left/right border edge */
+  .mcell.editing .phantom.v-top.lt,
+  .mcell.editing .phantom.v-bottom.lb { left: -1px; }
+  .mcell.editing .phantom.v-top.rt,
+  .mcell.editing .phantom.v-bottom.rb { right: -1px; }
+  .mcell .cell-input {
+    width: 90%;
+    border: none;
+    border-bottom: 1px solid var(--fg);
+    background: transparent;
+    color: var(--fg);
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 500;
+    text-align: center;
+    outline: none;
+    line-height: 1.4;
+    padding: 8px 0;
+    caret-color: var(--fg);
+    flex-shrink: 0;
+  }
+
+  /* In-cell time picker (shown only while editing) */
+  .mcell .cell-time-picker {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 90%;
+    max-width: 360px;
+  }
+  .mcell .cell-time-btn {
+    flex: 1;
+    font-family: ui-monospace, "SF Mono", monospace;
+    font-size: 13px;
+    padding: 10px 0;
+    border: 1px solid var(--fg);
+    background: var(--bg);
+    color: var(--fg);
+    cursor: pointer;
+    line-height: 1.2;
+    min-width: 0;
+  }
+  .mcell .cell-time-btn.selected {
+    background: var(--fg);
+    color: var(--bg);
+  }
+
+  .mcell .text {
+    pointer-events: none;
+  }
+
+  .mcell .time-mark {
+    position: absolute;
+    top: calc(50% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+    color: var(--fg);
+  }
+  .mcell.center .back-hint {
+    position: absolute;
+    top: 6px;
+    left: 9px;
+    font-size: 10px;
+    font-family: ui-monospace, monospace;
+    pointer-events: none;
+    color: var(--fg);
+  }
+
+  /* ===== Breadcrumb (top center, floating) ===== */
+  .crumbs {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+    max-width: 70vw;
+    overflow: hidden;
+    white-space: nowrap;
+    background: var(--bg);
+    padding: 4px 12px;
+    border: 1px solid var(--fg);
+    z-index: 20;
+    pointer-events: auto;
+  }
+  .crumbs.hidden { display: none; }
+  .crumb {
+    cursor: pointer;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .crumb.last { cursor: default; }
+  .crumb-sep { }
+
+  /* ===== Floating action buttons (corners) ===== */
+  .fab {
+    position: fixed;
+    background: var(--bg);
+    border: 1px solid var(--fg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 11px;
+    padding: 6px 10px;
+    cursor: pointer;
+    z-index: 20;
+    letter-spacing: 0.02em;
+  }
+  .fab:hover { background: var(--fg); color: var(--bg); }
+  .fab-tl { top: 14px; left: 14px; }
+  .fab-tr { top: 14px; right: 14px; }
+  .fab-bl { bottom: 14px; left: 14px; }
+  .fab-br { bottom: 14px; right: 14px; }
+
+  .fab-group {
+    position: fixed;
+    display: flex;
+    z-index: 20;
+  }
+  .fab-group .fab {
+    position: relative;
+    top: auto; right: auto; bottom: auto; left: auto;
+    margin-left: -1px;
+  }
+  .fab-group.tl { top: 14px; left: 14px; }
+  .fab-group.tr { top: 14px; right: 14px; }
+
+  /* ===== Editor modal ===== */
+  .modal-bg {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s;
+    z-index: 90;
+  }
+  .modal-bg.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .editor {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.96);
+    width: min(440px, 88vw);
+    background: var(--bg);
+    border: 2px solid var(--fg);
+    padding: 24px;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s, transform 0.18s;
+  }
+  .editor.open {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    pointer-events: auto;
+  }
+  .editor-label {
+    font-size: 10px;
+    font-family: ui-monospace, monospace;
+    letter-spacing: 0.2em;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .editor input {
+    width: 100%;
+    border: none;
+    border-bottom: 2px solid var(--fg);
+    background: transparent;
+    font-size: 18px;
+    padding: 8px 0;
+    margin-bottom: 22px;
+    font-family: inherit;
+    color: var(--fg);
+    outline: none;
+  }
+  .time-buttons {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-bottom: 22px;
+  }
+  .time-btn {
+    padding: 10px 0;
+    border: 1.5px solid var(--fg);
+    background: var(--bg);
+    color: var(--fg);
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .time-btn:hover { background: var(--fg); color: var(--bg); }
+  .time-btn.selected {
+    background: var(--fg);
+    color: var(--bg);
+  }
+  .editor-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .editor-actions .btn-set {
+    display: flex;
+    gap: 6px;
+  }
+  .ed-btn {
+    padding: 7px 14px;
+    border: 1.5px solid var(--fg);
+    background: var(--bg);
+    color: var(--fg);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .ed-btn:hover { background: var(--fg); color: var(--bg); }
+  .ed-btn.primary { background: var(--fg); color: var(--bg); }
+  .ed-btn.primary:hover { background: var(--bg); color: var(--fg); }
+
+  /* ===== Outline view ===== */
+  .outline {
+    position: fixed;
+    inset: 0;
+    overflow-y: auto;
+    padding: 56px 24px 60px;
+    display: none;
+  }
+  .outline.active { display: block; }
+  .outline-inner {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .ol-root {
+    font-size: 18px;
+    font-weight: 600;
+    padding: 12px 0 18px;
+    margin-bottom: 4px;
+  }
+  .ol-empty {
+    padding: 40px 0;
+    text-align: center;
+    font-size: 13px;
+  }
+  .ol-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 0;
+    cursor: text;
+    line-height: 1.6;
+  }
+  .ol-bullet {
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    flex-shrink: 0;
+    user-select: none;
+  }
+  .ol-text {
+    font-size: 16px;
+    flex: 1;
+    outline: none;
+    min-height: 1.4em;
+    word-break: break-word;
+  }
+  .ol-text:focus {
+    /* No visual chrome — just the caret, like a notes app */
+  }
+  .ol-time {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    margin-left: 6px;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  /* ===== Output panel ===== */
+  .output-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(440px, 92vw);
+    height: 100vh;
+    background: var(--bg);
+    border-left: 2px solid var(--fg);
+    padding: 24px;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+    z-index: 110;
+  }
+  .output-panel.open { transform: translateX(0); }
+  .output-panel h2 {
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1.5px solid var(--fg);
+  }
+  .format-tabs {
+    display: flex;
+    margin-bottom: 14px;
+    border: 1px solid var(--fg);
+  }
+  .format-tab {
+    flex: 1;
+    padding: 8px;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--fg);
+    font-family: ui-monospace, monospace;
+    font-size: 10px;
+    cursor: pointer;
+    color: var(--fg);
+    letter-spacing: 0.15em;
+  }
+  .format-tab:last-child { border-right: none; }
+  .format-tab.active { background: var(--fg); color: var(--bg); }
+  .output-text {
+    font-family: ui-monospace, monospace;
+    font-size: 11.5px;
+    line-height: 1.7;
+    padding: 14px;
+    white-space: pre-wrap;
+    border: 1px solid var(--fg);
+    margin-bottom: 14px;
+    max-height: 55vh;
+    overflow-y: auto;
+    word-break: break-word;
+  }
+  .copy-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--fg);
+    color: var(--bg);
+    border: 1.5px solid var(--fg);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .copy-btn.copied {
+    background: var(--bg);
+    color: var(--fg);
+  }
+  .panel-close {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    background: transparent;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    color: var(--fg);
+    line-height: 1;
+    padding: 4px 8px;
+  }
+
+  /* ===== Confirm dialog ===== */
+  .confirm {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.96);
+    background: var(--bg);
+    border: 2px solid var(--fg);
+    padding: 24px;
+    z-index: 120;
+    width: min(360px, 88vw);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s, transform 0.18s;
+  }
+  .confirm.open {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    pointer-events: auto;
+  }
+  .confirm p { margin-bottom: 18px; font-size: 14px; line-height: 1.5; }
+  .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  /* ===== Help overlay ===== */
+  .help-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 200;
+    overflow-y: auto;
+    padding: 56px 24px 80px;
+    display: none;
+  }
+  .help-overlay.open { display: block; }
+  .help-inner {
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .help-title {
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    padding-bottom: 10px;
+    border-bottom: 1.5px solid var(--fg);
+  }
+  .help-section {
+    margin-bottom: 28px;
+  }
+  .help-section-label {
+    font-size: 10px;
+    font-family: ui-monospace, monospace;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.4;
+    margin-bottom: 6px;
+  }
+  .help-row {
+    display: flex;
+    gap: 16px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--fg);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .help-row:last-child { border-bottom: none; }
+  .help-op {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    width: 96px;
+    padding-top: 1px;
+    opacity: 0.5;
+  }
+  .help-note {
+    font-size: 11px;
+    opacity: 0.45;
+    margin-top: 16px;
+    line-height: 1.6;
+  }
+  .help-close-btn {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+  }
+
+  /* ===== Mobile ===== */
+  @media (max-width: 600px) {
+    .mandala { padding: 14px; }
+    .mandala-grid {
+      width: min(100vw - 28px, 100vh - 28px);
+      height: min(100vw - 28px, 100vh - 28px);
+    }
+    .mcell { padding: 8px; font-size: 16px; }
+    .mcell .cell-input { font-size: 16px; }
+    .mcell .time-mark { font-size: 9px; }
+    .mcell.center .back-hint { font-size: 9px; top: 3px; left: 5px; }
+    .crumbs { font-size: 10px; padding: 3px 8px; max-width: 86vw; }
+    .crumb { max-width: 130px; }
+    .fab { font-size: 10px; padding: 5px 8px; }
+    .time-buttons { grid-template-columns: repeat(5, 1fr); gap: 4px; }
+    .time-btn { font-size: 10px; padding: 8px 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Initial input -->
+<div class="initial" id="initial">
+  <div class="initial-inner">
+    <div class="prompt">分解したいタスクを入力してください</div>
+    <input type="text" id="rootInput" placeholder="例: ランディングページを公開する" autofocus>
+    <div class="hint">Enter で確定</div>
+  </div>
+</div>
+
+<!-- Top-right: view toggle + new -->
+<div class="fab-group tr hidden" id="fabTopRight">
+  <button class="fab" id="viewToggleBtn">アウトライン</button>
+  <button class="fab" id="outputBtn">出力</button>
+  <button class="fab" id="newBtn">新規</button>
+</div>
+
+<!-- Mandala -->
+<div class="mandala hidden" id="mandala">
+  <div class="mandala-grid" id="mandalaGrid"></div>
+</div>
+
+<!-- Editing backdrop: hides everything else when a cell is being edited -->
+<div class="editing-backdrop" id="editingBackdrop"></div>
+
+<!-- Outline -->
+<div class="outline" id="outline">
+  <div class="outline-inner" id="outlineInner"></div>
+</div>
+
+<!-- Editor modal -->
+<div class="modal-bg" id="modalBg"></div>
+<div class="editor" id="editor">
+  <div class="editor-label">タスクを編集</div>
+  <input type="text" id="editorInput">
+  <div class="editor-label">見積もり時間</div>
+  <div class="time-buttons" id="timeButtons">
+    <button class="time-btn" data-time="">未定</button>
+    <button class="time-btn" data-time="5m">5m</button>
+    <button class="time-btn" data-time="15m">15m</button>
+    <button class="time-btn" data-time="30m">30m</button>
+    <button class="time-btn" data-time="1h+">1h+</button>
+  </div>
+  <div class="editor-actions">
+    <div class="btn-set">
+      <button class="ed-btn" id="deleteBtn">削除</button>
+    </div>
+    <div class="btn-set">
+      <button class="ed-btn" id="cancelBtn">キャンセル</button>
+      <button class="ed-btn primary" id="saveBtn">確定</button>
+    </div>
+  </div>
+</div>
+
+<!-- Output panel -->
+<div class="output-panel" id="outputPanel">
+  <button class="panel-close" id="closeOutput">×</button>
+  <h2>出力</h2>
+  <div class="format-tabs">
+    <button class="format-tab active" data-format="plain">プレーン</button>
+    <button class="format-tab" data-format="md">MARKDOWN</button>
+  </div>
+  <pre class="output-text" id="outputText"></pre>
+  <button class="copy-btn" id="copyBtn">クリップボードにコピー</button>
+</div>
+
+<!-- Help button -->
+<button class="fab fab-bl" id="helpBtn">?</button>
+
+<!-- Help overlay -->
+<div class="help-overlay" id="helpOverlay">
+  <button class="fab help-close-btn" id="helpClose">閉じる</button>
+  <div class="help-inner">
+    <div class="help-title">使い方 — 曼荼羅タスク分解</div>
+
+    <div class="help-section">
+      <div class="help-section-label">操作</div>
+      <div class="help-row">
+        <span class="help-op">タップ</span>
+        <span>マスを編集（タスクを入力）</span>
+      </div>
+      <div class="help-row">
+        <span class="help-op">中心へスワイプ</span>
+        <span>そのタスクの中に潜る（さらに8つに分解）</span>
+      </div>
+      <div class="help-row">
+        <span class="help-op">中心セルをタップ</span>
+        <span>一つ上の階層に戻る</span>
+      </div>
+      <div class="help-row">
+        <span class="help-op">Esc</span>
+        <span>上に戻る / 出力パネルを閉じる</span>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <div class="help-section-label">編集</div>
+      <div class="help-row">
+        <span class="help-op">Enter</span>
+        <span>確定して保存</span>
+      </div>
+      <div class="help-row">
+        <span class="help-op">空白で確定</span>
+        <span>そのマスを削除</span>
+      </div>
+      <div class="help-row">
+        <span class="help-op">時間ボタン</span>
+        <span>見積もり時間を設定（less / 5m / 30m / more）<br>親のマスには合計が自動表示されます</span>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <div class="help-section-label">表示</div>
+      <div class="help-row">
+        <span class="help-op">アウトライン</span>
+        <span>全タスクをツリー形式で確認・編集</span>
+      </div>
+      <div class="help-row">
+        <span class="help-op">出力</span>
+        <span>プレーン / Markdown でクリップボードにコピー</span>
+      </div>
+      <div class="help-row">
+        <span class="help-op">新規</span>
+        <span>新しいプロジェクトを開始（データは消えます）</span>
+      </div>
+    </div>
+
+    <div class="help-note">データはブラウザに自動保存されます。</div>
+  </div>
+</div>
+
+<!-- Confirm dialog -->
+<div class="confirm" id="confirm">
+  <p id="confirmMsg"></p>
+  <div class="confirm-actions">
+    <button class="ed-btn" id="confirmNo">キャンセル</button>
+    <button class="ed-btn primary" id="confirmYes">OK</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const STORAGE_KEY = 'bunkai_state_v1';
+
+// ============ Data model ============
+// Tree node: { id, title, time, children: [n0..n7] }
+// children is fixed-length 8 (index 0-7), null for empty cells
+// In the 3x3 grid, positions are:
+//   0 1 2
+//   3 C 5     (C = center = current node)
+//   6 7 8
+// So children indices map to grid positions: 0,1,2,3, 5,6,7,8 (skip 4)
+
+let state = null;
+let path = []; // array of node ids from root to current
+let currentView = 'mandala'; // 'mandala' | 'outline'
+let editTarget = null; // { type: 'cell'|'center'|'outline', cellIndex?, nodeId? }
+let pendingOutlineFocus = null; // node id to focus after the next outline render
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+function newNode(title = '', time = '') {
+  return {
+    id: uid(),
+    title,
+    time,
+    children: [null, null, null, null, null, null, null, null]
+  };
+}
+
+function findNode(root, id) {
+  if (!root) return null;
+  if (root.id === id) return root;
+  for (const c of root.children) {
+    if (!c) continue;
+    const f = findNode(c, id);
+    if (f) return f;
+  }
+  return null;
+}
+
+function getCurrentNode() {
+  if (!state) return null;
+  let n = state;
+  for (let i = 1; i < path.length; i++) {
+    const next = findNode(n, path[i]);
+    if (!next) return n;
+    n = next;
+  }
+  return n;
+}
+
+function getParentOfCurrent() {
+  if (path.length < 2) return null;
+  let n = state;
+  for (let i = 1; i < path.length - 1; i++) {
+    n = findNode(n, path[i]);
+  }
+  return n;
+}
+
+// Returns the childIndex (0-7) where the current node sits within its parent.
+// Returns -1 if no parent (root).
+function getCurrentChildIndex() {
+  const parent = getParentOfCurrent();
+  if (!parent) return -1;
+  const cur = getCurrentNode();
+  if (!cur) return -1;
+  for (let i = 0; i < parent.children.length; i++) {
+    if (parent.children[i] && parent.children[i].id === cur.id) return i;
+  }
+  return -1;
+}
+
+// Compute the rolled-up time status of a node's subtree.
+// Returns one of:
+//   { kind: 'pending' }  - some leaves have no time set yet (still decomposing)
+//   { kind: 'more' }     - all leaves have a time, but at least one is 'more'
+//   { kind: 'total', minutes: N }  - all leaves resolved, sum in minutes
+function computeTimeStatus(node) {
+  // Time values in minutes (per GTD-inspired rule)
+  const TIME_MIN = { 'less': 2, '5m': 5, '30m': 30 };
+
+  const hasAnyChild = node.children.some(c => c !== null);
+  if (!hasAnyChild) {
+    // Leaf node — its own time is the "subtree" time
+    if (!node.time) return { kind: 'pending' };
+    if (node.time === 'more') return { kind: 'more' };
+    return { kind: 'total', minutes: TIME_MIN[node.time] || 0 };
+  }
+  // Has children: walk them
+  let total = 0;
+  let sawMore = false;
+  let sawPending = false;
+  for (const c of node.children) {
+    if (!c) continue;
+    const sub = computeTimeStatus(c);
+    if (sub.kind === 'pending') sawPending = true;
+    else if (sub.kind === 'more') sawMore = true;
+    else if (sub.kind === 'total') total += sub.minutes;
+  }
+  if (sawPending) return { kind: 'pending' };
+  if (sawMore) return { kind: 'more' };
+  return { kind: 'total', minutes: total };
+}
+
+// Format minutes to "Nm" or "Xh Ym" string
+function formatMinutes(mins) {
+  if (mins < 60) return mins + 'm';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (m === 0) return h + 'h';
+  return h + 'h ' + m + 'm';
+}
+
+// ============ Persistence ============
+function save() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ state, path }));
+  } catch (e) { /* ignore */ }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const obj = JSON.parse(raw);
+    if (obj && obj.state) {
+      state = obj.state;
+      path = obj.path || [state.id];
+      return true;
+    }
+  } catch (e) { /* ignore */ }
+  return false;
+}
+
+function reset() {
+  state = null;
+  path = [];
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+}
+
+// ============ Rendering ============
+const $ = id => document.getElementById(id);
+
+function render() {
+  // Always close the editing backdrop on render — startInlineEdit reopens it as needed
+  const backdrop = $('editingBackdrop');
+  if (backdrop) backdrop.classList.remove('open');
+  // Clean up any orphaned editing cells that were moved to body
+  document.querySelectorAll('body > .mcell.editing').forEach(c => c.remove());
+
+  if (!state) {
+    $('initial').classList.remove('hidden');
+    $('mandala').classList.add('hidden');
+    $('outline').classList.remove('active');
+    $('fabTopRight').classList.add('hidden');
+    setTimeout(() => $('rootInput').focus(), 50);
+    return;
+  }
+  $('initial').classList.add('hidden');
+  $('fabTopRight').classList.remove('hidden');
+
+  if (currentView === 'mandala') {
+    $('mandala').classList.remove('hidden');
+    $('outline').classList.remove('active');
+    renderMandala();
+    $('viewToggleBtn').textContent = 'アウトライン';
+  } else {
+    $('mandala').classList.add('hidden');
+    $('outline').classList.add('active');
+    renderOutline();
+    $('viewToggleBtn').textContent = '曼荼羅';
+  }
+}
+
+function renderMandala() {
+  const grid = $('mandalaGrid');
+  grid.innerHTML = '';
+  const cur = getCurrentNode();
+  if (!cur) return;
+
+  // Cells 0-8, where 4 is the center
+  for (let i = 0; i < 9; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'mcell';
+
+    if (i === 4) {
+      // Center: current node
+      cell.classList.add('center');
+      if (path.length === 1) cell.classList.add('is-root');
+      const text = document.createElement('span');
+      text.className = 'text';
+      text.textContent = cur.title || '(無題)';
+      cell.appendChild(text);
+
+      // Show rolled-up time status under the title.
+      // If this node has children, show the rollup. If it has no children but
+      // a time was set on the node itself (e.g. set in the parent level), show that.
+      const hasChildren = cur.children.some(c => c !== null);
+      let label = '';
+      if (hasChildren) {
+        const status = computeTimeStatus(cur);
+        if (status.kind === 'more') {
+          label = 'more';
+        } else if (status.kind === 'total') {
+          label = formatMinutes(status.minutes);
+        }
+        // 'pending' → no label (still in progress)
+      } else if (cur.time) {
+        // Leaf node with a time set in the parent: just show that label
+        label = cur.time;
+      }
+      if (label) {
+        const tm = document.createElement('span');
+        tm.className = 'time-mark';
+        tm.textContent = label;
+        cell.appendChild(tm);
+      }
+
+      if (path.length > 1) {
+        // Parent direction marker: shows where we came from
+        const childIdxInParent = getCurrentChildIndex();
+        const dirMap = ['NW', 'N', 'NE', 'W', 'E', 'SW', 'S', 'SE'];
+        const dir = dirMap[childIdxInParent];
+        if (dir) {
+          cell.classList.add('parent-' + dir);
+          if (path.length >= 3) {
+            // 3rd level or deeper: double line
+            cell.classList.add('depth-deep');
+          }
+          const mark = document.createElement('span');
+          mark.className = 'parent-mark';
+          cell.appendChild(mark);
+        }
+
+        // Single click on center: go up to parent
+        cell.addEventListener('click', () => {
+          path.pop();
+          save();
+          render();
+        });
+        // Double click on center: edit current inline
+        cell.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          startInlineEdit(cell, { type: 'center' });
+        });
+      } else {
+        // Root level: single tap = edit inline
+        cell.addEventListener('pointerdown', (e) => {
+          if (cell.classList.contains('editing')) return;
+          if (e.target.classList && e.target.classList.contains('cell-input')) return;
+          const existing = document.querySelector('.mcell.editing');
+          if (existing && existing !== cell) {
+            commitInlineEdit(existing);
+            const cells = $('mandalaGrid').querySelectorAll('.mcell');
+            const newCell = cells[4];
+            if (newCell) startInlineEdit(newCell, { type: 'center' });
+          } else {
+            startInlineEdit(cell, { type: 'center' });
+          }
+        });
+      }
+    } else {
+      // Surrounding cells
+      const childIdx = i < 4 ? i : i - 1;
+      const child = cur.children[childIdx];
+
+      if (!child) {
+        cell.classList.add('empty');
+      }
+
+      const text = document.createElement('span');
+      text.className = 'text';
+      text.textContent = child ? (child.title || '(無題)') : '';
+      cell.appendChild(text);
+
+      if (child && child.time) {
+        const tm = document.createElement('span');
+        tm.className = 'time-mark';
+        tm.textContent = child.time;
+        cell.appendChild(tm);
+      }
+
+      // Tap to edit, swipe toward center to drill in
+      let pressX = 0, pressY = 0;
+      let pressing = false;
+      let didSwipe = false;
+      const SWIPE_THRESHOLD = 30; // pixels
+
+      // Compute the direction vector from this cell's center toward the grid center.
+      // Grid center is gridPos 4. This cell is at gridPos = childIdx<4 ? childIdx : childIdx+1.
+      // Cell positions in 3x3:  col = pos%3, row = floor(pos/3). Center is col=1, row=1.
+      const gridPos = childIdx < 4 ? childIdx : childIdx + 1;
+      const cellCol = gridPos % 3;
+      const cellRow = Math.floor(gridPos / 3);
+      const toCenterX = 1 - cellCol; // -1, 0, or 1
+      const toCenterY = 1 - cellRow;
+
+      const onPointerDown = (e) => {
+        if (cell.classList.contains('editing')) return;
+        if (e.target.classList && e.target.classList.contains('cell-input')) return;
+        pressX = e.clientX;
+        pressY = e.clientY;
+        pressing = true;
+        didSwipe = false;
+        cell.setPointerCapture && cell.setPointerCapture(e.pointerId);
+      };
+
+      const onPointerMove = (e) => {
+        if (!pressing || didSwipe) return;
+        const dx = e.clientX - pressX;
+        const dy = e.clientY - pressY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < SWIPE_THRESHOLD) return;
+        // Compute dot product with toCenter direction (normalized)
+        // Cell-to-center vector is (toCenterX, toCenterY) — but in screen coords y goes down,
+        // and our toCenterY uses row coord (also y-down), so they align directly.
+        const norm = Math.sqrt(toCenterX * toCenterX + toCenterY * toCenterY) || 1;
+        const ndx = toCenterX / norm;
+        const ndy = toCenterY / norm;
+        const moveNorm = dist || 1;
+        const mdx = dx / moveNorm;
+        const mdy = dy / moveNorm;
+        const dot = ndx * mdx + ndy * mdy;
+        // dot > 0.5 means within ~60deg of the center direction
+        if (dot > 0.5 && child) {
+          didSwipe = true;
+          pressing = false;
+          // Drill in
+          const existing = document.querySelector('.mcell.editing');
+          if (existing) commitInlineEdit(existing);
+          path.push(child.id);
+          save();
+          render();
+        }
+      };
+
+      const onPointerUp = (e) => {
+        if (!pressing) return;
+        pressing = false;
+        if (didSwipe) { didSwipe = false; return; }
+        // Treat as tap → edit mode
+        if (cell.classList.contains('editing')) return;
+        const existing = document.querySelector('.mcell.editing');
+        if (existing && existing !== cell) {
+          commitInlineEdit(existing);
+          const cells = $('mandalaGrid').querySelectorAll('.mcell');
+          const newCell = cells[gridPos];
+          if (newCell) startInlineEdit(newCell, { type: 'cell', cellIndex: childIdx });
+        } else {
+          startInlineEdit(cell, { type: 'cell', cellIndex: childIdx });
+        }
+      };
+
+      const onPointerCancel = () => {
+        pressing = false;
+        didSwipe = false;
+      };
+
+      cell.addEventListener('pointerdown', onPointerDown);
+      cell.addEventListener('pointermove', onPointerMove);
+      cell.addEventListener('pointerup', onPointerUp);
+      cell.addEventListener('pointercancel', onPointerCancel);
+    }
+
+    grid.appendChild(cell);
+  }
+}
+
+// ============ Inline cell editing ============
+// IMPORTANT: This function must run synchronously within a user gesture
+// (pointerdown handler) so iOS Safari opens the keyboard.
+function makePhantom(className) {
+  const el = document.createElement('span');
+  el.className = className;
+  return el;
+}
+
+function startInlineEdit(cell, target) {
+  if (cell.classList.contains('editing')) return;
+
+  cell.classList.add('editing');
+  $('editingBackdrop').classList.add('open');
+  // Move the cell to body so position:fixed isn't affected by parent transforms/flex
+  // Remember its original parent to restore later
+  cell.dataset.originalParent = 'mandalaGrid';
+  document.body.appendChild(cell);
+
+  // Add phantom lines suggesting the original grid position
+  // Determine which neighbors existed in the 3x3 grid at this position
+  let gridPos = 4; // center default
+  if (target.type === 'cell') {
+    gridPos = target.cellIndex < 4 ? target.cellIndex : target.cellIndex + 1;
+  }
+  const col = gridPos % 3;       // 0=left, 1=mid, 2=right
+  const row = Math.floor(gridPos / 3); // 0=top, 1=mid, 2=bottom
+  const hasUp    = row > 0;
+  const hasDown  = row < 2;
+  const hasLeft  = col > 0;
+  const hasRight = col < 2;
+
+  // Right side: if right neighbor exists, extend horizontal lines from top-right and bottom-right corners
+  if (hasRight) {
+    cell.appendChild(makePhantom('phantom h-right tr'));
+    cell.appendChild(makePhantom('phantom h-right br'));
+  }
+  if (hasLeft) {
+    cell.appendChild(makePhantom('phantom h-left tl'));
+    cell.appendChild(makePhantom('phantom h-left bl'));
+  }
+  if (hasDown) {
+    cell.appendChild(makePhantom('phantom v-bottom lb'));
+    cell.appendChild(makePhantom('phantom v-bottom rb'));
+  }
+  if (hasUp) {
+    cell.appendChild(makePhantom('phantom v-top lt'));
+    cell.appendChild(makePhantom('phantom v-top rt'));
+  }
+
+  const cur = getCurrentNode();
+  let initialText = '';
+  if (target.type === 'center') {
+    initialText = cur.title || '';
+  } else if (target.type === 'cell') {
+    const child = cur.children[target.cellIndex];
+    initialText = child ? (child.title || '') : '';
+  }
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'cell-input';
+  input.value = initialText;
+  input.dataset.editType = target.type;
+  if (target.type === 'cell') input.dataset.cellIndex = target.cellIndex;
+  // Hide the static text while editing
+  const textEl = cell.querySelector('.text');
+  if (textEl) textEl.style.display = 'none';
+  // Hide time-mark while editing (we show time picker instead)
+  const timeMarkEl = cell.querySelector('.time-mark');
+  if (timeMarkEl) timeMarkEl.style.display = 'none';
+  cell.appendChild(input);
+
+  // Time picker (only for non-center cells; center is the project root, no time)
+  if (target.type === 'cell') {
+    const currentTime = (cur.children[target.cellIndex] && cur.children[target.cellIndex].time) || '';
+    const picker = document.createElement('div');
+    picker.className = 'cell-time-picker';
+    const options = ['less', '5m', '30m', 'more'];
+    options.forEach((opt) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cell-time-btn' + (opt === currentTime ? ' selected' : '');
+      b.textContent = opt;
+      b.dataset.time = opt;
+      b.addEventListener('pointerdown', (e) => {
+        // Stop the cell's own pointerdown handler from running
+        e.stopPropagation();
+        e.preventDefault();
+        picker.querySelectorAll('.cell-time-btn').forEach(x => x.classList.remove('selected'));
+        b.classList.add('selected');
+        // Auto-commit on time selection: tapping a time button confirms the edit
+        commitInlineEdit(cell);
+      });
+      picker.appendChild(b);
+    });
+    cell.appendChild(picker);
+  }
+
+  // Focus immediately - synchronous within user gesture for iOS keyboard
+  input.focus();
+  if (initialText) {
+    input.select();
+  }
+
+  const finish = (commit) => {
+    if (commit) {
+      commitInlineEdit(cell);
+    } else {
+      cancelInlineEdit(cell);
+    }
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      finish(true);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      finish(false);
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    // Slight delay so clicking elsewhere can still register events
+    if (cell.classList.contains('editing')) finish(true);
+  });
+}
+
+function commitInlineEditNoRender(cell) {
+  // Save data and clean up the editing UI, but don't trigger render().
+  // Used when starting another inline edit in the same gesture.
+  const input = cell.querySelector('.cell-input');
+  if (!input) {
+    cell.classList.remove('editing');
+    return;
+  }
+  const newTitle = input.value.trim();
+  const editType = input.dataset.editType;
+  const cur = getCurrentNode();
+
+  if (editType === 'center') {
+    cur.title = newTitle || cur.title;
+  } else if (editType === 'cell') {
+    const idx = parseInt(input.dataset.cellIndex, 10);
+    const existing = cur.children[idx];
+    if (newTitle === '') {
+      cur.children[idx] = null;
+    } else if (existing) {
+      existing.title = newTitle;
+    } else {
+      cur.children[idx] = newNode(newTitle, '');
+    }
+  }
+  cell.classList.remove('editing');
+  // Restore the static text element and remove the input
+  input.remove();
+  const textEl = cell.querySelector('.text');
+  if (textEl) {
+    textEl.style.display = '';
+    // Update displayed text to reflect the saved value
+    if (editType === 'cell') {
+      const idx = parseInt(input.dataset.cellIndex, 10);
+      const child = cur.children[idx];
+      textEl.textContent = child ? (child.title || '(無題)') : '';
+      if (!child) cell.classList.add('empty');
+      else cell.classList.remove('empty');
+      // Update or remove time-mark
+      let tm = cell.querySelector('.time-mark');
+      if (child && child.time) {
+        if (!tm) {
+          tm = document.createElement('span');
+          tm.className = 'time-mark';
+          cell.appendChild(tm);
+        }
+        tm.textContent = child.time;
+      } else if (tm) {
+        tm.remove();
+      }
+    } else if (editType === 'center') {
+      textEl.textContent = cur.title || '(無題)';
+    }
+  }
+  save();
+}
+
+function commitInlineEdit(cell) {
+  const input = cell.querySelector('.cell-input');
+  if (!input) {
+    cell.classList.remove('editing');
+    if (cell.parentNode === document.body) cell.remove();
+    return;
+  }
+  const newTitle = input.value.trim();
+  const editType = input.dataset.editType;
+  const cur = getCurrentNode();
+
+  // Read selected time from the in-cell picker (cell-only)
+  let selectedTime = '';
+  const selBtn = cell.querySelector('.cell-time-btn.selected');
+  if (selBtn) selectedTime = selBtn.dataset.time || '';
+
+  if (editType === 'center') {
+    cur.title = newTitle || cur.title;
+  } else if (editType === 'cell') {
+    const idx = parseInt(input.dataset.cellIndex, 10);
+    const existing = cur.children[idx];
+    if (newTitle === '') {
+      cur.children[idx] = null;
+    } else if (existing) {
+      existing.title = newTitle;
+      existing.time = selectedTime;
+    } else {
+      cur.children[idx] = newNode(newTitle, selectedTime);
+    }
+  }
+  cell.classList.remove('editing');
+  // Remove the cell that was moved to body
+  if (cell.parentNode === document.body) cell.remove();
+  save();
+  render();
+}
+
+function cancelInlineEdit(cell) {
+  cell.classList.remove('editing');
+  const backdrop = $('editingBackdrop');
+  if (backdrop) backdrop.classList.remove('open');
+  if (cell.parentNode === document.body) {
+    cell.remove();
+    render(); // Re-render the grid since we removed a cell
+  } else {
+    const input = cell.querySelector('.cell-input');
+    if (input) input.remove();
+    const picker = cell.querySelector('.cell-time-picker');
+    if (picker) picker.remove();
+  }
+}
+
+function renderOutline() {
+  const el = $('outlineInner');
+  el.innerHTML = '';
+  if (!state) return;
+
+  const root = document.createElement('div');
+  root.className = 'ol-root';
+  root.textContent = state.title || '(無題)';
+  el.appendChild(root);
+
+  // Walk the tree from state's children
+  const stats = walkOutline(state, el, 0);
+
+  if (stats.count === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'ol-empty';
+    empty.textContent = 'まだ分解されていません。曼荼羅ビューで分解を始めてください。';
+    el.appendChild(empty);
+  }
+
+  // If a focus target was queued by arrow-key navigation, focus it now
+  if (pendingOutlineFocus) {
+    const target = el.querySelector(`.ol-item[data-node-id="${pendingOutlineFocus}"] .ol-text`);
+    pendingOutlineFocus = null;
+    if (target) {
+      // Focus on next frame to ensure the element is fully painted
+      requestAnimationFrame(() => target.focus());
+    }
+  }
+}
+
+function walkOutline(node, parentEl, depth) {
+  let count = 0;
+  for (let i = 0; i < node.children.length; i++) {
+    const c = node.children[i];
+    if (!c) continue;
+    const hasChildren = c.children.some(x => x !== null);
+
+    const item = document.createElement('div');
+    item.className = 'ol-item';
+    item.style.paddingLeft = (24 + depth * 24) + 'px';
+    item.dataset.nodeId = c.id;
+
+    const bullet = document.createElement('span');
+    bullet.className = 'ol-bullet';
+    bullet.textContent = '·';
+    item.appendChild(bullet);
+
+    const text = document.createElement('span');
+    text.className = 'ol-text';
+    text.contentEditable = 'true';
+    text.spellcheck = false;
+    text.textContent = c.title || '';
+    item.appendChild(text);
+
+    if (!hasChildren && c.time) {
+      const time = document.createElement('span');
+      time.className = 'ol-time';
+      time.textContent = c.time;
+      item.appendChild(time);
+    }
+
+    // When focused: combine title + @time so the user can edit them as one string
+    text.addEventListener('focus', () => {
+      const node2 = findNode(state, item.dataset.nodeId);
+      if (!node2) return;
+      const hasKids = node2.children.some(x => x !== null);
+      let display = node2.title || '';
+      if (!hasKids && node2.time) display += ' @' + node2.time;
+      text.textContent = display;
+      // Hide the separate time display while editing
+      const timeSep = item.querySelector('.ol-time');
+      if (timeSep) timeSep.style.display = 'none';
+      // Place caret at the end
+      requestAnimationFrame(() => {
+        const range = document.createRange();
+        range.selectNodeContents(text);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      });
+    });
+
+    text.addEventListener('blur', () => {
+      commitOutlineEdit(item);
+    });
+
+    text.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        text.blur();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        // Restore original without saving
+        const node2 = findNode(state, item.dataset.nodeId);
+        if (node2) text.textContent = node2.title || '';
+        text.blur();
+      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        // Move to next/prev outline item. Find target by traversing siblings.
+        const all = Array.from(document.querySelectorAll('#outlineInner .ol-text'));
+        const idx = all.indexOf(text);
+        if (idx === -1) return;
+        const targetIdx = e.key === 'ArrowDown' ? idx + 1 : idx - 1;
+        if (targetIdx < 0 || targetIdx >= all.length) return;
+        e.preventDefault();
+        // Get the target node id, then commit current edit (which will re-render),
+        // then focus the corresponding .ol-text in the fresh DOM.
+        const targetItem = all[targetIdx].closest('.ol-item');
+        const targetNodeId = targetItem ? targetItem.dataset.nodeId : null;
+        // Stash where to focus next, before blur triggers commit+render
+        pendingOutlineFocus = targetNodeId;
+        text.blur();
+      }
+    });
+
+    parentEl.appendChild(item);
+    count++;
+
+    if (hasChildren) {
+      const sub = walkOutline(c, parentEl, depth + 1);
+      count += sub.count;
+    }
+  }
+  return { count };
+}
+
+// Parse "title @time" syntax. Returns { title, time }.
+// Recognized time values: less, 5, 5m, 30, 30m, more
+function parseOutlineText(raw) {
+  const text = raw.trim();
+  // Match optional trailing @xxx
+  const m = text.match(/^(.*?)\s*@(\S+)\s*$/);
+  if (!m) return { title: text, time: null };
+  const title = m[1].trim();
+  let timeRaw = m[2].toLowerCase();
+  // Normalize
+  const aliases = {
+    'less': 'less',
+    '5': '5m', '5m': '5m', '5min': '5m',
+    '30': '30m', '30m': '30m', '30min': '30m',
+    'more': 'more'
+  };
+  const time = aliases[timeRaw] || null;
+  if (!time) return { title: text, time: null }; // unknown time → keep @ in title
+  return { title, time };
+}
+
+function findPathTo(root, id, current = []) {
+  const p = [...current, root.id];
+  if (root.id === id) return p;
+  for (const c of root.children) {
+    if (!c) continue;
+    const found = findPathTo(c, id, p);
+    if (found) return found;
+  }
+  return null;
+}
+
+// ============ Outline inline editing (contenteditable + @time syntax) ============
+function commitOutlineEdit(item) {
+  const text = item.querySelector('.ol-text');
+  if (!text) return;
+  const nodeId = item.dataset.nodeId;
+  const node = findNode(state, nodeId);
+  if (!node) return;
+  const raw = text.textContent || '';
+  const hasChildren = node.children.some(x => x !== null);
+
+  if (hasChildren) {
+    // Parents: title only, no time parsing
+    const newTitle = raw.trim();
+    if (newTitle === '') {
+      // Empty title on a parent: don't delete (would orphan children); restore original
+      text.textContent = node.title || '';
+      return;
+    }
+    if (newTitle === node.title) return; // no change → no re-render
+    node.title = newTitle;
+    save();
+    render();
+    return;
+  }
+
+  // Leaf: parse "title @time"
+  const parsed = parseOutlineText(raw);
+  if (parsed.title === '') {
+    // Empty title = delete the node
+    const parentPath = findPathTo(state, nodeId);
+    if (parentPath && parentPath.length >= 2) {
+      const parent = parentPath.length === 2
+        ? state
+        : findNode(state, parentPath[parentPath.length - 2]);
+      if (parent) {
+        const idx = parent.children.findIndex(x => x && x.id === nodeId);
+        if (idx >= 0) parent.children[idx] = null;
+      }
+    }
+    save();
+    render();
+    return;
+  }
+  // Apply changes
+  const titleChanged = parsed.title !== node.title;
+  const newTime = parsed.time !== null ? parsed.time : node.time; // keep existing time if no @ specified
+  // Special case: if user explicitly cleared @ (had a @ before, now removed), keep existing.
+  // To allow clearing time, the user can type "@" alone or just @ with nothing after.
+  const timeChanged = parsed.time !== null && parsed.time !== node.time;
+  if (!titleChanged && !timeChanged) {
+    // No real change — but the input may have shown "title @5m" form, so re-render to clean up
+    render();
+    return;
+  }
+  node.title = parsed.title;
+  if (parsed.time !== null) node.time = parsed.time;
+  save();
+  render();
+}
+
+// ============ Editor ============
+function openEditor(target) {
+  editTarget = target;
+  const cur = getCurrentNode();
+  let node = null;
+
+  if (target.type === 'center') {
+    node = cur;
+  } else if (target.type === 'cell') {
+    node = cur.children[target.cellIndex];
+  }
+
+  $('editorInput').value = node ? (node.title || '') : '';
+  setTimeBtn(node ? (node.time || '') : '');
+  $('deleteBtn').style.display = node ? '' : 'none';
+  $('modalBg').classList.add('open');
+  $('editor').classList.add('open');
+  setTimeout(() => $('editorInput').focus(), 60);
+}
+
+function closeEditor() {
+  $('modalBg').classList.remove('open');
+  $('editor').classList.remove('open');
+  editTarget = null;
+}
+
+function setTimeBtn(time) {
+  document.querySelectorAll('.time-btn').forEach(b => {
+    b.classList.toggle('selected', (b.dataset.time || '') === time);
+  });
+}
+
+function getSelectedTime() {
+  const sel = document.querySelector('.time-btn.selected');
+  return sel ? (sel.dataset.time || '') : '';
+}
+
+document.querySelectorAll('.time-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.time-btn').forEach(x => x.classList.remove('selected'));
+    b.classList.add('selected');
+  });
+});
+
+$('saveBtn').addEventListener('click', () => {
+  const title = $('editorInput').value.trim();
+  const time = getSelectedTime();
+  const cur = getCurrentNode();
+
+  if (editTarget.type === 'center') {
+    cur.title = title;
+    cur.time = time;
+  } else if (editTarget.type === 'cell') {
+    const existing = cur.children[editTarget.cellIndex];
+    if (existing) {
+      existing.title = title;
+      existing.time = time;
+    } else {
+      if (!title) { closeEditor(); return; }
+      cur.children[editTarget.cellIndex] = newNode(title, time);
+    }
+  }
+  save();
+  closeEditor();
+  render();
+});
+
+$('cancelBtn').addEventListener('click', closeEditor);
+$('modalBg').addEventListener('click', closeEditor);
+
+$('deleteBtn').addEventListener('click', () => {
+  const cur = getCurrentNode();
+  if (editTarget.type === 'center') {
+    if (path.length === 1) {
+      // Root delete = full reset
+      showConfirm('プロジェクト全体を削除しますか?', () => {
+        reset();
+        currentView = 'mandala';
+        render();
+      });
+    } else {
+      // Delete current: go up and remove from parent
+      const parent = getParentOfCurrent();
+      if (parent) {
+        const idx = parent.children.findIndex(c => c && c.id === cur.id);
+        if (idx >= 0) parent.children[idx] = null;
+        path.pop();
+        save();
+        closeEditor();
+        render();
+      }
+    }
+  } else if (editTarget.type === 'cell') {
+    cur.children[editTarget.cellIndex] = null;
+    save();
+    closeEditor();
+    render();
+  }
+});
+
+$('editorInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') $('saveBtn').click();
+  if (e.key === 'Escape') closeEditor();
+});
+
+// ============ Initial input ============
+$('rootInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const title = e.target.value.trim();
+    if (!title) return;
+    state = newNode(title);
+    path = [state.id];
+    save();
+    render();
+  }
+});
+
+// ============ Top-right buttons ============
+$('viewToggleBtn').addEventListener('click', () => {
+  currentView = currentView === 'mandala' ? 'outline' : 'mandala';
+  render();
+});
+
+$('outputBtn').addEventListener('click', () => {
+  generateOutput();
+  $('outputPanel').classList.add('open');
+});
+
+$('closeOutput').addEventListener('click', () => {
+  $('outputPanel').classList.remove('open');
+});
+
+$('newBtn').addEventListener('click', () => {
+  showConfirm('新しいプロジェクトを始めますか?(現在のデータは消えます)', () => {
+    reset();
+    currentView = 'mandala';
+    render();
+  });
+});
+
+// ============ Output ============
+let currentFormat = 'plain';
+
+document.querySelectorAll('.format-tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.format-tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    currentFormat = t.dataset.format;
+    generateOutput();
+  });
+});
+
+function generateOutput() {
+  if (!state) { $('outputText').textContent = ''; return; }
+  let txt = '';
+  if (currentFormat === 'plain') {
+    txt = formatPlain(state, 0);
+  } else {
+    txt = formatMd(state, 0);
+  }
+  $('outputText').textContent = txt;
+}
+
+function formatPlain(node, depth) {
+  const indent = '  '.repeat(depth);
+  const time = node.time && depth > 0 ? ` (${node.time})` : '';
+  let out = depth === 0
+    ? (node.title || '(無題)') + '\n'
+    : indent + (node.title || '(無題)') + time + '\n';
+  for (const c of node.children) {
+    if (c) out += formatPlain(c, depth + 1);
+  }
+  return out;
+}
+
+function formatMd(node, depth) {
+  if (depth === 0) {
+    let out = '# ' + (node.title || '(無題)') + '\n\n';
+    // Top-level children as h2
+    for (const c of node.children) {
+      if (c) out += formatMdBranch(c, 1);
+    }
+    return out;
+  }
+  return formatMdBranch(node, depth);
+}
+
+function formatMdBranch(node, depth) {
+  const hasChildren = node.children.some(x => x !== null);
+  let out = '';
+  if (depth === 1 && hasChildren) {
+    out += '## ' + (node.title || '(無題)') + '\n\n';
+    for (const c of node.children) {
+      if (c) out += formatMdBranch(c, depth + 1);
+    }
+    out += '\n';
+  } else {
+    const indent = '  '.repeat(Math.max(0, depth - 2));
+    const time = node.time ? ` \`${node.time}\`` : '';
+    out += indent + '- ' + (node.title || '(無題)') + time + '\n';
+    for (const c of node.children) {
+      if (c) out += formatMdBranch(c, depth + 1);
+    }
+  }
+  return out;
+}
+
+$('copyBtn').addEventListener('click', async () => {
+  const txt = $('outputText').textContent;
+  try {
+    await navigator.clipboard.writeText(txt);
+    const btn = $('copyBtn');
+    const orig = btn.textContent;
+    btn.textContent = '✓ コピーしました';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.classList.remove('copied');
+    }, 1500);
+  } catch (e) {
+    alert('コピーに失敗しました');
+  }
+});
+
+// ============ Confirm dialog ============
+let confirmCallback = null;
+function showConfirm(msg, cb) {
+  $('confirmMsg').textContent = msg;
+  confirmCallback = cb;
+  $('confirm').classList.add('open');
+  $('modalBg').classList.add('open');
+}
+$('confirmYes').addEventListener('click', () => {
+  $('confirm').classList.remove('open');
+  $('modalBg').classList.remove('open');
+  if (confirmCallback) confirmCallback();
+  confirmCallback = null;
+});
+$('confirmNo').addEventListener('click', () => {
+  $('confirm').classList.remove('open');
+  $('modalBg').classList.remove('open');
+  confirmCallback = null;
+});
+
+// ============ Keyboard shortcuts ============
+document.addEventListener('keydown', (e) => {
+  if ($('editor').classList.contains('open')) return;
+  if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+  if (e.key === 'Escape') {
+    if ($('outputPanel').classList.contains('open')) {
+      $('outputPanel').classList.remove('open');
+    } else if (path.length > 1) {
+      path.pop();
+      save();
+      render();
+    }
+  }
+});
+
+// ============ Help ============
+const HELP_SEEN_KEY = 'bunkai_help_seen_v1';
+
+function openHelp()  { $('helpOverlay').classList.add('open'); }
+function closeHelp() {
+  $('helpOverlay').classList.remove('open');
+  try { localStorage.setItem(HELP_SEEN_KEY, '1'); } catch(e) {}
+}
+
+$('helpBtn').addEventListener('click', openHelp);
+$('helpClose').addEventListener('click', closeHelp);
+
+// ============ Init ============
+load();
+render();
+if (!localStorage.getItem(HELP_SEEN_KEY)) openHelp();
+</script>
+
+</body>
+</html>
