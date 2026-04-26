@@ -697,12 +697,100 @@
       try { await ensureAudio(); } catch (e) { console.error(e); }
     }
 
+    // ===== プリセット =====
+    const BUILTIN_PRESETS = {
+      rain:   { rain: 0.7, wind: 0.25 },
+      ocean:  { wave: 0.75, wind: 0.2 },
+      forest: { wind: 0.55, rain: 0.3 },
+      cabin:  { fire: 0.7, wind: 0.2 },
+      sleep:  { brown: 0.45, rain: 0.3 },
+    };
+    const STORAGE_KEY = 'omc-noise-preset-v1';
+
+    function applyTrackMap(map) {
+      // map: { trackId: vol } — それ以外は OFF にする
+      TRACKS.forEach(t => {
+        const v = map[t.id];
+        if (typeof v === 'number' && v > 0) {
+          state.tracks[t.id].on = true;
+          state.tracks[t.id].vol = v;
+        } else {
+          state.tracks[t.id].on = false;
+        }
+      });
+      syncUIFromState();
+      if (state.playing && audio.ctx) {
+        TRACKS.forEach(t => rampTrackGain(t.id));
+        if (state.tracks.fire.on) startFireCrackle();
+      }
+    }
+
+    function syncUIFromState() {
+      TRACKS.forEach(t => {
+        renderTrack(t.id);
+        const slider = document.querySelector(`[data-vol="${t.id}"]`);
+        const label  = document.getElementById(`vol-label-${t.id}`);
+        if (slider) slider.value = Math.round(state.tracks[t.id].vol * 100);
+        if (label)  label.textContent = Math.round(state.tracks[t.id].vol * 100);
+      });
+    }
+
+    function applyPreset(name) {
+      const p = BUILTIN_PRESETS[name];
+      if (!p) return;
+      applyTrackMap(p);
+    }
+
+    function saveMyPreset() {
+      const map = {};
+      TRACKS.forEach(t => {
+        if (state.tracks[t.id].on) map[t.id] = state.tracks[t.id].vol;
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ tracks: map, master: state.master }));
+      flashChip(els.saveMine, '保存しました ✓');
+    }
+
+    function loadMyPreset() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        flashChip(els.loadMine, '保存なし');
+        return;
+      }
+      try {
+        const data = JSON.parse(raw);
+        if (data.tracks) applyTrackMap(data.tracks);
+        if (typeof data.master === 'number') {
+          state.master = data.master;
+          els.masterVol.value = Math.round(data.master * 100);
+          if (state.playing) rampMasterGain();
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function resetAll() {
+      applyTrackMap({});
+    }
+
+    function flashChip(el, msg) {
+      if (!el) return;
+      const original = el.dataset.original || el.textContent;
+      el.dataset.original = original;
+      el.textContent = msg;
+      clearTimeout(el._flashTimer);
+      el._flashTimer = setTimeout(() => { el.textContent = original; }, 1200);
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       els.playBtn = document.getElementById('play-btn');
       els.statusText = document.getElementById('status-text');
       els.masterVol = document.getElementById('master-vol');
       els.sleepTimer = document.getElementById('sleep-timer');
       els.unlockOverlay = document.getElementById('unlock-overlay');
+      els.saveMine = document.getElementById('save-mine');
+      els.loadMine = document.getElementById('load-mine');
+      els.resetAll = document.getElementById('reset-all');
 
       buildTracks();
 
@@ -711,6 +799,13 @@
         state.master = +e.target.value / 100;
         if (state.playing && audio.master) rampMasterGain();
       });
+
+      document.querySelectorAll('[data-preset]').forEach(btn => {
+        btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+      });
+      els.saveMine.addEventListener('click', saveMyPreset);
+      els.loadMine.addEventListener('click', loadMyPreset);
+      els.resetAll.addEventListener('click', resetAll);
 
       els.unlockOverlay.addEventListener('click', unlock);
     });
