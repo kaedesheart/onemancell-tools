@@ -228,17 +228,24 @@
     }
 
     .track-icon {
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: 12px;
       background: rgba(255,255,255,.06);
+      border: none;
+      padding: 0;
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 1.3rem;
       flex-shrink: 0;
-      transition: background .2s, transform .2s;
+      color: inherit;
+      font-family: inherit;
+      transition: background .2s, transform .12s;
+      touch-action: manipulation;
     }
+    .track-icon:active { transform: scale(.92); }
     .track.on .track-icon {
       background: rgba(124, 200, 232, .25);
     }
@@ -417,7 +424,9 @@
     const state = {
       master: 0.7,
       playing: false,
-      tracks: Object.fromEntries(TRACKS.map(t => [t.id, { on: false, vol: 0.5 }])),
+      tracks: Object.fromEntries(TRACKS.map(t => [
+        t.id, { on: t.id === 'rain', vol: 0.5 }
+      ])),
     };
 
     const els = {};
@@ -607,6 +616,7 @@
       }
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       audio.ctx = ctx;
+      if (ctx.state === 'suspended') await ctx.resume();
       audio.master = ctx.createGain();
       audio.master.gain.value = 0;
       audio.master.connect(ctx.destination);
@@ -635,18 +645,21 @@
 
     function buildTracks() {
       const container = document.getElementById('tracks');
-      container.innerHTML = TRACKS.map(t => `
-        <div class="track" data-id="${t.id}">
-          <button class="track-icon" data-toggle="${t.id}" aria-label="${t.name} ON/OFF">${t.icon}</button>
+      container.innerHTML = TRACKS.map(t => {
+        const v = Math.round(state.tracks[t.id].vol * 100);
+        const onCls = state.tracks[t.id].on ? ' on' : '';
+        return `
+        <div class="track${onCls}" data-id="${t.id}">
+          <button type="button" class="track-icon" data-toggle="${t.id}" aria-label="${t.name} ON/OFF">${t.icon}</button>
           <div class="track-body">
             <div class="track-name">
               <span>${t.name}</span>
-              <span class="track-vol-label" id="vol-label-${t.id}">50</span>
+              <span class="track-vol-label" id="vol-label-${t.id}">${v}</span>
             </div>
-            <input type="range" min="0" max="100" value="50" data-vol="${t.id}">
+            <input type="range" min="0" max="100" value="${v}" data-vol="${t.id}">
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
 
       container.querySelectorAll('[data-toggle]').forEach(btn => {
         btn.addEventListener('click', () => toggleTrack(btn.dataset.toggle));
