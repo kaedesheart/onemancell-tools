@@ -679,17 +679,20 @@
       state.playing = !state.playing;
       els.playBtn.textContent = state.playing ? '■' : '▶';
       els.playBtn.classList.toggle('playing', state.playing);
-      els.statusText.textContent = state.playing ? '再生中' : '停止中';
 
       if (state.playing) {
         await ensureAudio();
-        // 全トラックの現在状態に合わせてゲインを揃える
         TRACKS.forEach(t => rampTrackGain(t.id));
         rampMasterGain();
         if (state.tracks.fire.on) startFireCrackle();
+        requestWakeLock();
+        startSleepTimer();
       } else {
         rampMasterGain();
+        stopSleepTimer();
+        releaseWakeLock();
       }
+      updateStatusText();
     }
 
     async function unlock() {
@@ -782,6 +785,88 @@
       el._flashTimer = setTimeout(() => { el.textContent = original; }, 1200);
     }
 
+    // ===== スリープタイマー =====
+    const sleep = { minutes: 0, endTs: null, intervalId: null, fading: false };
+    const FADE_SEC = 10;
+
+    function startSleepTimer() {
+      if (sleep.minutes <= 0) return;
+      sleep.endTs = Date.now() + sleep.minutes * 60 * 1000;
+      sleep.fading = false;
+      tickSleep();
+      if (sleep.intervalId) clearInterval(sleep.intervalId);
+      sleep.intervalId = setInterval(tickSleep, 500);
+    }
+
+    function stopSleepTimer() {
+      sleep.endTs = null;
+      sleep.fading = false;
+      if (sleep.intervalId) {
+        clearInterval(sleep.intervalId);
+        sleep.intervalId = null;
+      }
+      updateStatusText();
+    }
+
+    function tickSleep() {
+      if (!state.playing || !sleep.endTs) {
+        stopSleepTimer();
+        return;
+      }
+      const remaining = sleep.endTs - Date.now();
+      if (remaining <= 0) {
+        // タイマー満了 → 完全停止
+        sleep.endTs = null;
+        sleep.fading = false;
+        clearInterval(sleep.intervalId);
+        sleep.intervalId = null;
+        if (state.playing) togglePlay();
+        return;
+      }
+      // フェード開始
+      if (!sleep.fading && remaining <= FADE_SEC * 1000 && audio.master && audio.ctx) {
+        sleep.fading = true;
+        const t = audio.ctx.currentTime;
+        audio.master.gain.cancelScheduledValues(t);
+        audio.master.gain.setValueAtTime(audio.master.gain.value, t);
+        audio.master.gain.linearRampToValueAtTime(0, t + remaining / 1000);
+      }
+      updateStatusText();
+    }
+
+    function updateStatusText() {
+      if (!state.playing) {
+        els.statusText.textContent = '停止中';
+        return;
+      }
+      if (sleep.endTs) {
+        const remaining = Math.max(0, sleep.endTs - Date.now());
+        const m = Math.floor(remaining / 60000);
+        const s = Math.floor((remaining % 60000) / 1000).toString().padStart(2, '0');
+        els.statusText.textContent = `あと ${m}:${s}`;
+      } else {
+        els.statusText.textContent = '再生中';
+      }
+    }
+
+    // ===== WakeLock =====
+    let wakeLock = null;
+
+    async function requestWakeLock() {
+      if (!('wakeLock' in navigator)) return;
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } catch (e) { /* 権限なし or 非対応 */ }
+    }
+
+    async function releaseWakeLock() {
+      if (wakeLock) {
+        try { await wakeLock.release(); } catch (e) {}
+        wakeLock = null;
+      }
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       els.playBtn = document.getElementById('play-btn');
       els.statusText = document.getElementById('status-text');
@@ -806,6 +891,21 @@
       els.saveMine.addEventListener('click', saveMyPreset);
       els.loadMine.addEventListener('click', loadMyPreset);
       els.resetAll.addEventListener('click', resetAll);
+
+      els.sleepTimer.addEventListener('change', e => {
+        sleep.minutes = +e.target.value;
+        if (state.playing) {
+          if (sleep.minutes > 0) startSleepTimer();
+          else stopSleepTimer();
+        }
+      });
+
+      // タブ復帰時に WakeLock を再取得
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && state.playing) {
+          requestWakeLock();
+        }
+      });
 
       els.unlockOverlay.addEventListener('click', unlock);
     });
