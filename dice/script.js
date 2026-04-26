@@ -362,7 +362,7 @@ function rollExtra() {
     for (let i = 0; i < count; i++) allDice.push({ sides, value: rollDie(sides) });
   });
   const total = allDice.reduce((a, d) => a + d.value, 0);
-  const historyText = state.extraPool.map(({ sides, count }) => `${count}D${sides}`).join('+') + ` → 合計 ${total}`;
+  const historyText = state.lastPool.map(({ sides, count }) => `${count}D${sides}`).join('+') + ` → 合計 ${total}`;
 
   playRollSound();
 
@@ -528,6 +528,8 @@ function syncUIToState() {
 
 // ── Memo state ─────────────────────────────────────────────────────────
 const MEMO_KEY = 'emoklore-memo-v1';
+
+let linked = false; // 起動/リセット直後にmax==currentなら最大値に現在値を追従させるフラグ
 
 const memo = {
   hpCurrent:    11,
@@ -721,6 +723,9 @@ function setupMemo() {
       // hpCurrent / mpCurrent / infinityLevel はマイナスあり（下限なし）
 
       memo[key] = val;
+      if (key === 'hpCurrent' || key === 'mpCurrent') linked = false;
+      if (linked && key === 'hpMax') memo.hpCurrent = val;
+      if (linked && key === 'mpMax') memo.mpCurrent = val;
       if (key === 'hpCurrent')     scheduleHpHistory();
       if (key === 'mpCurrent')     scheduleMpHistory();
       if (key === 'infinityLevel') scheduleInfinityHistory();
@@ -743,6 +748,9 @@ function setupMemo() {
       if (isNaN(val)) return;
       if (id === 'hp-current' && hpHistoryBefore === null) hpHistoryBefore = memo.hpCurrent;
       if (id === 'mp-current' && mpHistoryBefore === null) mpHistoryBefore = memo.mpCurrent;
+      if (id === 'hp-current' || id === 'mp-current') linked = false;
+      if (linked && id === 'hp-max-val') { memo.hpCurrent = val; setInputVal('hp-current', val); }
+      if (linked && id === 'mp-max-val') { memo.mpCurrent = val; setInputVal('mp-current', val); }
       memo[key] = val;
       if (id === 'hp-current') scheduleHpHistory();
       if (id === 'mp-current') scheduleMpHistory();
@@ -790,6 +798,104 @@ function setupNote() {
   try { area.value = localStorage.getItem(NOTE_KEY) || ''; } catch (_) {}
   area.addEventListener('input', () => {
     try { localStorage.setItem(NOTE_KEY, area.value); } catch (_) {}
+  });
+}
+
+// ── Session reset ──────────────────────────────────────────────────────
+function setupReset() {
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    if (!confirm('ステータス・メモ・履歴をリセットします。\nこの操作は元に戻せません。よろしいですか？')) return;
+    localStorage.removeItem(MEMO_KEY);
+    localStorage.removeItem(NOTE_KEY);
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (saved) {
+        saved.history = [];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+      }
+    } catch (_) {}
+    location.reload();
+  });
+}
+
+// ── Data export / import ───────────────────────────────────────────────
+function encodeBundle(obj) {
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin);
+}
+
+function decodeBundle(b64) {
+  const bin = atob(b64.trim());
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+function buildExportCode() {
+  return encodeBundle({
+    m: JSON.parse(localStorage.getItem(MEMO_KEY) || 'null'),
+    n: localStorage.getItem(NOTE_KEY) || '',
+  });
+}
+
+function applyImport(code) {
+  const bundle = decodeBundle(code);
+  if (bundle.m != null) localStorage.setItem(MEMO_KEY, JSON.stringify(bundle.m));
+  if (bundle.n != null) localStorage.setItem(NOTE_KEY, bundle.n);
+  location.reload();
+}
+
+function setupDataTransfer() {
+  const exportToggle  = document.getElementById('export-toggle-btn');
+  const exportArea    = document.getElementById('export-area');
+  const exportText    = document.getElementById('export-text');
+  const exportCopyBtn = document.getElementById('export-copy-btn');
+  const exportDlBtn   = document.getElementById('export-download-btn');
+
+  exportToggle.addEventListener('click', () => {
+    const opening = exportArea.classList.toggle('hidden') === false;
+    if (opening) exportText.value = buildExportCode();
+  });
+
+  exportCopyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(exportText.value).then(() => {
+      exportCopyBtn.textContent = 'コピーしました！';
+      setTimeout(() => { exportCopyBtn.textContent = 'コピー'; }, 2000);
+    }).catch(() => {
+      exportText.select();
+      document.execCommand('copy');
+    });
+  });
+
+  exportDlBtn.addEventListener('click', () => {
+    const blob = new Blob([exportText.value], { type: 'text/plain' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'emoklore-save.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  const importToggle   = document.getElementById('import-toggle-btn');
+  const importArea     = document.getElementById('import-area');
+  const importText     = document.getElementById('import-text');
+  const importApplyBtn = document.getElementById('import-apply-btn');
+
+  importToggle.addEventListener('click', () => {
+    importArea.classList.toggle('hidden');
+  });
+
+  importApplyBtn.addEventListener('click', () => {
+    const code = importText.value.trim();
+    if (!code) return;
+    try {
+      applyImport(code);
+    } catch (_) {
+      alert('セーブコードが正しくありません');
+    }
   });
 }
 
@@ -854,6 +960,7 @@ function init() {
   syncUIToState();
   renderHistory();
   loadMemo();
+  if (memo.hpMax === memo.hpCurrent && memo.mpMax === memo.mpCurrent) linked = true;
   populateEmotionSelects();
   syncMemoUI();
 
@@ -864,6 +971,8 @@ function init() {
   setupMemo();
   setupNote();
   setupInstallButton();
+  setupReset();
+  setupDataTransfer();
 
   document.getElementById('roll-btn').addEventListener('click', rollEmoklore);
   document.getElementById('extra-roll-btn').addEventListener('click', rollExtra);

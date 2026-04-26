@@ -174,20 +174,20 @@
           <div class="memo-card">
             <div class="memo-stat-label">HP</div>
             <div class="memo-sub-row">
-              <span class="memo-sub-label">最大</span>
-              <div class="stepper stepper-sm">
-                <button class="stepper-btn stepper-btn-sm" data-memo="hpMax" data-delta="-1">－</button>
-                <input type="number" id="hp-max-val" class="stepper-value stepper-value-sm stepper-input" value="11" min="0" inputmode="numeric">
-                <button class="stepper-btn stepper-btn-sm" data-memo="hpMax" data-delta="1">＋</button>
-              </div>
-            </div>
-            <div class="memo-bar-track"><div id="hp-bar" class="memo-bar-fill"></div></div>
-            <div class="memo-sub-row">
               <span class="memo-sub-label">現在</span>
               <div class="stepper stepper-sm">
                 <button class="stepper-btn stepper-btn-sm" data-memo="hpCurrent" data-delta="-1">－</button>
                 <input type="number" id="hp-current" class="stepper-value stepper-value-sm stepper-input" value="11" min="0" inputmode="numeric">
                 <button class="stepper-btn stepper-btn-sm" data-memo="hpCurrent" data-delta="1">＋</button>
+              </div>
+            </div>
+            <div class="memo-bar-track"><div id="hp-bar" class="memo-bar-fill"></div></div>
+            <div class="memo-sub-row">
+              <span class="memo-sub-label">最大</span>
+              <div class="stepper stepper-sm">
+                <button class="stepper-btn stepper-btn-sm" data-memo="hpMax" data-delta="-1">－</button>
+                <input type="number" id="hp-max-val" class="stepper-value stepper-value-sm stepper-input" value="11" min="0" inputmode="numeric">
+                <button class="stepper-btn stepper-btn-sm" data-memo="hpMax" data-delta="1">＋</button>
               </div>
             </div>
           </div>
@@ -196,20 +196,20 @@
           <div class="memo-card">
             <div class="memo-stat-label">MP</div>
             <div class="memo-sub-row">
-              <span class="memo-sub-label">最大</span>
-              <div class="stepper stepper-sm">
-                <button class="stepper-btn stepper-btn-sm" data-memo="mpMax" data-delta="-1">－</button>
-                <input type="number" id="mp-max-val" class="stepper-value stepper-value-sm stepper-input" value="7" min="0" inputmode="numeric">
-                <button class="stepper-btn stepper-btn-sm" data-memo="mpMax" data-delta="1">＋</button>
-              </div>
-            </div>
-            <div class="memo-bar-track"><div id="mp-bar" class="memo-bar-fill mp"></div></div>
-            <div class="memo-sub-row">
               <span class="memo-sub-label">現在</span>
               <div class="stepper stepper-sm">
                 <button class="stepper-btn stepper-btn-sm" data-memo="mpCurrent" data-delta="-1">－</button>
                 <input type="number" id="mp-current" class="stepper-value stepper-value-sm stepper-input" value="7" min="0" inputmode="numeric">
                 <button class="stepper-btn stepper-btn-sm" data-memo="mpCurrent" data-delta="1">＋</button>
+              </div>
+            </div>
+            <div class="memo-bar-track"><div id="mp-bar" class="memo-bar-fill mp"></div></div>
+            <div class="memo-sub-row">
+              <span class="memo-sub-label">最大</span>
+              <div class="stepper stepper-sm">
+                <button class="stepper-btn stepper-btn-sm" data-memo="mpMax" data-delta="-1">－</button>
+                <input type="number" id="mp-max-val" class="stepper-value stepper-value-sm stepper-input" value="7" min="0" inputmode="numeric">
+                <button class="stepper-btn stepper-btn-sm" data-memo="mpMax" data-delta="1">＋</button>
               </div>
             </div>
           </div>
@@ -292,6 +292,34 @@
         <div class="setting-row" id="install-row">
           <span class="setting-label">ホーム画面に追加</span>
           <button id="install-btn" class="install-btn">追加する</button>
+        </div>
+        <div class="setting-section">
+          <div class="setting-row">
+            <span class="setting-label">データセーブ</span>
+            <button id="export-toggle-btn" class="install-btn">セーブ</button>
+          </div>
+          <div id="export-area" class="data-area hidden">
+            <textarea id="export-text" class="data-textarea" readonly></textarea>
+            <div class="data-btn-row">
+              <button id="export-copy-btn" class="data-btn">コピー</button>
+              <button id="export-download-btn" class="data-btn">ダウンロード</button>
+            </div>
+          </div>
+        </div>
+        <div class="setting-section">
+          <div class="setting-row">
+            <span class="setting-label">データロード</span>
+            <button id="import-toggle-btn" class="install-btn">ロード</button>
+          </div>
+          <div id="import-area" class="data-area hidden">
+            <p class="data-warning">現在のデータは上書きされます</p>
+            <textarea id="import-text" class="data-textarea" placeholder="セーブコードを貼り付け"></textarea>
+            <button id="import-apply-btn" class="data-btn data-btn-danger">ロードする</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">データリセット</span>
+          <button id="reset-btn" class="install-btn install-btn-danger">リセット</button>
         </div>
       </div>
       <p class="settings-credit">このツールは『エモクロアTRPG』の二次創作ツールです。公式とは関係ありません。</p>
