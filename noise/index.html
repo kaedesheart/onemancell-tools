@@ -422,6 +422,217 @@
 
     const els = {};
 
+    // ===== Web Audio =====
+    const audio = {
+      ctx: null,
+      master: null,
+      buffers: {},
+      tracks: {},
+    };
+    const RAMP = 0.08;
+
+    function makeWhiteBuffer(ctx, seconds) {
+      const buf = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      return buf;
+    }
+
+    function makePinkBuffer(ctx, seconds) {
+      const buf = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (let i = 0; i < data.length; i++) {
+        const w = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + w * 0.0555179;
+        b1 = 0.99332 * b1 + w * 0.0750759;
+        b2 = 0.96900 * b2 + w * 0.1538520;
+        b3 = 0.86650 * b3 + w * 0.3104856;
+        b4 = 0.55000 * b4 + w * 0.5329522;
+        b5 = -0.7616 * b5 - w * 0.0168980;
+        data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+        b6 = w * 0.115926;
+      }
+      return buf;
+    }
+
+    function makeBrownBuffer(ctx, seconds) {
+      const buf = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      let last = 0;
+      for (let i = 0; i < data.length; i++) {
+        const w = Math.random() * 2 - 1;
+        last = (last + 0.02 * w) / 1.02;
+        data[i] = last * 3.5;
+      }
+      return buf;
+    }
+
+    function loopSource(buffer) {
+      const src = audio.ctx.createBufferSource();
+      src.buffer = buffer;
+      src.loop = true;
+      src.start();
+      return src;
+    }
+
+    function buildTrack(id) {
+      const ctx = audio.ctx;
+      const trackGain = ctx.createGain();
+      trackGain.gain.value = 0;
+      trackGain.connect(audio.master);
+      const nodes = { gain: trackGain };
+
+      switch (id) {
+        case 'white': {
+          const src = loopSource(audio.buffers.white);
+          const trim = ctx.createGain(); trim.gain.value = 0.45;
+          src.connect(trim).connect(trackGain);
+          break;
+        }
+        case 'pink': {
+          const src = loopSource(audio.buffers.pink);
+          const trim = ctx.createGain(); trim.gain.value = 1.0;
+          src.connect(trim).connect(trackGain);
+          break;
+        }
+        case 'brown': {
+          const src = loopSource(audio.buffers.brown);
+          const trim = ctx.createGain(); trim.gain.value = 1.1;
+          src.connect(trim).connect(trackGain);
+          break;
+        }
+        case 'rain': {
+          const src = loopSource(audio.buffers.white);
+          const hp = ctx.createBiquadFilter();
+          hp.type = 'highpass'; hp.frequency.value = 400;
+          const lp = ctx.createBiquadFilter();
+          lp.type = 'lowpass'; lp.frequency.value = 3200; lp.Q.value = 0.6;
+          const trim = ctx.createGain(); trim.gain.value = 1.6;
+          src.connect(hp).connect(lp).connect(trim).connect(trackGain);
+          // ゆっくり強弱
+          const lfo = ctx.createOscillator();
+          lfo.frequency.value = 0.07;
+          const lfoGain = ctx.createGain(); lfoGain.gain.value = 700;
+          lfo.connect(lfoGain).connect(lp.frequency);
+          lfo.start();
+          break;
+        }
+        case 'wave': {
+          const src = loopSource(audio.buffers.brown);
+          const lp = ctx.createBiquadFilter();
+          lp.type = 'lowpass'; lp.frequency.value = 700;
+          const ampMod = ctx.createGain(); ampMod.gain.value = 0.5;
+          const trim = ctx.createGain(); trim.gain.value = 1.6;
+          src.connect(lp).connect(ampMod).connect(trim).connect(trackGain);
+          // 寄せては返すうねり
+          const lfo = ctx.createOscillator();
+          lfo.type = 'sine';
+          lfo.frequency.value = 0.12;
+          const lfoGain = ctx.createGain(); lfoGain.gain.value = 0.45;
+          lfo.connect(lfoGain).connect(ampMod.gain);
+          lfo.start();
+          break;
+        }
+        case 'wind': {
+          const src = loopSource(audio.buffers.brown);
+          const bp = ctx.createBiquadFilter();
+          bp.type = 'bandpass'; bp.frequency.value = 600; bp.Q.value = 1.4;
+          const trim = ctx.createGain(); trim.gain.value = 4.5;
+          src.connect(bp).connect(trim).connect(trackGain);
+          // 風のピッチ揺らぎ
+          const lfo = ctx.createOscillator();
+          lfo.type = 'sine';
+          lfo.frequency.value = 0.09;
+          const lfoGain = ctx.createGain(); lfoGain.gain.value = 380;
+          lfo.connect(lfoGain).connect(bp.frequency);
+          lfo.start();
+          break;
+        }
+        case 'fire': {
+          // 低音の燃焼ベッド
+          const src = loopSource(audio.buffers.pink);
+          const lp = ctx.createBiquadFilter();
+          lp.type = 'lowpass'; lp.frequency.value = 700;
+          const trim = ctx.createGain(); trim.gain.value = 1.0;
+          src.connect(lp).connect(trim).connect(trackGain);
+          // パチパチはスケジューラで動的生成（trackGain にバスする）
+          nodes.crackleTimer = null;
+          break;
+        }
+      }
+      audio.tracks[id] = nodes;
+    }
+
+    function fireCrackleBurst() {
+      const ctx = audio.ctx;
+      if (!ctx) return;
+      const len = 0.03 + Math.random() * 0.07;
+      const sampleCount = Math.floor(ctx.sampleRate * len);
+      const buf = ctx.createBuffer(1, sampleCount, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < sampleCount; i++) {
+        const env = Math.exp(-i / sampleCount * 7);
+        d[i] = (Math.random() * 2 - 1) * env;
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass'; hp.frequency.value = 1500;
+      const g = ctx.createGain();
+      g.gain.value = 0.25 + Math.random() * 0.45;
+      src.connect(hp).connect(g).connect(audio.tracks.fire.gain);
+      src.start();
+      src.stop(ctx.currentTime + len + 0.05);
+    }
+
+    function startFireCrackle() {
+      const f = audio.tracks.fire;
+      if (!f || f.crackleTimer) return;
+      const tick = () => {
+        if (!state.tracks.fire.on || !state.playing) {
+          f.crackleTimer = null;
+          return;
+        }
+        fireCrackleBurst();
+        f.crackleTimer = setTimeout(tick, 50 + Math.random() * 380);
+      };
+      tick();
+    }
+
+    async function ensureAudio() {
+      if (audio.ctx) {
+        if (audio.ctx.state === 'suspended') await audio.ctx.resume();
+        return;
+      }
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      audio.ctx = ctx;
+      audio.master = ctx.createGain();
+      audio.master.gain.value = 0;
+      audio.master.connect(ctx.destination);
+      audio.buffers.white = makeWhiteBuffer(ctx, 5);
+      audio.buffers.pink  = makePinkBuffer(ctx, 5);
+      audio.buffers.brown = makeBrownBuffer(ctx, 8);
+      TRACKS.forEach(t => buildTrack(t.id));
+    }
+
+    function rampTrackGain(id) {
+      const node = audio.tracks[id];
+      if (!node) return;
+      const target = state.tracks[id].on ? state.tracks[id].vol : 0;
+      const t = audio.ctx.currentTime;
+      node.gain.gain.cancelScheduledValues(t);
+      node.gain.gain.setTargetAtTime(target, t, RAMP);
+    }
+
+    function rampMasterGain() {
+      if (!audio.master) return;
+      const target = state.playing ? state.master : 0;
+      const t = audio.ctx.currentTime;
+      audio.master.gain.cancelScheduledValues(t);
+      audio.master.gain.setTargetAtTime(target, t, RAMP);
+    }
+
     function buildTracks() {
       const container = document.getElementById('tracks');
       container.innerHTML = TRACKS.map(t => `
@@ -445,28 +656,45 @@
       });
     }
 
-    function toggleTrack(id) {
+    async function toggleTrack(id) {
       state.tracks[id].on = !state.tracks[id].on;
       renderTrack(id);
+      if (state.playing) {
+        await ensureAudio();
+        rampTrackGain(id);
+        if (id === 'fire' && state.tracks.fire.on) startFireCrackle();
+      }
     }
     function setTrackVol(id, v) {
       state.tracks[id].vol = v;
       document.getElementById(`vol-label-${id}`).textContent = Math.round(v * 100);
+      if (state.playing && state.tracks[id].on && audio.ctx) rampTrackGain(id);
     }
     function renderTrack(id) {
       const el = document.querySelector(`.track[data-id="${id}"]`);
       el.classList.toggle('on', state.tracks[id].on);
     }
 
-    function togglePlay() {
+    async function togglePlay() {
       state.playing = !state.playing;
       els.playBtn.textContent = state.playing ? '■' : '▶';
       els.playBtn.classList.toggle('playing', state.playing);
       els.statusText.textContent = state.playing ? '再生中' : '停止中';
+
+      if (state.playing) {
+        await ensureAudio();
+        // 全トラックの現在状態に合わせてゲインを揃える
+        TRACKS.forEach(t => rampTrackGain(t.id));
+        rampMasterGain();
+        if (state.tracks.fire.on) startFireCrackle();
+      } else {
+        rampMasterGain();
+      }
     }
 
-    function unlock() {
+    async function unlock() {
       els.unlockOverlay.classList.add('hidden');
+      try { await ensureAudio(); } catch (e) { console.error(e); }
     }
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -479,7 +707,10 @@
       buildTracks();
 
       els.playBtn.addEventListener('click', togglePlay);
-      els.masterVol.addEventListener('input', e => { state.master = +e.target.value / 100; });
+      els.masterVol.addEventListener('input', e => {
+        state.master = +e.target.value / 100;
+        if (state.playing && audio.master) rampMasterGain();
+      });
 
       els.unlockOverlay.addEventListener('click', unlock);
     });
