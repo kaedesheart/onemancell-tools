@@ -955,7 +955,7 @@ function setupInstallButton() {
 }
 
 // ── Ad banner ──────────────────────────────────────────────────────────
-const AD_ROTATE_MS = 120000; // 2分
+const AD_ROTATE_MS = 5000; // 2分（テスト中：5秒）
 let adList  = [];
 let adIndex = 0;
 
