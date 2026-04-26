@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Focus Timer</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" sizes="160x160" href="favicon.png">
+    <style>
+        :root {
+            --bg-work: #D9453C;      
+            --bg-break: #4CAF50;     
+            --bg-long: #2196F3;      
+            --text-color: #ffffff;
+        }
+
+        body {
+            background-color: var(--bg-work);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            overflow: hidden; 
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+            transition: background-color 0.5s ease;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            padding-bottom: 0; 
+            transition: padding-bottom 0.5s ease;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .container {
+            text-align: center;
+            width: 90vmin;
+            height: auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #status-label {
+            font-size: 5vmin;
+            opacity: 0.9;
+            letter-spacing: 0.1em;
+            margin-bottom: 2vmin;
+        }
+
+        #timer {
+            font-size: 28vmin;
+            font-weight: 700;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+            margin: 0;
+        }
+
+        #set-counter {
+            font-size: 4vmin;
+            margin-top: 2vmin;
+            opacity: 0.9;
+            font-weight: bold;
+        }
+
+        #total-counter {
+            font-size: 3vmin;
+            margin-top: 1vmin;
+            opacity: 0.6;
+            letter-spacing: 0.05em;
+        }
+
+        .controls {
+            margin-top: 5vmin;
+            display: flex;
+            gap: 20px;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            padding: 1.5vmin 4vmin;
+            font-size: 3vmin;
+            border-radius: 50px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            transition: all 0.2s;
+            touch-action: manipulation;
+        }
+        button:active {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(0.95);
+        }
+
+        #mute-overlay {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.6);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            pointer-events: none;
+            opacity: 1;
+            transition: opacity 0.5s;
+            z-index: 100;
+        }
+
+        .bottom-sheet-area {
+            position: fixed;
+            bottom: -100%;
+            left: 0;
+            width: 100%;
+            max-height: 80vh; 
+            background-color: #f9f9f9;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 50;
+            box-shadow: 0 -4px 30px rgba(0,0,0,0.3);
+            transition: bottom 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+            color: #333;
+            padding-bottom: 30px; 
+            box-sizing: border-box;
+        }
+
+        .bottom-sheet-area.visible {
+            bottom: 0;
+        }
+
+        .sheet-header {
+            width: 100%;
+            padding: 15px 0;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        .sheet-title {
+            font-size: 12px;
+            color: #888;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .card-list {
+            width: 100%;
+            overflow-y: auto; 
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-direction: column; 
+        }
+
+        @media (min-aspect-ratio: 1.2/1) {
+            .card-list {
+                flex-direction: row; 
+                justify-content: center; 
+                flex-wrap: wrap; 
+                align-items: stretch;
+            }
+            .info-card {
+                width: 300px !important;
+                max-width: none !important;
+            }
+            .bottom-sheet-area {
+                max-height: 60vh;
+            }
+        }
+
+        .info-card {
+            display: flex;
+            align-items: center;
+            background: #fff;
+            padding: 15px 20px;
+            border-radius: 16px;
+            text-decoration: none;
+            color: #111;
+            font-size: 14px;
+            font-weight: bold;
+            transition: transform 0.1s, background 0.1s;
+            border: 1px solid #eee;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+            width: 100%;
+            max-width: 450px;
+            cursor: pointer;
+            box-sizing: border-box;
+            position: relative;
+        }
+        
+        .info-card:active {
+            transform: scale(0.98);
+            background: #f2f2f2;
+        }
+
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background-color: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .card-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .icon-install {
+            width: 24px;
+            height: 24px;
+            background: #333;
+            mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 15V3m0 0l-4 4m4-4l4 4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>') no-repeat center;
+            -webkit-mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 15V3m0 0l-4 4m4-4l4 4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>') no-repeat center;
+            mask-size: contain;
+            -webkit-mask-size: contain;
+        }
+
+        .card-desc {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            flex-grow: 1;
+            line-height: 1.4;
+        }
+        
+        .card-sub {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+            font-weight: normal;
+        }
+
+        .card-arrow {
+            color: #ccc;
+            font-size: 20px;
+            margin-left: 10px;
+        }
+
+        .info-card.install-card {
+            background-color: #333;
+            color: #fff;
+            border: none;
+        }
+        .info-card.install-card .card-sub {
+            color: #ccc;
+        }
+        .info-card.install-card .icon-install {
+            background: #fff;
+        }
+        .info-card.install-card .card-icon {
+            background-color: transparent;
+            width: auto; height: auto;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="mute-overlay">画面をタップして音声を有効化</div>
+
+    <div class="main-content" id="main-content-area">
+        <div class="container">
+            <div id="status-label">FOCUS</div>
+            <div id="timer">25:00</div>
+            
+            <div id="set-counter">SET 1 / 4</div>
+            <div id="total-counter">TOTAL: 1</div>
+
+            <div class="controls">
+                <button id="toggleBtn" onclick="toggleTimer()">PAUSE</button>
+                <button onclick="skipPhase()">SKIP</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-sheet-area" id="bottom-sheet">
+        <div class="sheet-header">
+            <div class="sheet-title">BREAK TIME MENU</div>
+        </div>
+        
+        <div class="card-list">
+
+            <a href="https://www.amazon.co.jp/Soundcore-5%EF%BC%88Bluetooth-5-4%EF%BC%89%E3%80%90%E5%AE%8C%E5%85%A8%E3%83%AF%E3%82%A4%E3%83%A4%E3%83%AC%E3%82%B9%E3%82%A4%E3%83%A4%E3%83%9B%E3%83%B3-%E3%82%A6%E3%83%AB%E3%83%88%E3%83%A9%E3%83%8E%E3%82%A4%E3%82%BA%E3%82%AD%E3%83%A3%E3%83%B3%E3%82%BB%E3%83%AA%E3%83%B3%E3%82%B0-PSE%E6%8A%80%E8%A1%93%E5%9F%BA%E6%BA%96%E9%81%A9%E5%90%88%E3%80%91%E3%83%9F%E3%83%83%E3%83%89%E3%83%8A%E3%82%A4%E3%83%88%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/dp/B0DRVB48LJ?crid=1CNUYFHPBEQ7E&dib=eyJ2IjoiMSJ9.3V096bw_t3xjqbiwhw5psB-mGN5E_yw6qunACVLn6ahxBGCxDbpTBtz-Ud6YEd7Iljm3CFUYFF-co2zv0_CT2MRiv8qGZBUsAX3yNoF3_xKzq9C5YI1YegLvabvY7BZAQasIbhljnXd4F4IGMn5imniIbSizWoTkNRh2iH7ciwvYzl6g4dQCbIyvEljpXHTaX94PYfoB-FHhm5vEV8CKF0YOUBvfJ8fl5feLpV2qNgaE13BSM4cVwMd4hMgUaQlsLSC7qRBQeEzRCLnJNs8sk7MultSsRpKHMmL_bddS53E.3JJq_CQOca4_Z8MBQvuKY6f2vqMMiIwSxDmMxTXjBfA&dib_tag=se&keywords=anker%2B%E3%83%AF%E3%82%A4%E3%83%A4%E3%83%AC%E3%82%B9%E3%82%A4%E3%83%A4%E3%83%9B%E3%83%B3&qid=1765498875&sprefix=anker%2B%2Caps%2C243&sr=8-2-spons&ufe=app_do%3Aamzn1.fos.bf5b3200-08a5-4406-bf4b-e679e8ebbcc3&sp_csd=d2lkZ2V0TmFtZT1zcF9hdGY&th=1&linkCode=ll1&tag=mapleheart06-22&linkId=09a16f91afed87e30b4139e4aca24267&language=ja_JP&ref_=as_li_ss_tl" target="_blank" class="info-card">
+                <div class="card-icon">
+                    <img src="Anker_Soundcore_Liberty_5.jpg" alt="イヤホン">
+                </div>
+                <div class="card-desc">
+                    <span>Soundcore Liberty 5</span>
+                    <span class="card-sub">静寂で集中力を最大化</span>
+                </div>
+                <span class="card-arrow">›</span>
+            </a>
+
+            <a href="https://www.amazon.co.jp/RELX-%E3%83%9B%E3%83%83%E3%83%88%E3%82%A2%E3%82%A4%E3%83%9E%E3%82%B9%E3%82%AF-%E5%85%85%E9%9B%BB%E5%BC%8F%C3%97%E3%82%B3%E3%83%BC%E3%83%89%E3%83%AC%E3%82%B9-%E3%82%A2%E3%82%A4%E3%83%9E%E3%82%B9%E3%82%AF-%E5%BF%AB%E7%9C%A0%E3%82%B0%E3%83%83%E3%82%BA/dp/B0DT9BQFRF?__mk_ja_JP=%E3%82%AB%E3%82%BF%E3%82%AB%E3%83%8A&crid=B85DPU1WETN8&dib=eyJ2IjoiMSJ9.AYtcEllZ96hBMJ9K36VEeDPYxKXQNi8v4EwhltDNSYpvbccyEQ4XIj2BCorumxzmHc8cspG51fdZ_CyYXUquhxtodUfBKkZL6hYzIbxTBMQmdloWyxKN60vpWyNEQpiSv7E2UMrxMW4LnjbK2G8YBSxU7qtcnqPh6d75FfbgTIhE0ACzrGGw0ggRh1g53MXyLuLP70VU0_m9cPJO8Gtt8cFR04z1ChKjQMAhKp3Dy3cR4YO9fN0KUbWokYcD2bEwdjpQDsJLERsq5PhMKnqAvIy7wyN8v37XOYq5bCCuCVk.xw-Xi0NS5YSM5qrR4XjN8T7PZZNKifyr7BAJ12YLXnQ&dib_tag=se&keywords=%E3%83%9B%E3%83%83%E3%83%88%E3%82%A2%E3%82%A4%E3%83%9E%E3%82%B9%E3%82%AF&qid=1765499084&sprefix=%E3%83%9B%E3%83%83%E3%83%88%E3%82%A2%E3%82%A4%E3%83%9E%E3%82%B9%E3%82%AF%2Caps%2C220&sr=8-1-spons&sp_csd=d2lkZ2V0TmFtZT1zcF9hdGY&th=1&linkCode=ll1&tag=mapleheart06-22&linkId=9038e6a0802bcedd97298c3a5adb639d&language=ja_JP&ref_=as_li_ss_tl" target="_blank" class="info-card">
+                <div class="card-icon">
+                    <img src="RELXホットアイマスク.jpg" alt="アイマスク">
+                </div>
+                <div class="card-desc">
+                    <span>充電式ホットアイマスク</span>
+                    <span class="card-sub">5分休憩で視界をリフレッシュ</span>
+                </div>
+                <span class="card-arrow">›</span>
+            </a>
+
+            <div id="install-card" class="info-card install-card" style="display: none;">
+                <div class="card-icon">
+                    <div class="icon-install"></div>
+                </div>
+                <div class="card-desc">
+                    <span>アプリとして使う</span>
+                    <span class="card-sub">全画面表示・スリープ防止機能</span>
+                </div>
+                <span class="card-arrow">↓</span>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- 設定 (分) ---
+        const TIME_WORK = 25;
+        const TIME_SHORT_BREAK = 5;
+        const TIME_LONG_BREAK = 35;
+        const SETS_UNTIL_LONG = 4;
+
+        // --- 状態管理 ---
+        let currentState = 'WORK'; 
+        let currentSet = 1;
+        let totalSets = 1;
+        let timeLeft = TIME_WORK * 60;
+        let timerInterval = null;
+        let isRunning = true;
+        let wakeLock = null;
+        let audioCtx = null;
+
+        // --- DOM要素 ---
+        const elTimer = document.getElementById('timer');
+        const elStatus = document.getElementById('status-label');
+        const elSet = document.getElementById('set-counter');
+        const elTotal = document.getElementById('total-counter');
+        const elBody = document.body;
+        const elToggleBtn = document.getElementById('toggleBtn');
+        const elOverlay = document.getElementById('mute-overlay');
+        const elBottomSheet = document.getElementById('bottom-sheet');
+        const elMainContent = document.getElementById('main-content-area');
+        const elInstallCard = document.getElementById('install-card');
+
+        // --- デバイス・OS判定 & インストールボタン制御 ---
+        function initInstallButton() {
+            // PWAモードで起動中は表示しない
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+            if (isStandalone) return;
+
+            const ua = navigator.userAgent.toLowerCase();
+            const isIos = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const isAndroid = /android/.test(ua);
+
+            // スマホ(iOS/Android)の場合のみボタンを表示
+            if (isIos || isAndroid) {
+                elInstallCard.style.display = 'flex';
+                
+                // OSに合わせてクリック時のメッセージを変える
+                elInstallCard.onclick = () => {
+                    let msg = "";
+                    if (isIos) {
+                        msg = "【iPhone/iPadの方】\n\n画面下部(または上部)にある「共有アイコン」を押し、\n「ホーム画面に追加」を選択してください。";
+                    } else if (isAndroid) {
+                        msg = "【Androidの方】\n\nブラウザのメニュー(︙)から\n「アプリをインストール」または\n「ホーム画面に追加」を選択してください。";
+                    }
+                    alert(msg);
+                };
+            }
+        }
+
+        // --- シート表示制御 ---
+        function updateSheetVisibility() {
+            if (currentState === 'WORK') {
+                elBottomSheet.classList.remove('visible');
+                elMainContent.style.paddingBottom = '0';
+            } else {
+                elBottomSheet.classList.add('visible');
+                if (window.innerWidth > window.innerHeight) {
+                    elMainContent.style.paddingBottom = '250px'; 
+                } else {
+                    elMainContent.style.paddingBottom = '40vh'; 
+                }
+            }
+        }
+
+        // --- Audio & WakeLock ---
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                elOverlay.style.opacity = '0';
+            }
+        }
+
+        function playAlarm() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(1760, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                } catch (err) { console.error(err); }
+            }
+        }
+
+        // --- タイマー処理 ---
+        function updateDisplay() {
+            const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            const s = (timeLeft % 60).toString().padStart(2, '0');
+            elTimer.textContent = `${m}:${s}`;
+            document.title = `${m}:${s} - ${currentState}`;
+        }
+
+        function switchState() {
+            playAlarm(); 
+
+            if (currentState === 'WORK') {
+                if (currentSet >= SETS_UNTIL_LONG) {
+                    currentState = 'LONG_BREAK';
+                    timeLeft = TIME_LONG_BREAK * 60;
+                    elStatus.textContent = "LONG BREAK";
+                    elBody.style.backgroundColor = "var(--bg-long)";
+                } else {
+                    currentState = 'SHORT_BREAK';
+                    timeLeft = TIME_SHORT_BREAK * 60;
+                    elStatus.textContent = "SHORT BREAK";
+                    elBody.style.backgroundColor = "var(--bg-break)";
+                }
+            } else {
+                if (currentState === 'LONG_BREAK') {
+                    currentSet = 1;
+                } else {
+                    currentSet++;
+                }
+                totalSets++;
+
+                currentState = 'WORK';
+                timeLeft = TIME_WORK * 60;
+                elStatus.textContent = "FOCUS";
+                elBody.style.backgroundColor = "var(--bg-work)";
+            }
+            updateSetDisplay();
+            updateDisplay();
+            updateSheetVisibility();
+        }
+
+        function updateSetDisplay() {
+            if (currentState === 'LONG_BREAK') {
+                elSet.textContent = "RECHARGING...";
+            } else {
+                elSet.textContent = `SET ${currentSet} / ${SETS_UNTIL_LONG}`;
+            }
+            elTotal.textContent = `TOTAL: ${totalSets}`;
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            isRunning = true;
+            elToggleBtn.textContent = "PAUSE";
+            requestWakeLock();
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                if (timeLeft < 0) {
+                    switchState();
+                } else {
+                    updateDisplay();
+                }
+            }, 1000);
+        }
+
+        function toggleTimer() {
+            if (isRunning) {
+                clearInterval(timerInterval);
+                isRunning = false;
+                elToggleBtn.textContent = "RESUME";
+                if (wakeLock) wakeLock.release();
+            } else {
+                startTimer();
+            }
+        }
+
+        function skipPhase() {
+            switchState();
+            if (isRunning) {
+                startTimer();
+            }
+        }
+
+        window.onload = () => {
+            initInstallButton(); // デバイス判定実行
+            updateDisplay();
+            updateSetDisplay();
+            updateSheetVisibility();
+
+            startTimer(); 
+
+            const unlockAudio = () => {
+                initAudio();
+                document.removeEventListener('click', unlockAudio);
+                document.removeEventListener('touchstart', unlockAudio);
+            };
+            document.addEventListener('click', unlockAudio);
+            document.addEventListener('touchstart', unlockAudio);
+            
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && isRunning) {
+                    requestWakeLock();
+                }
+            });
+            
+            window.addEventListener('resize', updateSheetVisibility);
+        };
+    </script>
+</body>
+</html>
