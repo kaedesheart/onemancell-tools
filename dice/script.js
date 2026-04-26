@@ -955,27 +955,55 @@ function setupInstallButton() {
 }
 
 // ── Ad banner ──────────────────────────────────────────────────────────
+const AD_ROTATE_MS = 120000; // 2分
+let adList  = [];
+let adIndex = 0;
+
+function applyAd(index) {
+  const { image, name, url } = adList[index];
+  const banner = document.getElementById('ad-banner');
+  const thumb  = banner.querySelector('.ad-thumb');
+  thumb.style.display = '';
+  banner.querySelector('.ad-link').href       = url;
+  banner.querySelector('.ad-name').textContent = name;
+  thumb.alt = name;
+  thumb.src = `adsimg/${image}`;
+}
+
+function rotateAd() {
+  if (adList.length <= 1) return;
+  const link = document.querySelector('#ad-banner .ad-link');
+  link.classList.add('flip-out');
+  setTimeout(() => {
+    adIndex = (adIndex + 1) % adList.length;
+    applyAd(adIndex);
+    link.classList.remove('flip-out');
+    link.classList.add('flip-in');
+    setTimeout(() => link.classList.remove('flip-in'), 220);
+  }, 220);
+}
+
 async function setupAd() {
   try {
     const res = await fetch('ads.csv');
     if (!res.ok) return;
     const lines = (await res.text()).trim().split('\n').slice(1).filter(l => l.trim());
-    if (lines.length === 0) return;
-    const line  = lines[Math.floor(Math.random() * lines.length)];
-    const parts = line.split(',');
-    if (parts.length < 3) return;
-    const image = parts[0].trim();
-    const name  = parts[1].trim();
-    const url   = parts.slice(2).join(',').trim();
-    if (!image || !url) return;
+    adList = lines.map(line => {
+      const parts = line.split(',');
+      if (parts.length < 3) return null;
+      const image = parts[0].trim();
+      const name  = parts[1].trim();
+      const url   = parts.slice(2).join(',').trim();
+      return (image && url) ? { image, name, url } : null;
+    }).filter(Boolean);
+    if (adList.length === 0) return;
+    adIndex = Math.floor(Math.random() * adList.length);
     const banner = document.getElementById('ad-banner');
     const thumb  = banner.querySelector('.ad-thumb');
-    banner.querySelector('.ad-link').href      = url;
-    banner.querySelector('.ad-name').textContent = name;
-    thumb.alt   = name;
     thumb.onerror = () => { thumb.style.display = 'none'; };
-    thumb.src   = `adsimg/${encodeURIComponent(image)}`;
+    applyAd(adIndex);
     banner.classList.remove('hidden');
+    if (adList.length > 1) setInterval(rotateAd, AD_ROTATE_MS);
   } catch (_) {}
 }
 

@@ -123,6 +123,17 @@ ul { list-style: none; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+@keyframes adFlipOut {
+  from { transform: perspective(600px) rotateY(0deg);   }
+  to   { transform: perspective(600px) rotateY(90deg);  }
+}
+@keyframes adFlipIn {
+  from { transform: perspective(600px) rotateY(-90deg); }
+  to   { transform: perspective(600px) rotateY(0deg);   }
+}
+.ad-link.flip-out { animation: adFlipOut 0.22s ease-in  forwards; }
+.ad-link.flip-in  { animation: adFlipIn  0.22s ease-out forwards; }
+
 .ad-cta {
   font-size: 0.7rem;
   color: var(--accent-dark);
