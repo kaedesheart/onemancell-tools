@@ -262,8 +262,7 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // ===== Stages (puzzle definitions) =====
-    // 座標は 0..1 の比率（W/Hに対する相対値）
+    // ===== Stages (フォールバック用 hand-crafted、座標は 0..1 比率) =====
     const STAGES = [
       {
         name: 'はじめの一歩',
@@ -342,16 +341,17 @@
     // ===== State =====
     const state = {
       running: false,
-      stage: 0,
+      stageNum: 1,
       attempts: 0,
+      currentDef: null, // 今のステージ定義（リトライ用に保持）
       player: { x: 0, y: 0, r: 14, angle: -Math.PI / 2 },
       planets: [],
       targets: [],
       stars: [],
       bullets: [],
       input: { left: false, right: false, rotL: false, rotR: false },
-      flash: 0,         // 失敗演出用
-      lockInput: false, // ステージ切替演出中
+      flash: 0,
+      lockInput: false,
     };
 
     // ===== Physics constants =====
@@ -376,20 +376,166 @@
       return stars;
     }
 
-    function loadStage(idx) {
-      const def = STAGES[idx % STAGES.length];
-      state.player.x = def.player.x * W;
-      state.player.y = Math.min(def.player.y * H, H - PLAYER_BOTTOM_OFFSET);
+    function applyStage(ratioDef) {
+      state.currentDef = ratioDef;
+      state.player.x = ratioDef.player.x * W;
+      state.player.y = Math.min(ratioDef.player.y * H, H - PLAYER_BOTTOM_OFFSET);
       state.player.angle = -Math.PI / 2;
-      state.planets = def.planets.map(p => ({
+      state.planets = ratioDef.planets.map(p => ({
         x: p.x * W, y: p.y * H, r: p.r, mass: p.mass, color: p.color,
       }));
-      state.targets = def.targets.map(t => ({
+      state.targets = ratioDef.targets.map(t => ({
         x: t.x * W, y: t.y * H, r: TARGET_R, hit: false,
       }));
       state.bullets = [];
       state.stars = makeStars(120);
       updateHUD();
+    }
+
+    function expandRatio(ratioDef) {
+      return {
+        player: { x: ratioDef.player.x * W, y: Math.min(ratioDef.player.y * H, H - PLAYER_BOTTOM_OFFSET) },
+        planets: ratioDef.planets.map(p => ({
+          x: p.x * W, y: p.y * H, r: p.r, mass: p.mass, color: p.color,
+        })),
+        targets: ratioDef.targets.map(t => ({ x: t.x * W, y: t.y * H })),
+      };
+    }
+
+    // ===== Random stage generation =====
+    const PALETTE = ['#7CC8E8', '#FFB270', '#C99BFF', '#9FE6A0', '#FF9CAB'];
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const choice = arr => arr[Math.floor(Math.random() * arr.length)];
+
+    function randomRatioStage() {
+      const player = { x: rnd(0.25, 0.75), y: 0.85 };
+      const playerPx = { x: player.x * W, y: player.y * H };
+
+      const planets = [];
+      for (let i = 0; planets.length < 2 && i < 80; i++) {
+        const r = rnd(20, 38);
+        const cand = {
+          x: rnd(0.15, 0.85),
+          y: rnd(0.18, 0.62),
+          r, mass: r * 60,
+          color: choice(PALETTE),
+        };
+        let ok = true;
+        for (const p of planets) {
+          const dx = (cand.x - p.x) * W, dy = (cand.y - p.y) * H;
+          if (Math.hypot(dx, dy) < cand.r + p.r + 36) { ok = false; break; }
+        }
+        if (ok) {
+          const dx = (cand.x * W) - playerPx.x, dy = (cand.y * H) - playerPx.y;
+          if (Math.hypot(dx, dy) < cand.r + 90) ok = false;
+        }
+        if (ok) planets.push(cand);
+      }
+      if (planets.length < 2) return null;
+
+      const targets = [];
+      for (let i = 0; targets.length < 2 && i < 100; i++) {
+        const cand = { x: rnd(0.10, 0.90), y: rnd(0.10, 0.65) };
+        let ok = true;
+        for (const p of planets) {
+          const dx = (cand.x - p.x) * W, dy = (cand.y - p.y) * H;
+          if (Math.hypot(dx, dy) < p.r + 30) { ok = false; break; }
+        }
+        if (ok) {
+          const dx = (cand.x * W) - playerPx.x, dy = (cand.y * H) - playerPx.y;
+          if (Math.hypot(dx, dy) < 110) ok = false;
+        }
+        for (const t of targets) {
+          const dx = (cand.x - t.x) * W, dy = (cand.y - t.y) * H;
+          if (Math.hypot(dx, dy) < 90) { ok = false; break; }
+        }
+        if (ok) targets.push(cand);
+      }
+      if (targets.length < 2) return null;
+
+      return { player, planets, targets };
+    }
+
+    // ある (px, angle) で発射した弾が両方の的を当てるかをシミュレート
+    function simulateHitsAll(absDef, px, py, angle) {
+      const winMask = (1 << absDef.targets.length) - 1;
+      const playerR = 14;
+      const dt = 1 / 60;
+      const maxSteps = Math.floor(60 * BULLET_LIFE);
+      const nx = Math.cos(angle), ny = Math.sin(angle);
+      let x = px + nx * (playerR + 6);
+      let y = py + ny * (playerR + 6);
+      let vx = nx * BULLET_SPEED;
+      let vy = ny * BULLET_SPEED;
+      let hitMask = 0;
+      for (let s = 0; s < maxSteps; s++) {
+        let ax = 0, ay = 0;
+        for (const p of absDef.planets) {
+          const dx = p.x - x, dy = p.y - y;
+          const r = Math.hypot(dx, dy);
+          const safeR = Math.max(r, p.r * 0.6);
+          const inv3 = 1 / (safeR * safeR * safeR);
+          const a = G * p.mass * inv3;
+          ax += a * dx; ay += a * dy;
+        }
+        vx += ax * dt; vy += ay * dt;
+        x  += vx * dt; y  += vy * dt;
+        if (x < -60 || x > W + 60 || y < -60 || y > H + 60) return false;
+        for (const p of absDef.planets) {
+          const dx = x - p.x, dy = y - p.y;
+          if (dx * dx + dy * dy < p.r * p.r) return false;
+        }
+        for (let i = 0; i < absDef.targets.length; i++) {
+          if (hitMask & (1 << i)) continue;
+          const t = absDef.targets[i];
+          const dx = x - t.x, dy = y - t.y;
+          const rr = TARGET_R + 4;
+          if (dx * dx + dy * dy < rr * rr) hitMask |= (1 << i);
+        }
+        if (hitMask === winMask) return true;
+      }
+      return false;
+    }
+
+    // 横20分割 × 30度刻み(12方向) で全探索、2ヒット以上で「程よい難度」と判定
+    function isSolvable(absDef) {
+      const STEPS_X = 20, STEPS_ANGLE = 12, REQUIRED = 2;
+      const py = absDef.player.y;
+      let count = 0;
+      for (let xi = 0; xi < STEPS_X; xi++) {
+        const px = 40 + ((W - 80) * xi) / (STEPS_X - 1);
+        for (let ai = 0; ai < STEPS_ANGLE; ai++) {
+          const angle = (ai * 2 * Math.PI) / STEPS_ANGLE;
+          if (simulateHitsAll(absDef, px, py, angle)) {
+            count++;
+            if (count >= REQUIRED) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function easyFallback() {
+      return {
+        player: { x: 0.5, y: 0.85 },
+        planets: [
+          { x: 0.22, y: 0.55, r: 22, mass: 900, color: '#7CC8E8' },
+          { x: 0.78, y: 0.55, r: 22, mass: 900, color: '#FFB270' },
+        ],
+        targets: [
+          { x: 0.30, y: 0.18 },
+          { x: 0.70, y: 0.18 },
+        ],
+      };
+    }
+
+    function generateSolvableStage() {
+      for (let attempt = 0; attempt < 50; attempt++) {
+        const ratioDef = randomRatioStage();
+        if (!ratioDef) continue;
+        if (isSolvable(expandRatio(ratioDef))) return ratioDef;
+      }
+      return easyFallback();
     }
 
     function applyInput(dt) {
@@ -402,7 +548,7 @@
     }
 
     function updateHUD() {
-      document.getElementById('stage-num').textContent = (state.stage + 1) + ' / ' + STAGES.length;
+      document.getElementById('stage-num').textContent = state.stageNum;
       const remaining = state.targets.filter(t => !t.hit).length;
       const total = state.targets.length;
       document.getElementById('target-count').textContent = (total - remaining) + '/' + total;
@@ -457,24 +603,14 @@
     function endShotCleared() {
       state.bullets = [];
       state.lockInput = true;
-      const isLast = state.stage >= STAGES.length - 1;
-      if (isLast) {
-        showResult('clear', 'ALL CLEAR！', 'もう一周しますか？', 1800);
-        setTimeout(() => {
-          state.stage = 0;
-          loadStage(state.stage);
-          state.lockInput = false;
-          hideResult();
-        }, 1900);
-      } else {
-        showResult('clear', 'STAGE CLEAR', '次のステージへ', 1100);
-        setTimeout(() => {
-          state.stage++;
-          loadStage(state.stage);
-          state.lockInput = false;
-          hideResult();
-        }, 1200);
-      }
+      showResult('clear', 'STAGE CLEAR', '次のステージへ', 1100);
+      setTimeout(() => {
+        state.stageNum++;
+        applyStage(generateSolvableStage());
+        state.lockInput = false;
+        hideResult();
+        updateFireBtnState();
+      }, 1200);
     }
 
     function updateBullets(dt) {
@@ -788,9 +924,9 @@
     const overlay = document.getElementById('overlay');
     const controlsEl = document.getElementById('controls');
     document.getElementById('start-btn').addEventListener('click', () => {
-      state.stage = 0;
+      state.stageNum = 1;
       state.attempts = 0;
-      loadStage(state.stage);
+      applyStage(generateSolvableStage());
       state.running = true;
       overlay.classList.add('hidden');
       controlsEl.style.display = 'flex';
@@ -798,14 +934,13 @@
     });
 
     document.getElementById('retry-btn').addEventListener('click', () => {
-      if (!state.running || state.lockInput) return;
-      state.bullets = [];
-      loadStage(state.stage);
+      if (!state.running || state.lockInput || !state.currentDef) return;
+      applyStage(state.currentDef);
       updateFireBtnState();
     });
 
     window.addEventListener('resize', () => {
-      if (state.running) loadStage(state.stage);
+      if (state.running && state.currentDef) applyStage(state.currentDef);
     });
   </script>
 </body>
