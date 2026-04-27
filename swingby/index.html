@@ -139,6 +139,77 @@
 
     #result-overlay.hidden { opacity: 0; }
     #result-overlay.show { opacity: 1; }
+
+    .controls {
+      position: fixed;
+      bottom: 16px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 0 16px;
+      z-index: 6;
+      pointer-events: none;
+    }
+    .controls > * { pointer-events: auto; }
+
+    .ctrl-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .ctrl-btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.08);
+      border: 1.5px solid rgba(255,255,255,.15);
+      color: #E8ECF8;
+      font-size: 1.5rem;
+      font-weight: 800;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: background .12s, border-color .12s, color .12s;
+    }
+    .ctrl-btn.active {
+      background: rgba(255, 209, 120, .22);
+      border-color: rgba(255, 209, 120, .55);
+      color: #FFD178;
+    }
+
+    .fire-btn {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: #FFD178;
+      border: 3px solid rgba(255,255,255,.9);
+      color: #1A1408;
+      font-size: 1rem;
+      font-weight: 800;
+      font-family: inherit;
+      letter-spacing: .08em;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      box-shadow: 0 0 24px rgba(255,209,120,.35);
+      transition: transform .08s, box-shadow .15s, opacity .15s;
+    }
+    .fire-btn:active { transform: scale(.94); }
+    .fire-btn:disabled {
+      opacity: .35;
+      filter: grayscale(.6);
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -165,6 +236,18 @@
   <div id="result-overlay" class="hidden" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;z-index:8;pointer-events:none;transition:opacity .25s;">
     <div id="result-title" style="font-size:2.4rem;font-weight:800;letter-spacing:.04em;text-shadow:0 0 20px rgba(0,0,0,.6);"></div>
     <div id="result-sub" style="font-size:.85rem;color:#B8C2D6;text-shadow:0 0 8px rgba(0,0,0,.6);"></div>
+  </div>
+
+  <div class="controls" id="controls" style="display:none;">
+    <div class="ctrl-group">
+      <button type="button" class="ctrl-btn" data-input="left" aria-label="左へ移動">←</button>
+      <button type="button" class="ctrl-btn" data-input="right" aria-label="右へ移動">→</button>
+    </div>
+    <button type="button" class="fire-btn" id="fire-btn">FIRE</button>
+    <div class="ctrl-group">
+      <button type="button" class="ctrl-btn" data-input="rotL" aria-label="左回転">↺</button>
+      <button type="button" class="ctrl-btn" data-input="rotR" aria-label="右回転">↻</button>
+    </div>
   </div>
 
   <script>
@@ -274,7 +357,7 @@
       targets: [],
       stars: [],
       bullets: [],
-      aim: { x: 0, y: 0, active: false },
+      input: { left: false, right: false, rotL: false, rotR: false },
       flash: 0,         // 失敗演出用
       lockInput: false, // ステージ切替演出中
     };
@@ -284,6 +367,9 @@
     const BULLET_SPEED = 380;
     const BULLET_LIFE = 7;
     const TARGET_R = 13;
+    const MOVE_SPEED = 230;        // px/sec
+    const ROT_SPEED  = 1.6;        // rad/sec
+    const PLAYER_BOTTOM_OFFSET = 130;  // 操作ボタンと干渉しない高さ
 
     function makeStars(n) {
       const stars = [];
@@ -301,9 +387,8 @@
     function loadStage(idx) {
       const def = STAGES[idx % STAGES.length];
       state.player.x = def.player.x * W;
-      state.player.y = def.player.y * H;
-      state.aim.x = state.player.x;
-      state.aim.y = state.player.y - 200;
+      state.player.y = Math.min(def.player.y * H, H - PLAYER_BOTTOM_OFFSET);
+      state.player.angle = -Math.PI / 2;
       state.planets = def.planets.map(p => ({
         x: p.x * W, y: p.y * H, r: p.r, mass: p.mass, color: p.color,
       }));
@@ -315,11 +400,21 @@
       updateHUD();
     }
 
+    function applyInput(dt) {
+      const p = state.player;
+      if (state.input.left)  p.x -= MOVE_SPEED * dt;
+      if (state.input.right) p.x += MOVE_SPEED * dt;
+      if (state.input.rotL)  p.angle -= ROT_SPEED * dt;
+      if (state.input.rotR)  p.angle += ROT_SPEED * dt;
+      p.x = Math.max(40, Math.min(W - 40, p.x));
+    }
+
     function updateHUD() {
       document.getElementById('stage-num').textContent = (state.stage + 1) + ' / ' + STAGES.length;
       const remaining = state.targets.filter(t => !t.hit).length;
       const total = state.targets.length;
       document.getElementById('target-count').textContent = (total - remaining) + '/' + total;
+      if (typeof updateFireBtnState === 'function') updateFireBtnState();
     }
 
     function bulletInFlight() { return state.bullets.length > 0; }
@@ -344,10 +439,8 @@
     function fire() {
       if (!state.running || state.lockInput || bulletInFlight()) return;
       const p = state.player;
-      const dx = state.aim.x - p.x;
-      const dy = state.aim.y - p.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const nx = dx / len, ny = dy / len;
+      const nx = Math.cos(p.angle);
+      const ny = Math.sin(p.angle);
       state.bullets.push({
         x: p.x + nx * (p.r + 6),
         y: p.y + ny * (p.r + 6),
@@ -357,6 +450,7 @@
         trail: [],
       });
       state.attempts++;
+      updateFireBtnState();
     }
 
     function endShotFailed() {
@@ -434,18 +528,18 @@
       if (startedWithBullets && state.bullets.length === 0 && state.running && !state.lockInput) {
         if (allCleared()) endShotCleared();
         else endShotFailed();
+        updateFireBtnState();
       }
     }
 
     function predictPath() {
       const p = state.player;
-      const dx = state.aim.x - p.x;
-      const dy = state.aim.y - p.y;
-      const len = Math.hypot(dx, dy) || 1;
-      let x = p.x + (dx / len) * (p.r + 6);
-      let y = p.y + (dy / len) * (p.r + 6);
-      let vx = (dx / len) * BULLET_SPEED;
-      let vy = (dy / len) * BULLET_SPEED;
+      const nx = Math.cos(p.angle);
+      const ny = Math.sin(p.angle);
+      let x = p.x + nx * (p.r + 6);
+      let y = p.y + ny * (p.r + 6);
+      let vx = nx * BULLET_SPEED;
+      let vy = ny * BULLET_SPEED;
       const path = [];
       const sub = 1 / 60;
       for (let i = 0; i < 110; i++) {
@@ -464,12 +558,6 @@
         if (i % 2 === 0) path.push({ x, y });
       }
       return path;
-    }
-
-    function updatePlayer() {
-      const dx = state.aim.x - state.player.x;
-      const dy = state.aim.y - state.player.y;
-      state.player.angle = Math.atan2(dy, dx);
     }
 
     // ===== Render =====
@@ -630,8 +718,10 @@
     function loop(ts) {
       const dt = Math.min(0.05, (ts - last) / 1000 || 0);
       last = ts;
+      if (state.running && !state.lockInput) {
+        applyInput(dt);
+      }
       if (state.running) {
-        updatePlayer();
         updateBullets(dt);
         state.flash = Math.max(0, state.flash - dt);
       }
@@ -659,39 +749,67 @@
     }
 
     // ===== Input =====
-    function pointerPos(e) {
-      const rect = canvas.getBoundingClientRect();
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const fireBtn = document.getElementById('fire-btn');
+    function updateFireBtnState() {
+      fireBtn.disabled = !state.running || state.lockInput || bulletInFlight();
     }
-    canvas.addEventListener('pointermove', (e) => {
-      const pos = pointerPos(e);
-      state.aim.x = pos.x;
-      state.aim.y = pos.y;
-      state.aim.active = true;
+
+    function bindHold(btn, key) {
+      const press = (e) => {
+        e.preventDefault();
+        state.input[key] = true;
+        btn.classList.add('active');
+        if (e.pointerId != null) btn.setPointerCapture?.(e.pointerId);
+      };
+      const release = () => {
+        state.input[key] = false;
+        btn.classList.remove('active');
+      };
+      btn.addEventListener('pointerdown', press);
+      btn.addEventListener('pointerup', release);
+      btn.addEventListener('pointercancel', release);
+      btn.addEventListener('pointerleave', release);
+      btn.addEventListener('lostpointercapture', release);
+    }
+    document.querySelectorAll('[data-input]').forEach(btn => {
+      bindHold(btn, btn.dataset.input);
     });
-    canvas.addEventListener('pointerdown', (e) => {
-      const pos = pointerPos(e);
-      state.aim.x = pos.x;
-      state.aim.y = pos.y;
-      state.aim.active = true;
-      fire();
+
+    fireBtn.addEventListener('click', () => fire());
+
+    // キーボードもサポート
+    const KEY_MAP = {
+      ArrowLeft: 'left', a: 'left', A: 'left',
+      ArrowRight: 'right', d: 'right', D: 'right',
+      q: 'rotL', Q: 'rotL',
+      e: 'rotR', E: 'rotR',
+    };
+    window.addEventListener('keydown', e => {
+      if (KEY_MAP[e.key]) { state.input[KEY_MAP[e.key]] = true; e.preventDefault(); }
+      else if (e.key === ' ' || e.key === 'Enter') { fire(); e.preventDefault(); }
     });
-    canvas.addEventListener('contextmenu', e => e.preventDefault());
+    window.addEventListener('keyup', e => {
+      if (KEY_MAP[e.key]) { state.input[KEY_MAP[e.key]] = false; e.preventDefault(); }
+    });
 
     // ===== Start =====
     const overlay = document.getElementById('overlay');
+    const controlsEl = document.getElementById('controls');
     document.getElementById('start-btn').addEventListener('click', () => {
       state.stage = 0;
       state.attempts = 0;
       loadStage(state.stage);
       state.running = true;
       overlay.classList.add('hidden');
+      controlsEl.style.display = 'flex';
+      updateFireBtnState();
     });
 
     document.getElementById('retry-btn').addEventListener('click', () => {
       if (!state.running || state.lockInput) return;
       state.bullets = [];
       loadStage(state.stage);
+      updateFireBtnState();
     });
 
     window.addEventListener('resize', () => {
