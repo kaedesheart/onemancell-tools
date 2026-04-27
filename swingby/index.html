@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>スイングバイ - onemancell tools</title>
+  <meta name="theme-color" content="#070B1B">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: #070B1B;
+      color: #E8ECF8;
+      font-family: 'M PLUS Rounded 1c', -apple-system, system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    #stage {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background:
+        radial-gradient(ellipse at 30% 20%, rgba(80,120,200,.15), transparent 60%),
+        radial-gradient(ellipse at 70% 80%, rgba(180,90,200,.10), transparent 55%),
+        #070B1B;
+      touch-action: none;
+    }
+
+    .hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .hud-left, .hud-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      pointer-events: auto;
+    }
+
+    .hud a.back {
+      color: #B8C2D6;
+      text-decoration: none;
+      font-size: .82rem;
+      font-weight: 700;
+    }
+    .hud a.back:hover { color: #E8ECF8; }
+
+    .badge {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: .8rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .badge .label {
+      color: #7A86A0;
+      margin-right: 6px;
+      font-size: .68rem;
+    }
+    .badge .val {
+      color: #FFD178;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(7, 11, 27, .82);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      z-index: 10;
+      transition: opacity .25s;
+    }
+    #overlay.hidden { opacity: 0; pointer-events: none; }
+
+    #overlay .title {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: .03em;
+      color: #FFFFFF;
+    }
+    #overlay .title .accent { color: #FFD178; }
+    #overlay .sub {
+      font-size: .85rem;
+      color: #B8C2D6;
+      max-width: 320px;
+      text-align: center;
+      line-height: 1.7;
+      margin: 0 24px;
+    }
+    #overlay .start-btn {
+      margin-top: 20px;
+      background: #FFD178;
+      color: #1A1408;
+      border: none;
+      border-radius: 999px;
+      padding: 14px 36px;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 0 0 0 rgba(255, 209, 120, .4);
+      transition: transform .12s, box-shadow .25s, background .15s;
+      touch-action: manipulation;
+    }
+    .start-btn:active { transform: scale(.95); }
+    .start-btn:hover { box-shadow: 0 0 0 8px rgba(255, 209, 120, .15); }
+
+    .hint {
+      font-size: .75rem;
+      color: #7A86A0;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+
+  <div class="hud">
+    <div class="hud-left">
+      <a class="back" href="/">← tools</a>
+    </div>
+    <div class="hud-right">
+      <div class="badge"><span class="label">SCORE</span><span class="val" id="score">0</span></div>
+      <div class="badge"><span class="label">LIFE</span><span class="val" id="life">3</span></div>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <div class="title">スイング<span class="accent">バイ</span></div>
+    <div class="sub">惑星の重力を使って弾を曲げ、敵に命中させよう。</div>
+    <button class="start-btn" id="start-btn">スタート</button>
+    <div class="hint">タップ/クリックで照準・発射</div>
+  </div>
+
+  <script>
+    // ===== Canvas / DPR =====
+    const canvas = document.getElementById('stage');
+    const ctx = canvas.getContext('2d');
+    let DPR = Math.min(window.devicePixelRatio || 1, 2);
+    let W = 0, H = 0;
+
+    function resize() {
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * DPR;
+      canvas.height = H * DPR;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // ===== State =====
+    const state = {
+      running: false,
+      score: 0,
+      life: 3,
+      player: { x: 0, y: 0, r: 14, angle: -Math.PI / 2 },
+      planets: [],
+      stars: [],
+    };
+
+    function makeStars(n) {
+      const stars = [];
+      for (let i = 0; i < n; i++) {
+        stars.push({
+          x: Math.random(),
+          y: Math.random(),
+          r: Math.random() * 1.2 + 0.3,
+          a: Math.random() * 0.7 + 0.2,
+        });
+      }
+      return stars;
+    }
+
+    function setupStage() {
+      state.player.x = W / 2;
+      state.player.y = H - 90;
+      // 初期ステージ: 惑星 2 個
+      state.planets = [
+        { x: W * 0.3, y: H * 0.45, r: 28, mass: 1400, color: '#7CC8E8' },
+        { x: W * 0.7, y: H * 0.30, r: 36, mass: 2200, color: '#FFB270' },
+      ];
+      state.stars = makeStars(120);
+    }
+
+    // ===== Render =====
+    function drawStars() {
+      ctx.save();
+      for (const s of state.stars) {
+        ctx.globalAlpha = s.a;
+        ctx.fillStyle = '#E8ECF8';
+        ctx.beginPath();
+        ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawPlanet(p) {
+      // 重力場リング
+      ctx.save();
+      const grad = ctx.createRadialGradient(p.x, p.y, p.r * 0.8, p.x, p.y, p.r * 4);
+      grad.addColorStop(0, p.color + '55');
+      grad.addColorStop(1, p.color + '00');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * 4, 0, Math.PI * 2);
+      ctx.fill();
+      // 本体
+      const body = ctx.createRadialGradient(
+        p.x - p.r * 0.4, p.y - p.r * 0.4, p.r * 0.2,
+        p.x, p.y, p.r
+      );
+      body.addColorStop(0, '#ffffff');
+      body.addColorStop(0.4, p.color);
+      body.addColorStop(1, '#1a1a2e');
+      ctx.fillStyle = body;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawPlayer(p) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle);
+      // ボディ
+      ctx.fillStyle = '#FFD178';
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(p.r, 0);
+      ctx.lineTo(-p.r * 0.8, p.r * 0.65);
+      ctx.lineTo(-p.r * 0.4, 0);
+      ctx.lineTo(-p.r * 0.8, -p.r * 0.65);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // コックピット
+      ctx.fillStyle = '#7CC8E8';
+      ctx.beginPath();
+      ctx.arc(0, 0, p.r * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, W, H);
+      drawStars();
+      for (const p of state.planets) drawPlanet(p);
+      drawPlayer(state.player);
+    }
+
+    // ===== Game loop =====
+    let last = 0;
+    function loop(ts) {
+      const dt = Math.min(0.05, (ts - last) / 1000 || 0);
+      last = ts;
+      if (state.running) {
+        // 後で physics をここに
+      }
+      render();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    // ===== Start =====
+    const overlay = document.getElementById('overlay');
+    document.getElementById('start-btn').addEventListener('click', () => {
+      setupStage();
+      state.running = true;
+      overlay.classList.add('hidden');
+    });
+
+    window.addEventListener('resize', () => {
+      if (state.running) setupStage();
+    });
+  </script>
+</body>
+</html>
