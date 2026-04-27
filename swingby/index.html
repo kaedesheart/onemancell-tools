@@ -186,7 +186,16 @@
       player: { x: 0, y: 0, r: 14, angle: -Math.PI / 2 },
       planets: [],
       stars: [],
+      bullets: [],
+      aim: { x: 0, y: 0, active: false },
+      cooldown: 0,
     };
+
+    // ===== Physics constants =====
+    const G = 80000;            // 重力スケール（調整可）
+    const BULLET_SPEED = 380;
+    const BULLET_LIFE = 6;
+    const FIRE_COOLDOWN = 0.22;
 
     function makeStars(n) {
       const stars = [];
@@ -204,12 +213,108 @@
     function setupStage() {
       state.player.x = W / 2;
       state.player.y = H - 90;
+      state.aim.x = W / 2;
+      state.aim.y = H * 0.3;
       // 初期ステージ: 惑星 2 個
       state.planets = [
         { x: W * 0.3, y: H * 0.45, r: 28, mass: 1400, color: '#7CC8E8' },
         { x: W * 0.7, y: H * 0.30, r: 36, mass: 2200, color: '#FFB270' },
       ];
       state.stars = makeStars(120);
+      state.bullets = [];
+      state.cooldown = 0;
+    }
+
+    // ===== Physics =====
+    function gravityAt(x, y) {
+      let ax = 0, ay = 0;
+      for (const p of state.planets) {
+        const dx = p.x - x;
+        const dy = p.y - y;
+        const r = Math.hypot(dx, dy);
+        const safeR = Math.max(r, p.r * 0.6);
+        const inv3 = 1 / (safeR * safeR * safeR);
+        const a = G * p.mass * inv3;
+        ax += a * dx;
+        ay += a * dy;
+      }
+      return { ax, ay };
+    }
+
+    function fire() {
+      if (!state.running || state.cooldown > 0) return;
+      const p = state.player;
+      const dx = state.aim.x - p.x;
+      const dy = state.aim.y - p.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = dx / len, ny = dy / len;
+      state.bullets.push({
+        x: p.x + nx * (p.r + 6),
+        y: p.y + ny * (p.r + 6),
+        vx: nx * BULLET_SPEED,
+        vy: ny * BULLET_SPEED,
+        life: BULLET_LIFE,
+        trail: [],
+      });
+      state.cooldown = FIRE_COOLDOWN;
+    }
+
+    function updateBullets(dt) {
+      for (const b of state.bullets) {
+        const g = gravityAt(b.x, b.y);
+        b.vx += g.ax * dt;
+        b.vy += g.ay * dt;
+        b.x  += b.vx * dt;
+        b.y  += b.vy * dt;
+        b.life -= dt;
+        b.trail.push({ x: b.x, y: b.y });
+        if (b.trail.length > 22) b.trail.shift();
+      }
+      // 場外・寿命切れ・惑星衝突を除去
+      state.bullets = state.bullets.filter(b => {
+        if (b.life <= 0) return false;
+        if (b.x < -60 || b.x > W + 60 || b.y < -60 || b.y > H + 60) return false;
+        for (const p of state.planets) {
+          const dx = b.x - p.x, dy = b.y - p.y;
+          if (dx * dx + dy * dy < p.r * p.r) return false;
+        }
+        return true;
+      });
+    }
+
+    function predictPath() {
+      const p = state.player;
+      const dx = state.aim.x - p.x;
+      const dy = state.aim.y - p.y;
+      const len = Math.hypot(dx, dy) || 1;
+      let x = p.x + (dx / len) * (p.r + 6);
+      let y = p.y + (dy / len) * (p.r + 6);
+      let vx = (dx / len) * BULLET_SPEED;
+      let vy = (dy / len) * BULLET_SPEED;
+      const path = [];
+      const sub = 1 / 60;
+      for (let i = 0; i < 110; i++) {
+        const g = gravityAt(x, y);
+        vx += g.ax * sub;
+        vy += g.ay * sub;
+        x  += vx * sub;
+        y  += vy * sub;
+        if (x < 0 || x > W || y < 0 || y > H) break;
+        let hit = false;
+        for (const pl of state.planets) {
+          const ddx = x - pl.x, ddy = y - pl.y;
+          if (ddx * ddx + ddy * ddy < pl.r * pl.r) { hit = true; break; }
+        }
+        if (hit) break;
+        if (i % 2 === 0) path.push({ x, y });
+      }
+      return path;
+    }
+
+    function updatePlayer() {
+      const dx = state.aim.x - state.player.x;
+      const dy = state.aim.y - state.player.y;
+      state.player.angle = Math.atan2(dy, dx);
     }
 
     // ===== Render =====
@@ -274,10 +379,53 @@
       ctx.restore();
     }
 
+    function drawAimLine(path) {
+      if (!path.length) return;
+      ctx.save();
+      for (let i = 0; i < path.length; i++) {
+        const t = 1 - i / path.length;
+        ctx.globalAlpha = t * 0.55;
+        ctx.fillStyle = '#FFD178';
+        ctx.beginPath();
+        ctx.arc(path[i].x, path[i].y, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawBullet(b) {
+      ctx.save();
+      // 軌跡
+      for (let i = 0; i < b.trail.length; i++) {
+        const t = i / b.trail.length;
+        ctx.globalAlpha = t * 0.55;
+        ctx.fillStyle = '#FFD178';
+        const tp = b.trail[i];
+        ctx.beginPath();
+        ctx.arc(tp.x, tp.y, 1.5 + t * 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      // 弾本体
+      const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 9);
+      grad.addColorStop(0, '#FFFFFF');
+      grad.addColorStop(0.4, '#FFD178');
+      grad.addColorStop(1, 'rgba(255,209,120,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
     function render() {
       ctx.clearRect(0, 0, W, H);
       drawStars();
       for (const p of state.planets) drawPlanet(p);
+      if (state.running) {
+        drawAimLine(predictPath());
+        for (const b of state.bullets) drawBullet(b);
+      }
       drawPlayer(state.player);
     }
 
@@ -287,12 +435,34 @@
       const dt = Math.min(0.05, (ts - last) / 1000 || 0);
       last = ts;
       if (state.running) {
-        // 後で physics をここに
+        updatePlayer();
+        updateBullets(dt);
+        state.cooldown = Math.max(0, state.cooldown - dt);
       }
       render();
       requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
+
+    // ===== Input =====
+    function pointerPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+    canvas.addEventListener('pointermove', (e) => {
+      const pos = pointerPos(e);
+      state.aim.x = pos.x;
+      state.aim.y = pos.y;
+      state.aim.active = true;
+    });
+    canvas.addEventListener('pointerdown', (e) => {
+      const pos = pointerPos(e);
+      state.aim.x = pos.x;
+      state.aim.y = pos.y;
+      state.aim.active = true;
+      fire();
+    });
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
 
     // ===== Start =====
     const overlay = document.getElementById('overlay');
