@@ -146,18 +146,14 @@
       left: 0;
       right: 0;
       display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      padding: 0 16px;
+      justify-content: space-evenly;
+      align-items: center;
+      padding: 0 12px;
       z-index: 6;
       pointer-events: none;
+      gap: 8px;
     }
     .controls > * { pointer-events: auto; }
-
-    .ctrl-group {
-      display: flex;
-      gap: 10px;
-    }
 
     .ctrl-btn {
       width: 60px;
@@ -239,15 +235,11 @@
   </div>
 
   <div class="controls" id="controls" style="display:none;">
-    <div class="ctrl-group">
-      <button type="button" class="ctrl-btn" data-input="left" aria-label="左へ移動">←</button>
-      <button type="button" class="ctrl-btn" data-input="right" aria-label="右へ移動">→</button>
-    </div>
+    <button type="button" class="ctrl-btn" data-input="left" aria-label="左へ移動">←</button>
+    <button type="button" class="ctrl-btn" data-input="rotL" aria-label="左回転">↺</button>
     <button type="button" class="fire-btn" id="fire-btn">FIRE</button>
-    <div class="ctrl-group">
-      <button type="button" class="ctrl-btn" data-input="rotL" aria-label="左回転">↺</button>
-      <button type="button" class="ctrl-btn" data-input="rotR" aria-label="右回転">↻</button>
-    </div>
+    <button type="button" class="ctrl-btn" data-input="rotR" aria-label="右回転">↻</button>
+    <button type="button" class="ctrl-btn" data-input="right" aria-label="右へ移動">→</button>
   </div>
 
   <script>
