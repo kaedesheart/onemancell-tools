@@ -136,6 +136,9 @@
       color: #7A86A0;
       margin-top: 6px;
     }
+
+    #result-overlay.hidden { opacity: 0; }
+    #result-overlay.show { opacity: 1; }
   </style>
 </head>
 <body>
@@ -144,18 +147,24 @@
   <div class="hud">
     <div class="hud-left">
       <a class="back" href="/">← tools</a>
+      <button class="badge" id="retry-btn" style="cursor:pointer;border:1px solid rgba(255,255,255,.1);font-family:inherit;color:#E8ECF8;">↺ やり直す</button>
     </div>
     <div class="hud-right">
-      <div class="badge"><span class="label">SCORE</span><span class="val" id="score">0</span></div>
-      <div class="badge"><span class="label">LIFE</span><span class="val" id="life">3</span></div>
+      <div class="badge"><span class="label">STAGE</span><span class="val" id="stage-num">1</span></div>
+      <div class="badge"><span class="label">TARGET</span><span class="val" id="target-count">0/0</span></div>
     </div>
   </div>
 
   <div id="overlay">
     <div class="title">スイング<span class="accent">バイ</span></div>
-    <div class="sub">惑星の重力を使って弾を曲げ、敵に命中させよう。</div>
+    <div class="sub">一発の弾で、的を全部壊せ。<br>惑星の重力を使って軌道を曲げよう。</div>
     <button class="start-btn" id="start-btn">スタート</button>
     <div class="hint">タップ/クリックで照準・発射</div>
+  </div>
+
+  <div id="result-overlay" class="hidden" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;z-index:8;pointer-events:none;transition:opacity .25s;">
+    <div id="result-title" style="font-size:2.4rem;font-weight:800;letter-spacing:.04em;text-shadow:0 0 20px rgba(0,0,0,.6);"></div>
+    <div id="result-sub" style="font-size:.85rem;color:#B8C2D6;text-shadow:0 0 8px rgba(0,0,0,.6);"></div>
   </div>
 
   <script>
@@ -178,24 +187,103 @@
     window.addEventListener('resize', resize);
     resize();
 
+    // ===== Stages (puzzle definitions) =====
+    // 座標は 0..1 の比率（W/Hに対する相対値）
+    const STAGES = [
+      {
+        name: 'はじめの一歩',
+        player:  { x: 0.5, y: 0.85 },
+        planets: [
+          { x: 0.35, y: 0.55, r: 26, mass: 1300, color: '#7CC8E8' },
+          { x: 0.65, y: 0.55, r: 26, mass: 1300, color: '#7CC8E8' },
+        ],
+        targets: [
+          { x: 0.20, y: 0.30 },
+          { x: 0.80, y: 0.30 },
+        ],
+      },
+      {
+        name: 'まわりこみ',
+        player:  { x: 0.5, y: 0.88 },
+        planets: [
+          { x: 0.35, y: 0.50, r: 32, mass: 2000, color: '#FFB270' },
+          { x: 0.70, y: 0.30, r: 24, mass: 900,  color: '#7CC8E8' },
+        ],
+        targets: [
+          { x: 0.18, y: 0.62 },
+          { x: 0.85, y: 0.18 },
+        ],
+      },
+      {
+        name: 'ジグザグ',
+        player:  { x: 0.5, y: 0.88 },
+        planets: [
+          { x: 0.30, y: 0.62, r: 28, mass: 1500, color: '#7CC8E8' },
+          { x: 0.70, y: 0.30, r: 28, mass: 1500, color: '#FFB270' },
+        ],
+        targets: [
+          { x: 0.18, y: 0.30 },
+          { x: 0.82, y: 0.62 },
+        ],
+      },
+      {
+        name: '挟撃',
+        player:  { x: 0.5, y: 0.85 },
+        planets: [
+          { x: 0.50, y: 0.40, r: 38, mass: 2600, color: '#FFB270' },
+          { x: 0.50, y: 0.18, r: 22, mass: 700,  color: '#7CC8E8' },
+        ],
+        targets: [
+          { x: 0.15, y: 0.40 },
+          { x: 0.85, y: 0.40 },
+        ],
+      },
+      {
+        name: '逆走スイングバイ',
+        player:  { x: 0.5, y: 0.90 },
+        planets: [
+          { x: 0.25, y: 0.78, r: 26, mass: 1500, color: '#FFB270' },
+          { x: 0.75, y: 0.78, r: 26, mass: 1500, color: '#FFB270' },
+        ],
+        targets: [
+          { x: 0.30, y: 0.20 },
+          { x: 0.70, y: 0.20 },
+        ],
+      },
+      {
+        name: '巨星',
+        player:  { x: 0.5, y: 0.88 },
+        planets: [
+          { x: 0.30, y: 0.45, r: 44, mass: 3200, color: '#C99BFF' },
+          { x: 0.78, y: 0.55, r: 22, mass: 700,  color: '#7CC8E8' },
+        ],
+        targets: [
+          { x: 0.10, y: 0.18 },
+          { x: 0.92, y: 0.20 },
+        ],
+      },
+    ];
+
     // ===== State =====
     const state = {
       running: false,
-      score: 0,
-      life: 3,
+      stage: 0,
+      attempts: 0,
       player: { x: 0, y: 0, r: 14, angle: -Math.PI / 2 },
       planets: [],
+      targets: [],
       stars: [],
       bullets: [],
       aim: { x: 0, y: 0, active: false },
-      cooldown: 0,
+      flash: 0,         // 失敗演出用
+      lockInput: false, // ステージ切替演出中
     };
 
     // ===== Physics constants =====
-    const G = 80000;            // 重力スケール（調整可）
+    const G = 80000;
     const BULLET_SPEED = 380;
-    const BULLET_LIFE = 6;
-    const FIRE_COOLDOWN = 0.22;
+    const BULLET_LIFE = 7;
+    const TARGET_R = 13;
 
     function makeStars(n) {
       const stars = [];
@@ -210,20 +298,32 @@
       return stars;
     }
 
-    function setupStage() {
-      state.player.x = W / 2;
-      state.player.y = H - 90;
-      state.aim.x = W / 2;
-      state.aim.y = H * 0.3;
-      // 初期ステージ: 惑星 2 個
-      state.planets = [
-        { x: W * 0.3, y: H * 0.45, r: 28, mass: 1400, color: '#7CC8E8' },
-        { x: W * 0.7, y: H * 0.30, r: 36, mass: 2200, color: '#FFB270' },
-      ];
-      state.stars = makeStars(120);
+    function loadStage(idx) {
+      const def = STAGES[idx % STAGES.length];
+      state.player.x = def.player.x * W;
+      state.player.y = def.player.y * H;
+      state.aim.x = state.player.x;
+      state.aim.y = state.player.y - 200;
+      state.planets = def.planets.map(p => ({
+        x: p.x * W, y: p.y * H, r: p.r, mass: p.mass, color: p.color,
+      }));
+      state.targets = def.targets.map(t => ({
+        x: t.x * W, y: t.y * H, r: TARGET_R, hit: false,
+      }));
       state.bullets = [];
-      state.cooldown = 0;
+      state.stars = makeStars(120);
+      updateHUD();
     }
+
+    function updateHUD() {
+      document.getElementById('stage-num').textContent = (state.stage + 1) + ' / ' + STAGES.length;
+      const remaining = state.targets.filter(t => !t.hit).length;
+      const total = state.targets.length;
+      document.getElementById('target-count').textContent = (total - remaining) + '/' + total;
+    }
+
+    function bulletInFlight() { return state.bullets.length > 0; }
+    function allCleared() { return state.targets.length > 0 && state.targets.every(t => t.hit); }
 
     // ===== Physics =====
     function gravityAt(x, y) {
@@ -242,7 +342,7 @@
     }
 
     function fire() {
-      if (!state.running || state.cooldown > 0) return;
+      if (!state.running || state.lockInput || bulletInFlight()) return;
       const p = state.player;
       const dx = state.aim.x - p.x;
       const dy = state.aim.y - p.y;
@@ -256,10 +356,44 @@
         life: BULLET_LIFE,
         trail: [],
       });
-      state.cooldown = FIRE_COOLDOWN;
+      state.attempts++;
+    }
+
+    function endShotFailed() {
+      state.bullets = [];
+      state.flash = 0.6;
+      // 当たった的を戻す（潰したけど他を外したらやり直し）
+      for (const t of state.targets) t.hit = false;
+      updateHUD();
+      showResult('miss', 'もう一度', '惑星に当たった or 外れた');
+    }
+
+    function endShotCleared() {
+      state.bullets = [];
+      state.lockInput = true;
+      const isLast = state.stage >= STAGES.length - 1;
+      if (isLast) {
+        showResult('clear', 'ALL CLEAR！', 'もう一周しますか？', 1800);
+        setTimeout(() => {
+          state.stage = 0;
+          loadStage(state.stage);
+          state.lockInput = false;
+          hideResult();
+        }, 1900);
+      } else {
+        showResult('clear', 'STAGE CLEAR', '次のステージへ', 1100);
+        setTimeout(() => {
+          state.stage++;
+          loadStage(state.stage);
+          state.lockInput = false;
+          hideResult();
+        }, 1200);
+      }
     }
 
     function updateBullets(dt) {
+      const startedWithBullets = state.bullets.length > 0;
+
       for (const b of state.bullets) {
         const g = gravityAt(b.x, b.y);
         b.vx += g.ax * dt;
@@ -268,18 +402,39 @@
         b.y  += b.vy * dt;
         b.life -= dt;
         b.trail.push({ x: b.x, y: b.y });
-        if (b.trail.length > 22) b.trail.shift();
+        if (b.trail.length > 28) b.trail.shift();
+
+        // 的との衝突判定
+        for (const t of state.targets) {
+          if (t.hit) continue;
+          const dx = b.x - t.x, dy = b.y - t.y;
+          const rr = t.r + 4;
+          if (dx * dx + dy * dy < rr * rr) {
+            t.hit = true;
+            updateHUD();
+          }
+        }
       }
-      // 場外・寿命切れ・惑星衝突を除去
-      state.bullets = state.bullets.filter(b => {
-        if (b.life <= 0) return false;
-        if (b.x < -60 || b.x > W + 60 || b.y < -60 || b.y > H + 60) return false;
+
+      // 死亡弾の除去
+      for (let i = state.bullets.length - 1; i >= 0; i--) {
+        const b = state.bullets[i];
+        const offBounds = b.x < -60 || b.x > W + 60 || b.y < -60 || b.y > H + 60;
+        let hitPlanet = false;
         for (const p of state.planets) {
           const dx = b.x - p.x, dy = b.y - p.y;
-          if (dx * dx + dy * dy < p.r * p.r) return false;
+          if (dx * dx + dy * dy < p.r * p.r) { hitPlanet = true; break; }
         }
-        return true;
-      });
+        if (b.life <= 0 || offBounds || hitPlanet) {
+          state.bullets.splice(i, 1);
+        }
+      }
+
+      // 飛行終了の判定（同フレーム消滅も拾える）
+      if (startedWithBullets && state.bullets.length === 0 && state.running && !state.lockInput) {
+        if (allCleared()) endShotCleared();
+        else endShotFailed();
+      }
     }
 
     function predictPath() {
@@ -380,7 +535,7 @@
     }
 
     function drawAimLine(path) {
-      if (!path.length) return;
+      if (!path.length || bulletInFlight()) return;
       ctx.save();
       for (let i = 0; i < path.length; i++) {
         const t = 1 - i / path.length;
@@ -388,6 +543,41 @@
         ctx.fillStyle = '#FFD178';
         ctx.beginPath();
         ctx.arc(path[i].x, path[i].y, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawTarget(t, time) {
+      ctx.save();
+      if (t.hit) {
+        // 撃破済みは小さく薄く
+        ctx.globalAlpha = 0.2;
+        ctx.strokeStyle = '#FFD178';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.r * 0.5, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        const pulse = 1 + Math.sin(time * 4) * 0.08;
+        // グロウ
+        const grad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, t.r * 2.4);
+        grad.addColorStop(0, 'rgba(255, 230, 150, 0.55)');
+        grad.addColorStop(1, 'rgba(255, 209, 120, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.r * 2.4, 0, Math.PI * 2);
+        ctx.fill();
+        // リング
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#FFE7A5';
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.r * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+        // 中心
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, 3, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
@@ -418,10 +608,16 @@
       ctx.restore();
     }
 
-    function render() {
+    function render(time) {
       ctx.clearRect(0, 0, W, H);
+      // 失敗フラッシュ
+      if (state.flash > 0) {
+        ctx.fillStyle = 'rgba(240, 138, 138,' + Math.min(0.25, state.flash * 0.4) + ')';
+        ctx.fillRect(0, 0, W, H);
+      }
       drawStars();
       for (const p of state.planets) drawPlanet(p);
+      for (const t of state.targets) drawTarget(t, time);
       if (state.running) {
         drawAimLine(predictPath());
         for (const b of state.bullets) drawBullet(b);
@@ -437,12 +633,30 @@
       if (state.running) {
         updatePlayer();
         updateBullets(dt);
-        state.cooldown = Math.max(0, state.cooldown - dt);
+        state.flash = Math.max(0, state.flash - dt);
       }
-      render();
+      render(ts / 1000);
       requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
+
+    // ===== Result overlay =====
+    const resultOverlay = document.getElementById('result-overlay');
+    const resultTitle = document.getElementById('result-title');
+    const resultSub = document.getElementById('result-sub');
+    function showResult(kind, title, sub, ms) {
+      resultTitle.textContent = title;
+      resultSub.textContent = sub || '';
+      resultTitle.style.color = kind === 'clear' ? '#FFD178' : '#F08A8A';
+      resultOverlay.classList.remove('hidden');
+      resultOverlay.classList.add('show');
+      clearTimeout(showResult._t);
+      showResult._t = setTimeout(hideResult, ms || 900);
+    }
+    function hideResult() {
+      resultOverlay.classList.remove('show');
+      resultOverlay.classList.add('hidden');
+    }
 
     // ===== Input =====
     function pointerPos(e) {
@@ -467,13 +681,21 @@
     // ===== Start =====
     const overlay = document.getElementById('overlay');
     document.getElementById('start-btn').addEventListener('click', () => {
-      setupStage();
+      state.stage = 0;
+      state.attempts = 0;
+      loadStage(state.stage);
       state.running = true;
       overlay.classList.add('hidden');
     });
 
+    document.getElementById('retry-btn').addEventListener('click', () => {
+      if (!state.running || state.lockInput) return;
+      state.bullets = [];
+      loadStage(state.stage);
+    });
+
     window.addEventListener('resize', () => {
-      if (state.running) setupStage();
+      if (state.running) loadStage(state.stage);
     });
   </script>
 </body>
