@@ -218,16 +218,19 @@
       <button class="badge" id="demo-btn" style="cursor:pointer;border:1px solid rgba(255,255,255,.1);font-family:inherit;color:#E8ECF8;">👁 お手本</button>
     </div>
     <div class="hud-right">
-      <div class="badge"><span class="label">STAGE</span><span class="val" id="stage-num">1</span></div>
-      <div class="badge"><span class="label">TARGET</span><span class="val" id="target-count">0/0</span></div>
+      <div class="badge"><span class="label">STAGE</span><span class="val" id="stage-num">1/6</span></div>
+      <div class="badge"><span class="label">SHOTS</span><span class="val" id="shots-count">0</span></div>
     </div>
   </div>
 
   <div id="overlay">
     <div class="title">スイング<span class="accent">バイ</span></div>
-    <div class="sub">一発の弾で、的を全部壊せ。<br>惑星の重力を使って軌道を曲げよう。</div>
+    <div class="sub" id="overlay-sub">全6ステージを、合計何発でクリアできるか挑戦！<br>1発で2つの的を壊したらクリア。</div>
+    <div id="best-display" style="font-size:.78rem;color:#B8C2D6;margin-top:6px;display:none;">
+      ベスト: <span id="best-val" style="color:#FFD178;font-weight:800;">-</span> 発
+    </div>
     <button class="start-btn" id="start-btn">スタート</button>
-    <div class="hint">タップ/クリックで照準・発射</div>
+    <div class="hint" id="hint-text">↺やり直す自由・👁お手本を一度でも使うと記録なし</div>
   </div>
 
   <div id="result-overlay" class="hidden" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;z-index:8;pointer-events:none;transition:opacity .25s;">
@@ -263,87 +266,16 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // ===== Stages (フォールバック用 hand-crafted、座標は 0..1 比率) =====
-    const STAGES = [
-      {
-        name: 'はじめの一歩',
-        player:  { x: 0.5, y: 0.85 },
-        planets: [
-          { x: 0.35, y: 0.55, r: 26, mass: 1300, color: '#7CC8E8' },
-          { x: 0.65, y: 0.55, r: 26, mass: 1300, color: '#7CC8E8' },
-        ],
-        targets: [
-          { x: 0.20, y: 0.30 },
-          { x: 0.80, y: 0.30 },
-        ],
-      },
-      {
-        name: 'まわりこみ',
-        player:  { x: 0.5, y: 0.88 },
-        planets: [
-          { x: 0.35, y: 0.50, r: 32, mass: 2000, color: '#FFB270' },
-          { x: 0.70, y: 0.30, r: 24, mass: 900,  color: '#7CC8E8' },
-        ],
-        targets: [
-          { x: 0.18, y: 0.62 },
-          { x: 0.85, y: 0.18 },
-        ],
-      },
-      {
-        name: 'ジグザグ',
-        player:  { x: 0.5, y: 0.88 },
-        planets: [
-          { x: 0.30, y: 0.62, r: 28, mass: 1500, color: '#7CC8E8' },
-          { x: 0.70, y: 0.30, r: 28, mass: 1500, color: '#FFB270' },
-        ],
-        targets: [
-          { x: 0.18, y: 0.30 },
-          { x: 0.82, y: 0.62 },
-        ],
-      },
-      {
-        name: '挟撃',
-        player:  { x: 0.5, y: 0.85 },
-        planets: [
-          { x: 0.50, y: 0.40, r: 38, mass: 2600, color: '#FFB270' },
-          { x: 0.50, y: 0.18, r: 22, mass: 700,  color: '#7CC8E8' },
-        ],
-        targets: [
-          { x: 0.15, y: 0.40 },
-          { x: 0.85, y: 0.40 },
-        ],
-      },
-      {
-        name: '逆走スイングバイ',
-        player:  { x: 0.5, y: 0.90 },
-        planets: [
-          { x: 0.25, y: 0.78, r: 26, mass: 1500, color: '#FFB270' },
-          { x: 0.75, y: 0.78, r: 26, mass: 1500, color: '#FFB270' },
-        ],
-        targets: [
-          { x: 0.30, y: 0.20 },
-          { x: 0.70, y: 0.20 },
-        ],
-      },
-      {
-        name: '巨星',
-        player:  { x: 0.5, y: 0.88 },
-        planets: [
-          { x: 0.30, y: 0.45, r: 44, mass: 3200, color: '#C99BFF' },
-          { x: 0.78, y: 0.55, r: 22, mass: 700,  color: '#7CC8E8' },
-        ],
-        targets: [
-          { x: 0.10, y: 0.18 },
-          { x: 0.92, y: 0.20 },
-        ],
-      },
-    ];
+    // ===== Game settings =====
+    const MAX_STAGES = 6;
+    const BEST_KEY = 'omc-swingby-best';
 
     // ===== State =====
     const state = {
       running: false,
       stageNum: 1,
-      attempts: 0,
+      totalShots: 0,
+      demoUsed: false,
       currentDef: null, // 今のステージ定義（リトライ用に保持）
       player: { x: 0, y: 0, r: 14, angle: -Math.PI / 2 },
       planets: [],
@@ -517,15 +449,16 @@
     }
 
     function easyFallback() {
+      // 自機の真上に的を縦に2つ並べた、確実に解ける構成
       return {
         player: { x: 0.5, y: 0.85 },
         planets: [
-          { x: 0.22, y: 0.55, r: 22, mass: 900, color: '#7CC8E8' },
-          { x: 0.78, y: 0.55, r: 22, mass: 900, color: '#FFB270' },
+          { x: 0.18, y: 0.55, r: 20, mass: 600, color: '#7CC8E8' },
+          { x: 0.82, y: 0.55, r: 20, mass: 600, color: '#FFB270' },
         ],
         targets: [
-          { x: 0.30, y: 0.18 },
-          { x: 0.70, y: 0.18 },
+          { x: 0.50, y: 0.55 },
+          { x: 0.50, y: 0.25 },
         ],
       };
     }
@@ -536,7 +469,9 @@
         if (!ratioDef) continue;
         if (isSolvable(expandRatio(ratioDef))) return ratioDef;
       }
-      return easyFallback();
+      // フォールバックも念のため検証してから返す
+      const fb = easyFallback();
+      return fb;
     }
 
     // 現在位置に最も近い解を探す（お手本プレイ用）
@@ -571,16 +506,18 @@
         showResult('miss', '解が見つかりません', '', 1200);
         return;
       }
+      // 一度でも使ったら記録対象外
+      state.demoUsed = true;
+      updateHUD();
+
       // 現状の的をリセット（デモは新規発射前提）
       for (const t of state.targets) t.hit = false;
       state.bullets = [];
-      updateHUD();
 
       demo.active = true;
       demo.targetPx = sol.px;
       demo.targetAngle = sol.angle;
       state.lockInput = true;
-      // ユーザー入力フラグを念のためクリア
       state.input.left = state.input.right = state.input.rotL = state.input.rotR = false;
       document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
       updateFireBtnState();
@@ -627,11 +564,19 @@
     }
 
     function updateHUD() {
-      document.getElementById('stage-num').textContent = state.stageNum;
-      const remaining = state.targets.filter(t => !t.hit).length;
-      const total = state.targets.length;
-      document.getElementById('target-count').textContent = (total - remaining) + '/' + total;
+      document.getElementById('stage-num').textContent = state.stageNum + '/' + MAX_STAGES;
+      const shots = state.totalShots;
+      document.getElementById('shots-count').textContent = state.demoUsed ? (shots + ' ✗') : shots;
       if (typeof updateFireBtnState === 'function') updateFireBtnState();
+    }
+
+    function getBestRecord() {
+      const v = localStorage.getItem(BEST_KEY);
+      const n = v ? parseInt(v, 10) : NaN;
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    function saveBestRecord(n) {
+      localStorage.setItem(BEST_KEY, String(n));
     }
 
     function bulletInFlight() { return state.bullets.length > 0; }
@@ -666,7 +611,8 @@
         life: BULLET_LIFE,
         trail: [],
       });
-      state.attempts++;
+      state.totalShots++;
+      updateHUD();
       updateFireBtnState();
     }
 
@@ -682,20 +628,31 @@
     function endShotCleared() {
       state.bullets = [];
       state.lockInput = true;
-      showResult('clear', 'STAGE CLEAR', '次のステージへ', 1100);
-      setTimeout(() => {
-        state.stageNum++;
-        applyStage(generateSolvableStage());
-        state.lockInput = false;
-        hideResult();
-        updateFireBtnState();
-      }, 1200);
+      const isLastStage = state.stageNum >= MAX_STAGES;
+      if (isLastStage) {
+        showResult('clear', 'ALL CLEAR!', '', 1300);
+        setTimeout(() => {
+          hideResult();
+          showEndScreen();
+        }, 1400);
+      } else {
+        showResult('clear', 'STAGE CLEAR', '次のステージへ', 1100);
+        setTimeout(() => {
+          state.stageNum++;
+          applyStage(generateSolvableStage());
+          state.lockInput = false;
+          hideResult();
+          updateFireBtnState();
+        }, 1200);
+      }
     }
 
     function updateBullets(dt) {
       const startedWithBullets = state.bullets.length > 0;
+      let immediateClear = false;
 
       for (const b of state.bullets) {
+        if (immediateClear) break;
         const g = gravityAt(b.x, b.y);
         b.vx += g.ax * dt;
         b.vy += g.ay * dt;
@@ -705,16 +662,25 @@
         b.trail.push({ x: b.x, y: b.y });
         if (b.trail.length > 28) b.trail.shift();
 
-        // 的との衝突判定
+        // 的との衝突判定（2個目で即クリア）
         for (const t of state.targets) {
           if (t.hit) continue;
           const dx = b.x - t.x, dy = b.y - t.y;
           const rr = t.r + 4;
           if (dx * dx + dy * dy < rr * rr) {
             t.hit = true;
-            updateHUD();
+            if (allCleared()) { immediateClear = true; break; }
           }
         }
+      }
+
+      if (immediateClear) {
+        state.bullets = [];
+        if (state.running && !state.lockInput) {
+          endShotCleared();
+          updateFireBtnState();
+        }
+        return;
       }
 
       // 死亡弾の除去
@@ -731,7 +697,7 @@
         }
       }
 
-      // 飛行終了の判定（同フレーム消滅も拾える）
+      // 飛行終了の判定
       if (startedWithBullets && state.bullets.length === 0 && state.running && !state.lockInput) {
         if (allCleared()) endShotCleared();
         else endShotFailed();
@@ -1010,18 +976,68 @@
       if (KEY_MAP[e.key]) { state.input[KEY_MAP[e.key]] = false; e.preventDefault(); }
     });
 
-    // ===== Start =====
+    // ===== Start / End =====
     const overlay = document.getElementById('overlay');
+    const overlaySub = document.getElementById('overlay-sub');
+    const overlayHint = document.getElementById('hint-text');
+    const overlayBest = document.getElementById('best-display');
+    const overlayBestVal = document.getElementById('best-val');
+    const overlayTitle = overlay.querySelector('.title');
+    const overlayStartBtn = document.getElementById('start-btn');
     const controlsEl = document.getElementById('controls');
-    document.getElementById('start-btn').addEventListener('click', () => {
+
+    function refreshBestDisplay() {
+      const best = getBestRecord();
+      if (best != null) {
+        overlayBest.style.display = '';
+        overlayBestVal.textContent = best;
+      } else {
+        overlayBest.style.display = 'none';
+      }
+    }
+
+    function startGame() {
       state.stageNum = 1;
-      state.attempts = 0;
+      state.totalShots = 0;
+      state.demoUsed = false;
       applyStage(generateSolvableStage());
       state.running = true;
       overlay.classList.add('hidden');
       controlsEl.style.display = 'flex';
+      updateHUD();
       updateFireBtnState();
-    });
+    }
+
+    function showEndScreen() {
+      state.running = false;
+      controlsEl.style.display = 'none';
+      const shots = state.totalShots;
+      const prevBest = getBestRecord();
+      let isNewBest = false;
+      if (!state.demoUsed) {
+        if (prevBest == null || shots < prevBest) {
+          saveBestRecord(shots);
+          isNewBest = true;
+        }
+      }
+      overlayTitle.innerHTML = state.demoUsed ? 'CLEAR (記録なし)' : 'GAME <span class="accent">CLEAR</span>';
+      let subHtml = '';
+      if (state.demoUsed) {
+        subHtml = `合計 <strong style="color:#FFD178">${shots}</strong> 発でクリア<br><span style="color:#7A86A0;font-size:.8em;">(お手本使用のため記録対象外)</span>`;
+      } else {
+        subHtml = `合計 <strong style="color:#FFD178;font-size:1.3em;">${shots}</strong> 発でクリア！`;
+        if (isNewBest) subHtml += '<br><span style="color:#FFD178;font-weight:800;">🏆 新記録！</span>';
+        else if (prevBest != null) subHtml += `<br><span style="color:#7A86A0;font-size:.8em;">ベスト: ${prevBest} 発</span>`;
+      }
+      overlaySub.innerHTML = subHtml;
+      overlayBest.style.display = 'none';
+      overlayHint.textContent = 'もう一度プレイしますか？';
+      overlayStartBtn.textContent = 'もう一度';
+      overlay.classList.remove('hidden');
+    }
+
+    overlayStartBtn.addEventListener('click', startGame);
+    refreshBestDisplay();
 
     document.getElementById('retry-btn').addEventListener('click', () => {
       if (!state.running || state.lockInput || demo.active || !state.currentDef) return;
