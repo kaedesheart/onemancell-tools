@@ -921,15 +921,25 @@
     }
 
     // ===== Game loop =====
+    // 物理は固定タイムステップ(1/60秒)で更新 → 軌道が決定論的になる
+    const FIXED_DT = 1 / 60;
     let last = 0;
+    let physicsAccum = 0;
     function loop(ts) {
-      const dt = Math.min(0.05, (ts - last) / 1000 || 0);
+      const frameDt = last === 0 ? 0 : Math.min(0.1, (ts - last) / 1000);
       last = ts;
       if (state.running) {
-        if (demo.active) applyDemo(dt);
-        else if (!state.lockInput) applyInput(dt);
-        updateBullets(dt);
-        state.flash = Math.max(0, state.flash - dt);
+        physicsAccum += frameDt;
+        // フレーム落ち時の暴走防止
+        if (physicsAccum > FIXED_DT * 6) physicsAccum = FIXED_DT * 6;
+        while (physicsAccum >= FIXED_DT) {
+          physicsAccum -= FIXED_DT;
+          if (demo.active) applyDemo(FIXED_DT);
+          else if (!state.lockInput) applyInput(FIXED_DT);
+          updateBullets(FIXED_DT);
+        }
+        // 視覚的なフェードは実時間でOK
+        state.flash = Math.max(0, state.flash - frameDt);
       }
       render(ts / 1000);
       requestAnimationFrame(loop);
