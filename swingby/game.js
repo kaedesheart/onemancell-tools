@@ -553,8 +553,28 @@ function drawPlayer(p) {
   ctx.save();
   ctx.translate(p.x, p.y);
   ctx.rotate(p.angle);
+
+  // スラスター炎
+  const thrGrad = ctx.createRadialGradient(-p.r * 0.5, 0, 0, -p.r * 0.5, 0, p.r * 1.7);
+  thrGrad.addColorStop(0, 'rgba(110,175,255,.5)');
+  thrGrad.addColorStop(1, 'rgba(110,175,255,0)');
+  ctx.fillStyle = thrGrad;
+  ctx.beginPath();
+  ctx.arc(-p.r * 0.5, 0, p.r * 1.7, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 機体アウターグロウ
+  const glowGrad = ctx.createRadialGradient(p.r * 0.2, 0, 0, 0, 0, p.r * 2.4);
+  glowGrad.addColorStop(0, 'rgba(255,209,120,.22)');
+  glowGrad.addColorStop(1, 'rgba(255,209,120,0)');
+  ctx.fillStyle = glowGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, p.r * 2.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 機体本体
   ctx.fillStyle = '#FFD178';
-  ctx.strokeStyle = '#FFFFFF';
+  ctx.strokeStyle = 'rgba(255,255,255,.88)';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(p.r, 0);
@@ -564,10 +584,18 @@ function drawPlayer(p) {
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
+
+  // コックピット
   ctx.fillStyle = '#7CC8E8';
   ctx.beginPath();
-  ctx.arc(0, 0, p.r * 0.25, 0, Math.PI * 2);
+  ctx.arc(0, 0, p.r * 0.27, 0, Math.PI * 2);
   ctx.fill();
+  // 光沢ハイライト
+  ctx.fillStyle = 'rgba(255,255,255,.55)';
+  ctx.beginPath();
+  ctx.arc(-p.r * 0.04, -p.r * 0.09, p.r * 0.1, 0, Math.PI * 2);
+  ctx.fill();
+
   ctx.restore();
 }
 
@@ -576,10 +604,11 @@ function drawAimLine(path) {
   ctx.save();
   for (let i = 0; i < path.length; i++) {
     const t = 1 - i / path.length;
-    ctx.globalAlpha = t * 0.55;
-    ctx.fillStyle = '#FFD178';
+    ctx.globalAlpha = t * 0.65;
+    ctx.fillStyle = i < path.length * 0.3 ? '#FFFFFF' : '#FFD178';
+    const r = 1.4 + t * 1.0;
     ctx.beginPath();
-    ctx.arc(path[i].x, path[i].y, 1.8, 0, Math.PI * 2);
+    ctx.arc(path[i].x, path[i].y, r, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
@@ -762,6 +791,22 @@ function refreshBestDisplay() {
   }
 }
 
+function setHudForPlay() {
+  document.querySelector('.hud-right').style.display = '';
+  document.querySelector('.hud .back').style.display = '';
+  document.getElementById('retry-btn').style.display = '';
+  document.getElementById('demo-btn').style.display = '';
+  document.getElementById('exit-btn').style.display = 'none';
+}
+
+function setHudForWatch() {
+  document.querySelector('.hud-right').style.display = 'none';
+  document.querySelector('.hud .back').style.display = 'none';
+  document.getElementById('retry-btn').style.display = 'none';
+  document.getElementById('demo-btn').style.display = 'none';
+  document.getElementById('exit-btn').style.display = '';
+}
+
 function startGame() {
   state.stageNum = 1;
   state.totalShots = 0;
@@ -776,9 +821,7 @@ function startGame() {
   state.running = true;
   overlay.classList.add('hidden');
   controlsEl.style.display = 'flex';
-  document.getElementById('retry-btn').style.display = '';
-  document.getElementById('demo-btn').style.display = '';
-  document.getElementById('exit-btn').style.display = 'none';
+  setHudForPlay();
   updateHUD();
   updateFireBtnState();
 }
@@ -797,9 +840,7 @@ function startWatchMode() {
   state.running = true;
   overlay.classList.add('hidden');
   controlsEl.style.display = 'none';
-  document.getElementById('retry-btn').style.display = 'none';
-  document.getElementById('demo-btn').style.display = 'none';
-  document.getElementById('exit-btn').style.display = '';
+  setHudForWatch();
   updateHUD();
   setTimeout(() => {
     if (state.watchMode && state.running) startDemo();
@@ -821,9 +862,7 @@ function exitToTitle() {
   demo.active = false;
   state.bullets = [];
   controlsEl.style.display = 'none';
-  document.getElementById('exit-btn').style.display = 'none';
-  document.getElementById('retry-btn').style.display = '';
-  document.getElementById('demo-btn').style.display = '';
+  setHudForPlay();
   hideResult();
   resetOverlayToTitle();
   initTitleBg();

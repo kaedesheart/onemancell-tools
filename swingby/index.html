@@ -12,13 +12,14 @@
 </head>
 <body>
   <canvas id="stage"></canvas>
+  <div id="vignette"></div>
 
   <div class="hud">
     <div class="hud-left">
       <a class="back" href="/">← tools</a>
       <button class="badge" id="retry-btn" style="cursor:pointer;font-family:inherit;color:#E8ECF8;">↺ やり直す</button>
       <button class="badge" id="demo-btn" style="cursor:pointer;font-family:inherit;color:#E8ECF8;">👁 お手本</button>
-      <button class="badge" id="exit-btn" style="display:none;cursor:pointer;font-family:inherit;color:#E8ECF8;">✕ 終了</button>
+      <button class="badge" id="exit-btn" style="display:none;cursor:pointer;font-family:inherit;color:#E8ECF8;">← タイトルへ</button>
     </div>
     <div class="hud-right">
       <div class="badge"><span class="label">STAGE</span><span class="val" id="stage-num">1/6</span></div>
@@ -42,8 +43,8 @@
   </div>
 
   <div id="result-overlay" class="hidden" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;z-index:8;pointer-events:none;transition:opacity .25s;">
-    <div id="result-title" style="font-size:2.4rem;font-weight:800;letter-spacing:.04em;text-shadow:0 0 20px rgba(0,0,0,.6);"></div>
-    <div id="result-sub" style="font-size:.85rem;color:#B8C2D6;text-shadow:0 0 8px rgba(0,0,0,.6);"></div>
+    <div id="result-title"></div>
+    <div id="result-sub"></div>
   </div>
 
   <div class="controls" id="controls" style="display:none;">
