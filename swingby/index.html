@@ -995,6 +995,11 @@
       state.stageNum = 1;
       state.totalShots = 0;
       state.demoUsed = false;
+      state.lockInput = false;
+      state.flash = 0;
+      state.input.left = state.input.right = state.input.rotL = state.input.rotR = false;
+      demo.active = false;
+      hideResult();
       applyStage(generateSolvableStage());
       state.running = true;
       overlay.classList.add('hidden');
