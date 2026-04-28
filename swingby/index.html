@@ -525,30 +525,25 @@
 
     function applyDemo(dt) {
       const p = state.player;
-      // 横移動
+      // 横移動: 1ステップでカバーできる距離なら exact snap
       const dx = demo.targetPx - p.x;
-      if (Math.abs(dx) > 0.5) {
+      if (dx !== 0) {
         const move = MOVE_SPEED * dt;
-        if (Math.abs(dx) < move) p.x = demo.targetPx;
+        if (Math.abs(dx) <= move) p.x = demo.targetPx;
         else p.x += Math.sign(dx) * move;
       }
-      // 回転（最短経路）
+      // 回転: 最短経路 + 1ステップでカバーできる角度なら exact snap
       let da = demo.targetAngle - p.angle;
       while (da >  Math.PI) da -= Math.PI * 2;
       while (da < -Math.PI) da += Math.PI * 2;
-      if (Math.abs(da) > 0.01) {
+      if (da !== 0) {
         const rot = ROT_SPEED * dt;
-        if (Math.abs(da) < rot) p.angle = demo.targetAngle;
+        if (Math.abs(da) <= rot) p.angle = demo.targetAngle;
         else p.angle += Math.sign(da) * rot;
       }
-      // 完了判定 → 発射
-      const xDone = Math.abs(p.x - demo.targetPx) < 0.5;
-      let n = ((p.angle - demo.targetAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-      if (n > Math.PI) n -= Math.PI * 2;
-      const aDone = Math.abs(n) < 0.02;
-      if (xDone && aDone) {
+      // 両方 exact 一致したら発射 → シミュレータと完全一致した軌道に
+      if (p.x === demo.targetPx && p.angle === demo.targetAngle) {
         demo.active = false;
-        // 発射前に lockInput を解除（updateBullets が結果判定するため）
         state.lockInput = false;
         setTimeout(() => fire(), 220);
       }
