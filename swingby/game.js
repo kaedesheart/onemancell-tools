@@ -1129,7 +1129,6 @@ function refreshBestDisplay() {
 
 function setHudForPlay() {
   document.querySelector('.hud-right').style.display = '';
-  document.querySelector('.hud .back').style.display = '';
   document.getElementById('retry-btn').style.display = '';
   document.getElementById('demo-btn').style.display = '';
   document.getElementById('exit-btn').style.display = 'none';
@@ -1137,7 +1136,6 @@ function setHudForPlay() {
 
 function setHudForWatch() {
   document.querySelector('.hud-right').style.display = 'none';
-  document.querySelector('.hud .back').style.display = 'none';
   document.getElementById('retry-btn').style.display = 'none';
   document.getElementById('demo-btn').style.display = 'none';
   document.getElementById('exit-btn').style.display = '';

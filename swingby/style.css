@@ -47,17 +47,9 @@ html, body {
 .hud-left, .hud-right {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
   pointer-events: auto;
 }
-
-.hud a.back {
-  color: #B8C2D6;
-  text-decoration: none;
-  font-size: .82rem;
-  font-weight: 700;
-}
-.hud a.back:hover { color: #E8ECF8; }
 
 .badge {
   background: rgba(255,255,255,.06);
