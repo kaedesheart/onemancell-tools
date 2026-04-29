@@ -125,6 +125,30 @@ function drawParticles() {
 }
 
 const shake = { magnitude: 0, x: 0, y: 0 };
+
+// 発射演出: マズルフラッシュ強度、反動量、ブースター粒子の発生間隔
+const fx = { muzzle: 0, kickback: 0, thrustTimer: 0 };
+function spawnThrustParticles(p, dt) {
+  if (!state.running) return;
+  fx.thrustTimer += dt;
+  if (fx.thrustTimer < 0.035) return;
+  fx.thrustTimer = 0;
+  const tailX = p.x - Math.cos(p.angle) * p.r * 0.85;
+  const tailY = p.y - Math.sin(p.angle) * p.r * 0.85;
+  const speed = 50 + Math.random() * 60;
+  const spread = (Math.random() - 0.5) * 0.6;
+  const dir = p.angle + Math.PI + spread;
+  particles.push({
+    x: tailX + (Math.random() - 0.5) * 3,
+    y: tailY + (Math.random() - 0.5) * 3,
+    vx: Math.cos(dir) * speed,
+    vy: Math.sin(dir) * speed,
+    life: 0.32 + Math.random() * 0.18,
+    maxLife: 0.5,
+    color: Math.random() < 0.7 ? '#7CC8E8' : '#A6DCEF',
+    size: 1.0 + Math.random() * 0.8,
+  });
+}
 function triggerShake(amount) {
   shake.magnitude = Math.max(shake.magnitude, amount);
 }
@@ -509,6 +533,28 @@ function fire() {
     life: BULLET_LIFE,
     trail: [],
   });
+  // 発射演出
+  fx.muzzle = 1;
+  fx.kickback = 1;
+  triggerShake(4);
+  // マズルから前方に金色の閃光
+  const muzzleX = p.x + nx * (p.r + 8);
+  const muzzleY = p.y + ny * (p.r + 8);
+  for (let i = 0; i < 8; i++) {
+    const spread = (Math.random() - 0.5) * 0.7;
+    const ang = p.angle + spread;
+    const sp = 80 + Math.random() * 90;
+    particles.push({
+      x: muzzleX,
+      y: muzzleY,
+      vx: Math.cos(ang) * sp,
+      vy: Math.sin(ang) * sp,
+      life: 0.18 + Math.random() * 0.12,
+      maxLife: 0.3,
+      color: '#FFE7A5',
+      size: 1.4 + Math.random() * 1.2,
+    });
+  }
   state.totalShots++;
   updateHUD();
   updateFireBtnState();
@@ -734,12 +780,15 @@ function drawPlanet(p, time) {
 
 function drawPlayer(p) {
   ctx.save();
-  ctx.translate(p.x, p.y);
+  // 反動: 後ろ向きに数pxオフセット（物理は不変、表示のみ）
+  const kickOffset = -fx.kickback * 6;
+  ctx.translate(p.x + Math.cos(p.angle) * kickOffset, p.y + Math.sin(p.angle) * kickOffset);
   ctx.rotate(p.angle);
 
-  // スラスター炎
+  // スラスター炎(キックバック中は強める)
+  const thrustIntensity = 0.5 + fx.kickback * 0.7;
   const thrGrad = ctx.createRadialGradient(-p.r * 0.5, 0, 0, -p.r * 0.5, 0, p.r * 1.7);
-  thrGrad.addColorStop(0, 'rgba(110,175,255,.5)');
+  thrGrad.addColorStop(0, `rgba(110,175,255,${thrustIntensity})`);
   thrGrad.addColorStop(1, 'rgba(110,175,255,0)');
   ctx.fillStyle = thrGrad;
   ctx.beginPath();
@@ -779,17 +828,38 @@ function drawPlayer(p) {
   ctx.arc(-p.r * 0.04, -p.r * 0.09, p.r * 0.1, 0, Math.PI * 2);
   ctx.fill();
 
+  // マズルフラッシュ(発射直後の閃光)
+  if (fx.muzzle > 0) {
+    const m = fx.muzzle;
+    const flashGrad = ctx.createRadialGradient(p.r * 1.3, 0, 0, p.r * 1.3, 0, p.r * 2.8 * m);
+    flashGrad.addColorStop(0, `rgba(255,255,255,${0.95 * m})`);
+    flashGrad.addColorStop(0.4, `rgba(255,231,165,${0.6 * m})`);
+    flashGrad.addColorStop(1, 'rgba(255,209,120,0)');
+    ctx.fillStyle = flashGrad;
+    ctx.beginPath();
+    ctx.arc(p.r * 1.3, 0, p.r * 2.8 * m, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   ctx.restore();
 }
 
-function drawAimLine(path) {
+function drawAimLine(path, time) {
   if (!path.length || bulletInFlight()) return;
   ctx.save();
+  // エネルギー波: 0..1で進む位相、近傍点を強調して光が流れる演出
+  const phase = ((time || 0) * 0.55) % 1;
   for (let i = 0; i < path.length; i++) {
-    const t = 1 - i / path.length;
-    ctx.globalAlpha = t * 0.65;
-    ctx.fillStyle = i < path.length * 0.3 ? '#FFFFFF' : '#FFD178';
-    const r = 1.4 + t * 1.0;
+    const t = i / path.length; // 0=始点, 1=終点
+    const distantFade = 1 - t;
+    let dist = Math.abs(t - phase);
+    if (dist > 0.5) dist = 1 - dist;
+    const wave = Math.max(0, 1 - dist * 5);
+    const baseAlpha = distantFade * 0.45;
+    const alpha = baseAlpha + wave * 0.55;
+    ctx.globalAlpha = Math.min(1, alpha);
+    ctx.fillStyle = t < 0.3 ? '#FFFFFF' : '#FFD178';
+    const r = 1.3 + distantFade * 0.9 + wave * 1.6;
     ctx.beginPath();
     ctx.arc(path[i].x, path[i].y, r, 0, Math.PI * 2);
     ctx.fill();
@@ -935,7 +1005,7 @@ function render(time) {
   for (const p of state.planets) drawPlanet(p, time);
   for (const t of state.targets) drawTarget(t, time);
   if (state.running) {
-    drawAimLine(predictPath());
+    drawAimLine(predictPath(), time);
     for (const b of state.bullets) drawBullet(b);
     drawPlayer(state.player);
   }
@@ -962,9 +1032,13 @@ function loop(ts) {
     }
     state.flash = Math.max(0, state.flash - frameDt);
   }
-  // パーティクル・シェイクは実時間で更新（タイトルでも動く）
+  // パーティクル・シェイク・発射演出は実時間で更新（タイトルでも動く）
   updateParticles(frameDt);
   updateShake(frameDt);
+  fx.muzzle = Math.max(0, fx.muzzle - frameDt * 6);
+  fx.kickback = Math.max(0, fx.kickback - frameDt * 5);
+  // ブースター粒子（ゲーム中は常に薄く出す）
+  if (state.running) spawnThrustParticles(state.player, frameDt);
   render(ts / 1000);
   requestAnimationFrame(loop);
 }
