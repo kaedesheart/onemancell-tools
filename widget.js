@@ -41,6 +41,7 @@
       name: 'スイングバイ',
       desc: '惑星の重力で弾道を曲げる宇宙パズル（全6ステージ）',
       url: BASE + '/swingby/',
+      aboutUrl: BASE + '/swingby/about/',
       pick: true,
     },
   ];
@@ -102,7 +103,7 @@
         <div class="omc-desc">${t.desc}</div>
         <div class="omc-btn-row">
           <a class="omc-btn" href="${t.url}" target="_blank" rel="noopener">使う</a>
-          <a class="omc-about-btn" href="${t.aboutUrl}" target="_blank" rel="noopener">詳しく →</a>
+          ${t.aboutUrl ? `<a class="omc-about-btn" href="${t.aboutUrl}" target="_blank" rel="noopener">詳しく →</a>` : ''}
         </div>
       </div>
     `).join('');
