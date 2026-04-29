@@ -272,6 +272,42 @@ button.badge:active {
 #result-overlay.hidden { opacity: 0; }
 #result-overlay.show { opacity: 1; }
 
+@keyframes result-title-enter {
+  0% {
+    opacity: 0;
+    transform: scale(.55) translateY(18px);
+    letter-spacing: .32em;
+    filter: blur(10px);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.08) translateY(-2px);
+    letter-spacing: .1em;
+    filter: blur(0);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    letter-spacing: .06em;
+  }
+}
+@keyframes result-glow-pulse {
+  0%, 100% {
+    text-shadow:
+      0 0 30px currentColor,
+      0 0 60px currentColor;
+  }
+  50% {
+    text-shadow:
+      0 0 50px currentColor,
+      0 0 100px currentColor,
+      0 0 150px currentColor;
+  }
+}
+@keyframes result-sub-fade {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
 #result-title {
   font-family: 'Orbitron', sans-serif;
   font-size: clamp(2rem, 7vw, 2.8rem);
@@ -283,6 +319,14 @@ button.badge:active {
   font-size: .85rem;
   color: #B8C2D6;
   text-shadow: 0 0 10px rgba(0,0,0,.8);
+}
+#result-overlay.show #result-title {
+  animation:
+    result-title-enter .6s cubic-bezier(.18, .89, .25, 1.3),
+    result-glow-pulse 1.8s ease-in-out infinite .6s;
+}
+#result-overlay.show #result-sub {
+  animation: result-sub-fade .5s ease-out .35s backwards;
 }
 
 /* ===== Controls ===== */

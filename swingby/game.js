@@ -100,6 +100,30 @@ function spawnHitParticles(x, y, color = '#FFE7A5', count = 28) {
     });
   }
 }
+
+// 全クリア時の祝福パーティクル
+function spawnCelebration(major) {
+  const palette = ['#FFD178', '#FFE7A5', '#7CC8E8', '#C99BFF', '#9FE6A0', '#FF9CAB'];
+  const count = major ? 90 : 55;
+  const cx = W / 2;
+  const cy = H * 0.5;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 110 + Math.random() * (major ? 320 : 240);
+    const life = 1.4 + Math.random() * 1.6;
+    particles.push({
+      x: cx + (Math.random() - 0.5) * 60,
+      y: cy + (Math.random() - 0.5) * 60,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 70, // 軽く上向きバイアス
+      life,
+      maxLife: life,
+      color: palette[Math.floor(Math.random() * palette.length)],
+      size: 2 + Math.random() * 3,
+    });
+  }
+  triggerShake(major ? 12 : 6);
+}
 function updateParticles(dt) {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
@@ -598,6 +622,10 @@ function endShotCleared() {
 
   const isLastStage = state.stageNum >= MAX_STAGES;
   if (isLastStage) {
+    // 新記録になりそうかを予測（記録対象外＝デモ使用なら通常パーティクル）
+    const prevBest = getBestRecord();
+    const willBeNewBest = !state.demoUsed && (prevBest == null || state.totalShots < prevBest);
+    spawnCelebration(willBeNewBest);
     showResult('clear', 'ALL CLEAR!', '', 1300);
     setTimeout(() => {
       hideResult();
