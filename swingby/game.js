@@ -609,12 +609,17 @@ function updateBullets(dt) {
   for (let i = state.bullets.length - 1; i >= 0; i--) {
     const b = state.bullets[i];
     const offBounds = b.x < -60 || b.x > W + 60 || b.y < -60 || b.y > H + 60;
-    let hitPlanet = false;
+    let hitPlanet = null;
     for (const p of state.planets) {
       const dx = b.x - p.x, dy = b.y - p.y;
-      if (dx * dx + dy * dy < p.r * p.r) { hitPlanet = true; break; }
+      if (dx * dx + dy * dy < p.r * p.r) { hitPlanet = p; break; }
     }
     if (b.life <= 0 || offBounds || hitPlanet) {
+      if (hitPlanet) {
+        // 惑星にめり込んだダスト演出
+        spawnHitParticles(b.x, b.y, hitPlanet.color, 18);
+        triggerShake(5);
+      }
       state.bullets.splice(i, 1);
     }
   }
@@ -682,8 +687,11 @@ function drawStars(time) {
   ctx.restore();
 }
 
-function drawPlanet(p) {
+function drawPlanet(p, time) {
   ctx.save();
+  // 個体ごとの位相（一度乱数 → 以後固定）
+  if (p._phase === undefined) p._phase = Math.random() * Math.PI * 2;
+  // 重力場リング
   const grad = ctx.createRadialGradient(p.x, p.y, p.r * 0.8, p.x, p.y, p.r * 4);
   grad.addColorStop(0, p.color + '55');
   grad.addColorStop(1, p.color + '00');
@@ -691,6 +699,13 @@ function drawPlanet(p) {
   ctx.beginPath();
   ctx.arc(p.x, p.y, p.r * 4, 0, Math.PI * 2);
   ctx.fill();
+  // 大気のリング（薄い縁取り）
+  ctx.strokeStyle = p.color + '55';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, p.r * 1.16, 0, Math.PI * 2);
+  ctx.stroke();
+  // 本体
   const body = ctx.createRadialGradient(
     p.x - p.r * 0.4, p.y - p.r * 0.4, p.r * 0.2,
     p.x, p.y, p.r
@@ -702,6 +717,18 @@ function drawPlanet(p) {
   ctx.beginPath();
   ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
   ctx.fill();
+  // 自転を感じさせるハイライト（軌道で位置がゆっくり動く）
+  const t = (time || 0) * 0.6 + p._phase;
+  const hx = p.x + Math.cos(t) * p.r * 0.32;
+  const hy = p.y - p.r * 0.3 + Math.sin(t) * p.r * 0.12;
+  const hl = ctx.createRadialGradient(hx, hy, 0, hx, hy, p.r * 0.45);
+  hl.addColorStop(0, 'rgba(255,255,255,0.65)');
+  hl.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hl;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
   ctx.restore();
 }
 
@@ -773,31 +800,80 @@ function drawAimLine(path) {
 function drawTarget(t, time) {
   ctx.save();
   if (t.hit) {
-    ctx.globalAlpha = 0.2;
+    ctx.globalAlpha = 0.18;
     ctx.strokeStyle = '#FFD178';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.arc(t.x, t.y, t.r * 0.5, 0, Math.PI * 2);
     ctx.stroke();
-  } else {
-    const pulse = 1 + Math.sin(time * 4) * 0.08;
-    const grad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, t.r * 2.4);
-    grad.addColorStop(0, 'rgba(255, 230, 150, 0.55)');
-    grad.addColorStop(1, 'rgba(255, 209, 120, 0)');
-    ctx.fillStyle = grad;
+    ctx.restore();
+    return;
+  }
+  const corePulse = 1 + Math.sin(time * 4) * 0.10;
+  const corePulseFast = 1 + Math.sin(time * 7) * 0.12;
+
+  // 外側のグロー
+  const grad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, t.r * 2.6);
+  grad.addColorStop(0, 'rgba(255, 230, 150, 0.55)');
+  grad.addColorStop(1, 'rgba(255, 209, 120, 0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(t.x, t.y, t.r * 2.6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 外リング: ゆっくり時計回り、チェブロン4マーク
+  ctx.translate(t.x, t.y);
+  ctx.save();
+  ctx.rotate(time * 0.7);
+  ctx.strokeStyle = 'rgba(255, 231, 165, 0.82)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 0, t.r * corePulse, 0, Math.PI * 2);
+  ctx.stroke();
+  // チェブロン
+  ctx.fillStyle = '#FFE7A5';
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2;
+    const cx = Math.cos(a) * t.r * corePulse;
+    const cy = Math.sin(a) * t.r * corePulse;
     ctx.beginPath();
-    ctx.arc(t.x, t.y, t.r * 2.4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#FFE7A5';
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, t.r * pulse, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, 3, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 2.2, 0, Math.PI * 2);
     ctx.fill();
   }
+  ctx.restore();
+
+  // 内リング: 反対方向、3マーク
+  ctx.save();
+  ctx.rotate(-time * 1.3);
+  ctx.strokeStyle = 'rgba(255, 231, 165, 0.55)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, 0, t.r * 0.55, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255, 231, 165, 0.85)';
+  for (let i = 0; i < 3; i++) {
+    const a = i * Math.PI * 2 / 3 + Math.PI / 6;
+    const cx = Math.cos(a) * t.r * 0.55;
+    const cy = Math.sin(a) * t.r * 0.55;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // コア: 白い点+脈動グロー
+  const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 6 * corePulseFast);
+  coreGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+  coreGrad.addColorStop(0.6, 'rgba(255,231,165,0.45)');
+  coreGrad.addColorStop(1, 'rgba(255,209,120,0)');
+  ctx.fillStyle = coreGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, 6 * corePulseFast, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath();
+  ctx.arc(0, 0, 2.4, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -856,7 +932,7 @@ function render(time) {
   }
   drawNebulae();
   drawStars(time);
-  for (const p of state.planets) drawPlanet(p);
+  for (const p of state.planets) drawPlanet(p, time);
   for (const t of state.targets) drawTarget(t, time);
   if (state.running) {
     drawAimLine(predictPath());
