@@ -150,6 +150,86 @@ function drawParticles() {
 
 const shake = { magnitude: 0, x: 0, y: 0 };
 
+// ===== タイトル画面の流れ星屑 =====
+const stardust = [];
+let stardustCooldown = 0;
+function spawnStardust() {
+  // 画面端からランダムに登場、対角線方向に流れる
+  const fromEdge = Math.floor(Math.random() * 4);
+  let x, y, vx, vy;
+  switch (fromEdge) {
+    case 0: x = -20; y = Math.random() * H; vx = 35 + Math.random() * 50; vy = (Math.random() - 0.5) * 30; break;
+    case 1: x = W + 20; y = Math.random() * H; vx = -35 - Math.random() * 50; vy = (Math.random() - 0.5) * 30; break;
+    case 2: x = Math.random() * W; y = -20; vx = (Math.random() - 0.5) * 30; vy = 35 + Math.random() * 50; break;
+    default: x = Math.random() * W; y = H + 20; vx = (Math.random() - 0.5) * 30; vy = -35 - Math.random() * 50;
+  }
+  const palette = ['#FFE7A5', '#7CC8E8', '#C99BFF', '#FFFFFF'];
+  stardust.push({
+    x, y, vx, vy,
+    life: 8 + Math.random() * 6,
+    maxLife: 14,
+    color: palette[Math.floor(Math.random() * palette.length)],
+    size: 0.8 + Math.random() * 1.0,
+  });
+}
+function updateStardust(dt) {
+  // タイトル中(running=false)のみ生成・更新
+  if (!state.running) {
+    stardustCooldown -= dt;
+    if (stardustCooldown <= 0 && stardust.length < 18) {
+      stardustCooldown = 0.5 + Math.random() * 0.9;
+      spawnStardust();
+    }
+  }
+  for (let i = stardust.length - 1; i >= 0; i--) {
+    const p = stardust[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+    if (p.life <= 0 || p.x < -50 || p.x > W + 50 || p.y < -50 || p.y > H + 50) {
+      stardust.splice(i, 1);
+    }
+  }
+}
+function drawStardust() {
+  if (!stardust.length) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const p of stardust) {
+    const t = p.life / p.maxLife;
+    let alpha = t < 0.15 ? t / 0.15 : (t > 0.85 ? (1 - t) / 0.15 : 1);
+    alpha = Math.max(0, Math.min(1, alpha)) * 0.85;
+    // トレイル(進行方向と反対側に薄く伸ばす)
+    const tailX = p.x - p.vx * 0.06;
+    const tailY = p.y - p.vy * 0.06;
+    const trailGrad = ctx.createLinearGradient(tailX, tailY, p.x, p.y);
+    trailGrad.addColorStop(0, 'rgba(255,255,255,0)');
+    trailGrad.addColorStop(1, p.color);
+    ctx.globalAlpha = alpha * 0.6;
+    ctx.strokeStyle = trailGrad;
+    ctx.lineWidth = p.size * 1.3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(tailX, tailY);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    // ヘッド(光る点)
+    ctx.globalAlpha = alpha;
+    const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 5);
+    halo.addColorStop(0, p.color);
+    halo.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 // ===== Audio (WebAudio で効果音を生成) =====
 const audioState = { ctx: null };
 const MUTE_KEY = 'omc-swingby-mute';
@@ -947,21 +1027,28 @@ function drawPlayer(p) {
 function drawAimLine(path, time) {
   if (!path.length || bulletInFlight()) return;
   ctx.save();
-  // エネルギー波: 0..1で進む位相、近傍点を強調して光が流れる演出
+  // 加算合成で柔らかいエネルギー光に
+  ctx.globalCompositeOperation = 'lighter';
   const phase = ((time || 0) * 0.55) % 1;
   for (let i = 0; i < path.length; i++) {
-    const t = i / path.length; // 0=始点, 1=終点
+    const t = i / path.length;
     const distantFade = 1 - t;
     let dist = Math.abs(t - phase);
     if (dist > 0.5) dist = 1 - dist;
     const wave = Math.max(0, 1 - dist * 5);
-    const baseAlpha = distantFade * 0.45;
-    const alpha = baseAlpha + wave * 0.55;
-    ctx.globalAlpha = Math.min(1, alpha);
-    ctx.fillStyle = t < 0.3 ? '#FFFFFF' : '#FFD178';
-    const r = 1.3 + distantFade * 0.9 + wave * 1.6;
+    const baseAlpha = distantFade * 0.32;
+    const alpha = Math.min(1, baseAlpha + wave * 0.45);
+    ctx.globalAlpha = alpha;
+    const color = t < 0.3 ? 'rgba(255,255,255,1)' : 'rgba(255,209,120,1)';
+    const r = 1.4 + distantFade * 1.0 + wave * 1.8;
+    // 柔らかいハロー(霧効果)
+    const grad = ctx.createRadialGradient(path[i].x, path[i].y, 0, path[i].x, path[i].y, r * 2.6);
+    grad.addColorStop(0, color);
+    grad.addColorStop(0.5, color.replace(',1)', ',0.4)'));
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(path[i].x, path[i].y, r, 0, Math.PI * 2);
+    ctx.arc(path[i].x, path[i].y, r * 2.6, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
@@ -1102,6 +1189,7 @@ function render(time) {
   }
   drawNebulae();
   drawStars(time);
+  drawStardust();
   for (const p of state.planets) drawPlanet(p, time);
   for (const t of state.targets) drawTarget(t, time);
   if (state.running) {
@@ -1134,6 +1222,7 @@ function loop(ts) {
   }
   // パーティクル・シェイク・発射演出は実時間で更新（タイトルでも動く）
   updateParticles(frameDt);
+  updateStardust(frameDt);
   updateShake(frameDt);
   fx.muzzle = Math.max(0, fx.muzzle - frameDt * 6);
   fx.kickback = Math.max(0, fx.kickback - frameDt * 5);
