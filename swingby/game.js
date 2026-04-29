@@ -276,7 +276,7 @@ function findLongestSolution(absDef) {
 }
 
 // ===== Demo (お手本プレイ) =====
-const demo = { active: false, targetPx: 0, targetAngle: 0 };
+const demo = { active: false, targetPx: 0, targetAngle: 0, startTime: 0 };
 let demoFireTimer = null;
 
 // 観るだけモード用: 連鎖setTimeoutをID管理してexit時に全キャンセル
@@ -327,6 +327,7 @@ function startDemo() {
   demo.active = true;
   demo.targetPx = sol.px;
   demo.targetAngle = sol.angle;
+  demo.startTime = performance.now();
   state.lockInput = true;
   state.input.left = state.input.right = state.input.rotL = state.input.rotR = false;
   document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
@@ -335,6 +336,11 @@ function startDemo() {
 
 function applyDemo(dt) {
   const p = state.player;
+  // 安全装置: 5秒以上完了しない場合は強制スナップして発射（停止防止）
+  if (performance.now() - demo.startTime > 5000) {
+    p.x = demo.targetPx;
+    p.angle = demo.targetAngle;
+  }
   const dx = demo.targetPx - p.x;
   if (dx !== 0) {
     const move = MOVE_SPEED * dt;
@@ -348,6 +354,9 @@ function applyDemo(dt) {
     const rot = ROT_SPEED * dt;
     if (Math.abs(da) <= rot) p.angle = demo.targetAngle;
     else p.angle += Math.sign(da) * rot;
+  } else if (p.angle !== demo.targetAngle) {
+    // 角度がmod 2πで等価だが値が異なる(例: -π/2 と 3π/2) → 強制スナップ
+    p.angle = demo.targetAngle;
   }
   // 両方 exact 一致したら発射 → シミュレータと完全一致した軌道に
   if (p.x === demo.targetPx && p.angle === demo.targetAngle) {
