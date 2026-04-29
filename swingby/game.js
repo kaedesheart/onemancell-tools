@@ -150,6 +150,61 @@ function drawParticles() {
 
 const shake = { magnitude: 0, x: 0, y: 0 };
 
+// ===== Audio (WebAudio で効果音を生成) =====
+const audioState = { ctx: null };
+const MUTE_KEY = 'omc-swingby-mute';
+let audioMuted = localStorage.getItem(MUTE_KEY) === '1';
+
+function initAudio() {
+  if (audioState.ctx || audioMuted) return;
+  try {
+    audioState.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch (e) { /* 非対応環境は黙ってスキップ */ }
+}
+
+function setMuted(m) {
+  audioMuted = m;
+  localStorage.setItem(MUTE_KEY, m ? '1' : '0');
+  const btn = document.getElementById('mute-btn');
+  if (btn) btn.textContent = m ? '🔇 サウンド OFF' : '🔊 サウンド ON';
+}
+
+function audioBeep({ type = 'sine', freq, freqEnd, dur = 0.2, gain = 0.12, attack = 0.005, delay = 0 }) {
+  if (audioMuted) return;
+  initAudio();
+  const ctx = audioState.ctx;
+  if (!ctx) return;
+  const now = ctx.currentTime + delay;
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+  if (freqEnd != null) osc.frequency.exponentialRampToValueAtTime(freqEnd, now + dur);
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(gain, now + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+  osc.connect(g).connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + dur + 0.02);
+}
+
+function playFire()  { audioBeep({ type: 'sawtooth', freq: 660, freqEnd: 80,  dur: 0.16, gain: 0.10 }); }
+function playHit()   {
+  audioBeep({ type: 'sine', freq: 987.77,  dur: 0.45, gain: 0.10 });
+  audioBeep({ type: 'sine', freq: 1318.51, dur: 0.45, gain: 0.08 });
+}
+function playMiss()  { audioBeep({ type: 'sine', freq: 160, freqEnd: 45, dur: 0.28, gain: 0.13 }); }
+function playClear() {
+  [659.25, 783.99, 987.77].forEach((f, i) =>
+    audioBeep({ type: 'triangle', freq: f, dur: 0.4, gain: 0.10, delay: i * 0.08 }));
+}
+function playAllClear() {
+  [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((f, i) =>
+    audioBeep({ type: 'triangle', freq: f, dur: 0.65, gain: 0.13, delay: i * 0.10 }));
+}
+// 初回ユーザー操作で AudioContext を起動
+document.addEventListener('pointerdown', () => initAudio(), { once: true });
+
 // 発射演出: マズルフラッシュ強度、反動量、ブースター粒子の発生間隔
 const fx = { muzzle: 0, kickback: 0, thrustTimer: 0 };
 function spawnThrustParticles(p, dt) {
@@ -580,6 +635,7 @@ function fire() {
     });
   }
   state.totalShots++;
+  playFire();
   updateHUD();
   updateFireBtnState();
 }
@@ -588,6 +644,7 @@ function endShotFailed() {
   state.bullets = [];
   state.flash = 0.6;
   for (const t of state.targets) t.hit = false;
+  playMiss();
   updateHUD();
   if (state.watchMode) {
     // 観るだけモード中は新しいステージに進んでリトライ（同じ詰みを繰り返さない）
@@ -607,6 +664,7 @@ function endShotCleared() {
 
   if (state.watchMode) {
     // 観るだけモード: ペースをゆったり、連鎖タイマーは watchSetTimeout で安全に管理
+    playClear();
     showResult('clear', 'CLEAR', '', 1300);
     watchSetTimeout(() => {
       state.stageNum++;
@@ -626,12 +684,14 @@ function endShotCleared() {
     const prevBest = getBestRecord();
     const willBeNewBest = !state.demoUsed && (prevBest == null || state.totalShots < prevBest);
     spawnCelebration(willBeNewBest);
+    playAllClear();
     showResult('clear', 'ALL CLEAR!', '', 1300);
     setTimeout(() => {
       hideResult();
       showEndScreen();
     }, 1400);
   } else {
+    playClear();
     showResult('clear', 'STAGE CLEAR', '次のステージへ', 1100);
     setTimeout(() => {
       state.stageNum++;
@@ -666,6 +726,7 @@ function updateBullets(dt) {
         t.hit = true;
         spawnHitParticles(t.x, t.y, '#FFE7A5', 28);
         triggerShake(8);
+        playHit();
         if (allCleared()) { immediateClear = true; break; }
       }
     }
@@ -791,17 +852,28 @@ function drawPlanet(p, time) {
   ctx.beginPath();
   ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
   ctx.fill();
-  // 自転を感じさせるハイライト（軌道で位置がゆっくり動く）
+  // クリッピングしてハイライト＋大気バンドを描画
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+  ctx.clip();
+
+  // 大気バンド（横方向、ゆっくり揺らぐ）
   const t = (time || 0) * 0.6 + p._phase;
+  for (let i = -2; i <= 2; i++) {
+    const offset = Math.sin(t + i * 0.7) * p.r * 0.04;
+    const y = p.y + i * p.r * 0.20 + offset;
+    const alpha = 0.05 + 0.04 * Math.sin(i * 1.3 + t * 0.8);
+    ctx.fillStyle = `rgba(255,255,255,${Math.max(0, alpha)})`;
+    ctx.fillRect(p.x - p.r, y - p.r * 0.05, p.r * 2, p.r * 0.10);
+  }
+
+  // 自転を感じさせるハイライト
   const hx = p.x + Math.cos(t) * p.r * 0.32;
   const hy = p.y - p.r * 0.3 + Math.sin(t) * p.r * 0.12;
   const hl = ctx.createRadialGradient(hx, hy, 0, hx, hy, p.r * 0.45);
   hl.addColorStop(0, 'rgba(255,255,255,0.65)');
   hl.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = hl;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-  ctx.clip();
   ctx.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
   ctx.restore();
 }
@@ -1265,6 +1337,8 @@ function showEndScreen() {
 overlayStartBtn.addEventListener('click', startGame);
 document.getElementById('watch-btn').addEventListener('click', startWatchMode);
 document.getElementById('exit-btn').addEventListener('click', exitToTitle);
+document.getElementById('mute-btn').addEventListener('click', () => setMuted(!audioMuted));
+setMuted(audioMuted); // ラベル初期化
 refreshBestDisplay();
 
 document.getElementById('retry-btn').addEventListener('click', () => {
