@@ -3,7 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>onemancell tools</title>
+  <title>onemancell tools - 日常をちょっと便利にする個人開発のWebツール集</title>
+  <meta name="description" content="onemancell tools は、ダイスツール・タスク分解・ポモドーロタイマー・ノイズミキサー・宇宙パズルなど、日常をちょっと便利・楽しくする個人開発の Web ツールを公開しています。すべて無料、登録不要、ブラウザだけで動作。">
+  <meta property="og:title" content="onemancell tools">
+  <meta property="og:description" content="日常をちょっと便利にする、個人開発の Web ツール集。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://tools.onemancell.com/">
+  <meta name="theme-color" content="#FF6B1A">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -37,18 +43,19 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 24px;
+      padding: 36px 20px 24px;
+      line-height: 1.6;
     }
 
     .card {
       background: #fff;
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow-card);
-      padding: 40px 36px;
-      max-width: 420px;
+      padding: 36px 28px;
+      max-width: 460px;
       width: 100%;
       text-align: center;
+      margin-bottom: 18px;
     }
 
     .logo {
@@ -118,14 +125,56 @@
 
     .tool-info { text-align: left; }
     .tool-name { font-weight: 700; font-size: .95rem; }
-    .tool-desc { font-size: .78rem; color: var(--ink-500); margin-top: 3px; }
+    .tool-desc { font-size: .76rem; color: var(--ink-500); margin-top: 3px; line-height: 1.55; }
+
+    .intro {
+      max-width: 460px;
+      width: 100%;
+      margin-bottom: 18px;
+      padding: 24px 26px;
+      background: #fff;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      font-size: .85rem;
+      color: var(--ink-700);
+      line-height: 1.85;
+    }
+    .intro h2 {
+      font-size: .72rem;
+      color: var(--ink-500);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .intro p { margin-bottom: 8px; }
+    .intro p:last-child { margin-bottom: 0; }
+
+    footer {
+      max-width: 460px;
+      width: 100%;
+      margin-top: 12px;
+      padding: 18px 0 8px;
+      text-align: center;
+      font-size: .78rem;
+      color: var(--ink-500);
+    }
+    footer .nav { margin-bottom: 8px; }
+    footer .nav a {
+      color: var(--ink-500);
+      text-decoration: none;
+      margin: 0 8px;
+      transition: color .15s;
+    }
+    footer .nav a:hover { color: var(--brand); }
+    footer .copy { font-size: .72rem; color: var(--ink-300); }
 
   </style>
 </head>
 <body>
   <div class="card">
     <div class="logo">onemancell<span> tools</span></div>
-    <div class="tagline">べんりツールズ</div>
+    <div class="tagline">日常をちょっと便利・楽しくする、個人開発の Web ツール集</div>
 
     <div class="tools-label">ツール一覧</div>
 
@@ -133,7 +182,7 @@
       <div class="tool-icon-wrap">🎲</div>
       <div class="tool-info">
         <div class="tool-name">エモクロアダイスツール</div>
-        <div class="tool-desc">エモクロアTRPG 用の判定・ステータス管理</div>
+        <div class="tool-desc">エモクロア TRPG 専用の判定・ステータス管理ツール。複合ロールにも対応。</div>
       </div>
     </a>
 
@@ -141,7 +190,7 @@
       <div class="tool-icon-wrap">🧩</div>
       <div class="tool-info">
         <div class="tool-name">曼荼羅タスク分解</div>
-        <div class="tool-desc">3×3 グリッドでタスクを細分化・整理</div>
+        <div class="tool-desc">3×3 のグリッドで思考整理。大きな目標を小さなタスクに分解。</div>
       </div>
     </a>
 
@@ -149,7 +198,7 @@
       <div class="tool-icon-wrap">🍅</div>
       <div class="tool-info">
         <div class="tool-name">ポモドーロタイマー</div>
-        <div class="tool-desc">25分集中・休憩サイクルで生産性アップ</div>
+        <div class="tool-desc">25分集中・休憩サイクル。スリープ防止つきで集中をサポート。</div>
       </div>
     </a>
 
@@ -157,7 +206,7 @@
       <div class="tool-icon-wrap">🌙</div>
       <div class="tool-info">
         <div class="tool-name">のんびりノイズ</div>
-        <div class="tool-desc">雨・波・風・焚き火を自由にミックスできるノイズミキサー</div>
+        <div class="tool-desc">雨・波・風・焚き火を Web Audio で合成するノイズミキサー。プリセット保存可。</div>
       </div>
     </a>
 
@@ -165,10 +214,24 @@
       <div class="tool-icon-wrap">🪐</div>
       <div class="tool-info">
         <div class="tool-name">スイングバイ</div>
-        <div class="tool-desc">惑星の重力で弾道を曲げる宇宙パズル（全6ステージ）</div>
+        <div class="tool-desc">惑星の重力で弾道を曲げる宇宙パズル。全6ステージを最少発射数でクリアを目指す。</div>
       </div>
     </a>
 
   </div>
+
+  <div class="intro">
+    <h2>About</h2>
+    <p>onemancell tools は、個人開発者「kaede」が制作した Web ツールを公開しているサイトです。生産性ツールから息抜き用のミニゲームまで、日常をちょっと便利・楽しくする小さなツールを集めています。</p>
+    <p>すべてのツールはブラウザ上で動作し、登録は不要で完全無料。スマートフォンの「ホーム画面に追加」機能で、アプリのように使えます。</p>
+    <p style="margin-top:12px;"><a href="/about/" style="color:var(--brand);text-decoration:none;font-weight:700;">→ サイトについて詳しく</a></p>
+  </div>
+
+  <footer>
+    <div class="nav">
+      <a href="/about/">About</a>·<a href="/privacy/">プライバシー</a>·<a href="/terms/">利用規約</a>
+    </div>
+    <div class="copy">© onemancell</div>
+  </footer>
 </body>
 </html>
