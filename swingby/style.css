@@ -2,7 +2,6 @@
 
 html, body {
   height: 100%;
-  overflow: hidden;
   background: #070B1B;
   color: #E8ECF8;
   font-family: 'Space Grotesk', -apple-system, 'Hiragino Sans', 'Yu Gothic', sans-serif;
@@ -10,6 +9,8 @@ html, body {
   user-select: none;
   -webkit-user-select: none;
 }
+html { overflow: hidden; }
+body { overflow-y: auto; }
 
 #stage {
   position: fixed;
@@ -293,4 +294,49 @@ html, body {
   opacity: .28;
   filter: grayscale(.7);
   cursor: not-allowed;
+}
+
+/* ========== ツール解説セクション ========== */
+.tool-about-section {
+  position: relative;
+  z-index: 20;
+  margin-top: 100vh;
+  background: #fff;
+  color: #333;
+  padding: 48px 24px 64px;
+  font-family: 'M PLUS Rounded 1c', sans-serif;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.tool-about-inner { max-width: 680px; margin: 0 auto; }
+.tool-about-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #FF6B1A;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #FF6B1A;
+}
+.tool-about-section h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #FF6B1A;
+  margin: 28px 0 10px;
+}
+.tool-about-desc,
+.tool-about-section p,
+.tool-about-section li,
+.tool-about-section dd {
+  font-size: 14px;
+  line-height: 1.9;
+  color: #444;
+}
+.tool-about-steps { padding-left: 20px; }
+.tool-about-steps li { margin-bottom: 8px; }
+.tool-about-faq dt { font-weight: 700; color: #333; margin-top: 16px; }
+.tool-about-faq dd {
+  margin-left: 0;
+  padding-left: 12px;
+  border-left: 3px solid #FFD4B8;
+  margin-top: 4px;
 }

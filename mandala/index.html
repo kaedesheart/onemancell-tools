@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>曼荼羅</title>
+<title>曼荼羅タスク分解 - ワンマンセル ツールズ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -23,9 +26,10 @@
     background: var(--bg);
     color: var(--fg);
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans", "Yu Gothic", sans-serif;
-    overflow: hidden;
     -webkit-tap-highlight-color: transparent;
   }
+  html { overflow: hidden; }
+  body { overflow-y: auto; }
 
   body {
     position: relative;
@@ -721,6 +725,47 @@
     .fab { font-size: 10px; padding: 5px 8px; }
     .time-buttons { grid-template-columns: repeat(5, 1fr); gap: 4px; }
     .time-btn { font-size: 10px; padding: 8px 0; }
+  }
+
+  /* ========== ツール解説セクション ========== */
+  .tool-about-section {
+    margin-top: 100vh;
+    background: #fff;
+    color: #333;
+    padding: 48px 24px 64px;
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+  }
+  .tool-about-inner { max-width: 680px; margin: 0 auto; }
+  .tool-about-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #FF6B1A;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #FF6B1A;
+  }
+  .tool-about-section h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #FF6B1A;
+    margin: 28px 0 10px;
+  }
+  .tool-about-desc,
+  .tool-about-section p,
+  .tool-about-section li,
+  .tool-about-section dd {
+    font-size: 14px;
+    line-height: 1.9;
+    color: #444;
+  }
+  .tool-about-steps { padding-left: 20px; }
+  .tool-about-steps li { margin-bottom: 8px; }
+  .tool-about-faq dt { font-weight: 700; color: #333; margin-top: 16px; }
+  .tool-about-faq dd {
+    margin-left: 0;
+    padding-left: 12px;
+    border-left: 3px solid #FFD4B8;
+    margin-top: 4px;
   }
 </style>
 </head>
@@ -1971,6 +2016,39 @@ load();
 render();
 if (!localStorage.getItem(HELP_SEEN_KEY)) openHelp();
 </script>
+
+<!-- ========== ツール解説セクション ========== -->
+<section class="tool-about-section">
+  <div class="tool-about-inner">
+    <h2 class="tool-about-title">🧩 曼荼羅タスク分解について</h2>
+    <p class="tool-about-desc">
+      曼荼羅チャート（マンダラート）をデジタル化したタスク分解ツールです。3×3のグリッドに中心テーマを置き、その周辺8マスに派生アイデアを埋めていくことで、目標や課題を体系的に整理できます。大谷翔平選手が高校時代に活用したことで広く知られ、目標設定・問題解決・アイデア発想など幅広いシーンで活用できます。入力内容はブラウザに自動保存されるため、途中で閉じても続きから再開できます。
+    </p>
+
+    <h3>使い方</h3>
+    <ol class="tool-about-steps">
+      <li>中央マスに大きなテーマや達成したい目標を入力する</li>
+      <li>周囲8マスにテーマに関連するサブテーマやアイデアを記入する</li>
+      <li>サブテーマをそれぞれ中心に置いた3×3グリッドを展開し、さらに細かいタスクへ分解する</li>
+      <li>マスが埋まらなくても大丈夫。空白は「まだ考えていない領域」として活用できる</li>
+    </ol>
+
+    <h3>活用シーン・Tips</h3>
+    <p>新年の目標設定、勉強計画の立案、プロジェクトのブレインストーミングに特に効果的です。まず中央マスを埋めるだけでも思考が整理されます。全マスを埋めようとせず、「今考えられること」を自由に書いていくのがコツです。作業が進むにつれてマスが自然と埋まっていきます。</p>
+
+    <h3>よくある質問</h3>
+    <dl class="tool-about-faq">
+      <dt>Q. 曼荼羅チャートとは何ですか？</dt>
+      <dd>A. 仏教の曼荼羅から着想を得た9×9マスの思考整理フレームワークです。中心テーマを周囲8つの要素に展開し、さらに各要素を中心とした9マスを展開することで、81マスの体系的なチャートを作成できます。</dd>
+      <dt>Q. データは保存されますか？</dt>
+      <dd>A. ブラウザのlocalStorageに自動保存されます。ページを閉じても次回開いたときに続きから作業できます。ブラウザのデータを消去すると失われますのでご注意ください。</dd>
+      <dt>Q. 印刷できますか？</dt>
+      <dd>A. ブラウザの印刷機能（Ctrl+P / Cmd+P）で印刷可能です。チャート部分が用紙に収まるようにスケール調整してください。</dd>
+      <dt>Q. スマホでも使えますか？</dt>
+      <dd>A. はい。ピンチイン・アウトで拡大縮小しながらご利用いただけます。ホーム画面に追加するとアプリのように起動できます。</dd>
+    </dl>
+  </div>
+</section>
 
 </body>
 </html>

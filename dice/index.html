@@ -9,6 +9,9 @@
   <link rel="manifest" href="manifest.json">
   <title>エモクロアダイスツール</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
   <div id="app">
@@ -366,5 +369,39 @@
   </div>
 
   <script src="script.js"></script>
+
+  <!-- ========== ツール解説セクション ========== -->
+  <section class="tool-about-section">
+    <div class="tool-about-inner">
+      <h2 class="tool-about-title">🎲 エモクロアダイスツールについて</h2>
+      <p class="tool-about-desc">
+        エモクロアTRPGの「技能レベル×D6」判定を手軽に行えるブラウザツールです。HP・MP・イニシアチブ値などのステータス管理も一画面で完結するため、セッション中にスマホで開けばそのままリアルタイムに使えます。ダイスの数・判定値の設定からステータス記録・セッションメモまで、卓上プレイに必要な機能をコンパクトにまとめました。インストール不要で、ホーム画面に追加するとアプリのように起動できます。
+      </p>
+
+      <h3>使い方</h3>
+      <ol class="tool-about-steps">
+        <li>「ダイス」タブで技能レベル（ダイス数）と判定値をステッパーで設定する</li>
+        <li>「ダイスを振る」ボタンをタップして成功数を確認する</li>
+        <li>「ステータス」タブでHP・MPなどのリソースを管理する</li>
+        <li>「メモ」タブでセッション中の情報を書き留めておく</li>
+        <li>セッション終了後は「データセーブ」機能でキャラクターデータを保存・共有できる</li>
+      </ol>
+
+      <h3>活用シーン・Tips</h3>
+      <p>「にぎやか」モードをオンにするとダイスアニメーションとSEが有効になり、より臨場感のある判定を楽しめます。データセーブ機能では保存文字列をコピー&ペーストするだけでキャラクターデータを別端末や別ブラウザに引き継げるため、複数セッションにまたがるキャンペーンにも対応できます。</p>
+
+      <h3>よくある質問</h3>
+      <dl class="tool-about-faq">
+        <dt>Q. エモクロアTRPGとは何ですか？</dt>
+        <dd>A. 「感情」をテーマにしたテーブルトークRPGシステムです。このツールは公式とは無関係の二次創作ツールです。エモクロア公式サイトでルールブックをご確認ください。</dd>
+        <dt>Q. データはどこに保存されますか？</dt>
+        <dd>A. ブラウザのlocalStorageに保存されます。データセーブ機能で文字列をコピーしておくとバックアップになります。ブラウザのデータを消去すると失われます。</dd>
+        <dt>Q. スマホでも使えますか？</dt>
+        <dd>A. はい。iOSはSafari、AndroidはChromeから「ホーム画面に追加」するとアプリのように起動できます。オフラインでも動作します。</dd>
+        <dt>Q. ダイスの数を増やせますか？</dt>
+        <dd>A. ステッパーで技能レベルを変更すると振るダイスの数が変わります。上限はツールの設定内で調整できます。</dd>
+      </dl>
+    </div>
+  </section>
 </body>
 </html>

@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Focus Timer</title>
+    <title>ポモドーロタイマー - ワンマンセル ツールズ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" sizes="160x160" href="favicon.png">
     <style>
@@ -19,21 +22,22 @@
             color: var(--text-color);
             display: flex;
             flex-direction: column;
-            height: 100vh;
+            min-height: 100vh;
             width: 100vw;
             margin: 0;
-            overflow: hidden; 
+            overflow-y: auto;
             font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
             transition: background-color 0.5s ease;
         }
 
         .main-content {
-            flex-grow: 1;
+            flex-shrink: 0;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             width: 100%;
-            padding-bottom: 0; 
+            padding-bottom: 0;
             transition: padding-bottom 0.5s ease;
             box-sizing: border-box;
             position: relative;
@@ -270,6 +274,47 @@
         .info-card.install-card .card-icon {
             background-color: transparent;
             width: auto; height: auto;
+        }
+
+        /* ========== ツール解説セクション ========== */
+        .tool-about-section {
+            background: #fff;
+            color: #333;
+            padding: 48px 24px 64px;
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            width: 100%;
+        }
+        .tool-about-inner { max-width: 680px; margin: 0 auto; }
+        .tool-about-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: #FF6B1A;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #FF6B1A;
+        }
+        .tool-about-section h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #FF6B1A;
+            margin: 28px 0 10px;
+        }
+        .tool-about-desc,
+        .tool-about-section p,
+        .tool-about-section li,
+        .tool-about-section dd {
+            font-size: 14px;
+            line-height: 1.9;
+            color: #444;
+        }
+        .tool-about-steps { padding-left: 20px; }
+        .tool-about-steps li { margin-bottom: 8px; }
+        .tool-about-faq dt { font-weight: 700; color: #333; margin-top: 16px; }
+        .tool-about-faq dd {
+            margin-left: 0;
+            padding-left: 12px;
+            border-left: 3px solid #FFD4B8;
+            margin-top: 4px;
         }
 
     </style>
@@ -544,9 +589,43 @@
                     requestWakeLock();
                 }
             });
-            
+
             window.addEventListener('resize', updateSheetVisibility);
         };
     </script>
+
+    <!-- ========== ツール解説セクション ========== -->
+    <section class="tool-about-section">
+        <div class="tool-about-inner">
+            <h2 class="tool-about-title">🍅 ポモドーロタイマーについて</h2>
+            <p class="tool-about-desc">
+                イタリアの学生フランチェスコ・シリロが1980年代に考案した「ポモドーロ・テクニック」を実践するタイマーです。25分の集中作業と5分の短い休憩を1セットとして繰り返すことで、脳の疲労を防ぎながら高い集中力を持続させます。シンプルなルールなのに効果が高く、世界中の学生やビジネスパーソンに愛用されています。スマホのホーム画面に追加すれば、スリープを防ぎながらアプリのように利用できます。
+            </p>
+
+            <h3>使い方</h3>
+            <ol class="tool-about-steps">
+                <li>ページを開くと自動でタイマーが動き始める（25分の集中セッション）</li>
+                <li>25分間は取り組むタスクを一つだけ決めて集中する</li>
+                <li>タイマーが鳴ったら5分間の短い休憩を取る</li>
+                <li>4セット完了後は15〜30分の長い休憩を取る</li>
+                <li>「画面をタップして音声を有効化」で終了アラート音が鳴るようになる</li>
+            </ol>
+
+            <h3>活用シーン・Tips</h3>
+            <p>勉強・ライティング・コーディングなど、集中が必要な作業全般に向いています。休憩中はスマホを置いて目を休めたり、軽くストレッチをするのがおすすめです。スリープ防止機能が内蔵されているため、スマホを傍らに置いてもタイマーが止まりにくくなっています。</p>
+
+            <h3>よくある質問</h3>
+            <dl class="tool-about-faq">
+                <dt>Q. 「ポモドーロ」という名前の由来は？</dt>
+                <dd>A. 考案者シリロが使っていたキッチンタイマーがトマト型だったことから。「ポモドーロ」はイタリア語でトマトを意味します。</dd>
+                <dt>Q. 25分では短すぎる・長すぎる気がします</dt>
+                <dd>A. 慣れるまでは人によって感じ方が違います。重要なのは「区切る」こと自体です。まず試してみることが大切で、繰り返すうちにリズムがつかめてきます。</dd>
+                <dt>Q. 途中で中断してしまったらどうすれば？</dt>
+                <dd>A. リセットして最初からやり直すのが原則です。「中断されたポモドーロはなかったことにする」がテクニックのルールです。</dd>
+                <dt>Q. スマホ画面が消えてしまいます</dt>
+                <dd>A. 画面をタップしてスリープ防止モードを有効化してください。また、iOSでホーム画面に追加するとより安定して動作します。</dd>
+            </dl>
+        </div>
+    </section>
 </body>
 </html>

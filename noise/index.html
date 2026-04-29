@@ -339,6 +339,46 @@
     #unlock-overlay.hidden { opacity: 0; pointer-events: none; }
     #unlock-overlay .big { font-size: 2.4rem; }
     #unlock-overlay .sub { font-size: .85rem; color: var(--ink-300); font-weight: 500; }
+
+    /* ========== ツール解説セクション ========== */
+    .tool-about-section {
+      background: #fff;
+      color: #333;
+      padding: 48px 24px 64px;
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+    }
+    .tool-about-inner { max-width: 680px; margin: 0 auto; }
+    .tool-about-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: #FF6B1A;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #FF6B1A;
+    }
+    .tool-about-section h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #FF6B1A;
+      margin: 28px 0 10px;
+    }
+    .tool-about-desc,
+    .tool-about-section p,
+    .tool-about-section li,
+    .tool-about-section dd {
+      font-size: 14px;
+      line-height: 1.9;
+      color: #444;
+    }
+    .tool-about-steps { padding-left: 20px; }
+    .tool-about-steps li { margin-bottom: 8px; }
+    .tool-about-faq dt { font-weight: 700; color: #333; margin-top: 16px; }
+    .tool-about-faq dd {
+      margin-left: 0;
+      padding-left: 12px;
+      border-left: 3px solid #FFD4B8;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
@@ -923,5 +963,39 @@
       els.unlockOverlay.addEventListener('click', unlock);
     });
   </script>
+
+  <!-- ========== ツール解説セクション ========== -->
+  <section class="tool-about-section">
+    <div class="tool-about-inner">
+      <h2 class="tool-about-title">🌙 のんびりノイズについて</h2>
+      <p class="tool-about-desc">
+        雨音・波音・風音・焚き火の4種類の自然音をブラウザ上でリアルタイム合成するノイズミキサーです。各音源の音量を自由に調整してオリジナルの環境音を作れます。すべてWeb Audio APIで合成しているため、音楽ファイルの読み込みなしで動作します。プリセット保存機能を使えばお気に入りの設定をすぐに呼び出せるため、集中したいときや眠りにつきたいときにすぐ準備できます。
+      </p>
+
+      <h3>使い方</h3>
+      <ol class="tool-about-steps">
+        <li>画面をタップして音声再生を有効化する</li>
+        <li>再生ボタンを押して環境音をスタートする</li>
+        <li>各音源（雨・波・風・焚き火）のスライダーで音量を調整する</li>
+        <li>好みの設定ができたら「マイプリセット保存」で記録しておく</li>
+        <li>次回からは「マイプリセット読込」でワンタップで再現できる</li>
+      </ol>
+
+      <h3>活用シーン・Tips</h3>
+      <p>作業・勉強時は「雨音」高め・他は控えめにするのが人気の設定です。睡眠導入には「波音」単体か「焚き火」のみが落ち着きます。カフェの環境音が好きな方には「雨音＋風音」の組み合わせがおすすめです。スリープタイマーを設定しておくと眠りにつく前に自動で停止します。</p>
+
+      <h3>よくある質問</h3>
+      <dl class="tool-about-faq">
+        <dt>Q. なぜ環境音を聞くと集中できるのですか？</dt>
+        <dd>A. 一定の音量・リズムをもつ「マスキング音」が周囲の雑音を打ち消し、脳が余分な情報処理をしなくて済むようになるためです。完全な無音より適度なノイズがあるほうが集中できる、という研究結果もあります。</dd>
+        <dt>Q. オフラインでも使えますか？</dt>
+        <dd>A. ホーム画面に追加（PWAインストール）後はオフラインでも利用可能です。音はすべてブラウザ内で生成されるため通信は不要です。</dd>
+        <dt>Q. 音が出ません</dt>
+        <dd>A. ブラウザのオートプレイ制限のため、最初に画面をタップ・クリックする必要があります。「タップしてはじめる」の画面が表示されたらタップしてください。</dd>
+        <dt>Q. プリセットはどこに保存されますか？</dt>
+        <dd>A. ブラウザのlocalStorageに保存されます。ブラウザのデータを消去すると失われますのでご注意ください。</dd>
+      </dl>
+    </div>
+  </section>
 </body>
 </html>
