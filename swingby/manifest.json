@@ -1,0 +1,12 @@
+{
+  "name": "スイングバイ",
+  "short_name": "Swingby",
+  "description": "惑星の重力を使って弾道を曲げる、シングルショットの宇宙パズル",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070B1B",
+  "theme_color": "#070B1B",
+  "lang": "ja"
+}

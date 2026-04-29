@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About - ワンマンセル ツールズ</title>
+  <meta name="description" content="ワンマンセル ツールズ について。個人開発のWebツール集を運営している楓の心の自己紹介と提供ツールの紹介、お問い合わせ。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --brand: #FF6B1A;
+      --brand-dark: #E85A0D;
+      --brand-soft: #FFE8D6;
+      --ink-900: #2A1810;
+      --ink-700: #5A4A40;
+      --ink-500: #8A7A70;
+      --ink-300: #D4C9C0;
+      --ink-100: #F5EFE9;
+      --ink-50: #FAF6F2;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'M PLUS Rounded 1c', system-ui, sans-serif;
+      background: var(--ink-50);
+      color: var(--ink-900);
+      line-height: 1.85;
+      padding: 24px 16px 40px;
+    }
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 20px;
+      padding: 36px 28px;
+      box-shadow: 0 4px 16px rgba(42,24,16,.06);
+    }
+    .back-link {
+      display: inline-block;
+      color: var(--ink-500);
+      text-decoration: none;
+      font-size: .85rem;
+      margin-bottom: 18px;
+      font-weight: 500;
+    }
+    .back-link:hover { color: var(--brand); }
+    h1 {
+      font-size: 1.55rem;
+      font-weight: 800;
+      color: var(--ink-900);
+      margin-bottom: 8px;
+    }
+    .lead {
+      font-size: .9rem;
+      color: var(--ink-500);
+      margin-bottom: 28px;
+    }
+    h2 {
+      font-size: 1.02rem;
+      font-weight: 800;
+      color: var(--brand);
+      margin-top: 32px;
+      margin-bottom: 12px;
+      padding-left: 12px;
+      border-left: 4px solid var(--brand);
+    }
+    p {
+      font-size: .92rem;
+      margin-bottom: 14px;
+      color: var(--ink-700);
+    }
+    .tools-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 18px 0;
+    }
+    .tool-row {
+      display: flex;
+      gap: 14px;
+      padding: 14px 16px;
+      background: var(--ink-50);
+      border: 1.5px solid var(--ink-100);
+      border-radius: 14px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .2s, transform .15s;
+    }
+    .tool-row:hover {
+      border-color: var(--brand);
+      transform: translateY(-1px);
+    }
+    .tool-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: var(--brand-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+    .tool-name {
+      font-weight: 700;
+      font-size: .95rem;
+      color: var(--ink-900);
+      margin-bottom: 2px;
+    }
+    .tool-desc {
+      font-size: .8rem;
+      color: var(--ink-500);
+      line-height: 1.5;
+    }
+    .contact-card {
+      background: var(--ink-50);
+      border: 1.5px solid var(--ink-100);
+      border-radius: 14px;
+      padding: 20px 22px;
+      margin: 18px 0;
+    }
+    .contact-card p { margin-bottom: 12px; }
+    .reveal-btn {
+      display: inline-block;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 9px 22px;
+      font-family: inherit;
+      font-size: .88rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s, transform .08s;
+    }
+    .reveal-btn:hover { background: var(--brand-dark); }
+    .reveal-btn:active { transform: scale(.96); }
+    .email-link {
+      display: inline-block;
+      background: var(--ink-100);
+      color: var(--brand-dark);
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: .92rem;
+      font-weight: 700;
+      text-decoration: none;
+      letter-spacing: .02em;
+    }
+    .email-link:hover { background: var(--brand-soft); }
+    .meta {
+      font-size: .8rem;
+      color: var(--ink-500);
+      margin-top: 36px;
+      padding-top: 18px;
+      border-top: 1px solid var(--ink-100);
+    }
+    footer {
+      max-width: 720px;
+      margin: 32px auto 0;
+      text-align: center;
+      font-size: .82rem;
+      color: var(--ink-500);
+    }
+    footer a {
+      color: var(--ink-500);
+      margin: 0 10px;
+      text-decoration: none;
+    }
+    footer a:hover { color: var(--brand); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-link">← ワンマンセル ツールズ</a>
+    <h1>About</h1>
+    <p class="lead">ワンマンセル ツールズ は、日常をちょっと便利・楽しくする小さな Web ツールを作って公開している、個人運営のサイトです。</p>
+
+    <h2>サイトについて</h2>
+    <p>「ワンマンセル」（英表記: onemancell）は、運営者の活動名です。「ひとつの細胞のように、小さくても自分の手で考えて作る」をコンセプトに、個人で企画・開発したツールを公開しています。</p>
+    <p>当サイトのツールはすべて、ブラウザ上で完結するクライアントサイドアプリケーションです。サーバーへのデータ送信はなく、利用にあたって会員登録などは不要です。</p>
+
+    <h2>提供しているツール</h2>
+    <p>2026年4月時点で 5 つのツールを公開しています。</p>
+    <div class="tools-list">
+      <a href="/dice/" class="tool-row">
+        <div class="tool-icon">🎲</div>
+        <div>
+          <div class="tool-name">エモクロアダイスツール</div>
+          <div class="tool-desc">エモクロア TRPG のための判定・ステータス管理。各種ダイスロールに対応。</div>
+        </div>
+      </a>
+      <a href="/mandala/" class="tool-row">
+        <div class="tool-icon">🧩</div>
+        <div>
+          <div class="tool-name">曼荼羅タスク分解</div>
+          <div class="tool-desc">3×3 のグリッドで思考を整理。大きな目標を小さなタスクに細分化する手助けに。</div>
+        </div>
+      </a>
+      <a href="/pomo/" class="tool-row">
+        <div class="tool-icon">🍅</div>
+        <div>
+          <div class="tool-name">ポモドーロタイマー</div>
+          <div class="tool-desc">25分集中・5分休憩のシンプルなタイマー。スリープ防止つきで集中をサポート。</div>
+        </div>
+      </a>
+      <a href="/noise/" class="tool-row">
+        <div class="tool-icon">🌙</div>
+        <div>
+          <div class="tool-name">のんびりノイズ</div>
+          <div class="tool-desc">雨・波・風・焚き火を Web Audio API で合成するノイズミキサー。プリセット保存可。</div>
+        </div>
+      </a>
+      <a href="/swingby/" class="tool-row">
+        <div class="tool-icon">🪐</div>
+        <div>
+          <div class="tool-name">スイングバイ</div>
+          <div class="tool-desc">惑星の重力で弾道を曲げる宇宙パズル。全6ステージを最少発射数でクリアを目指す。</div>
+        </div>
+      </a>
+    </div>
+
+    <h2>開発について</h2>
+    <p>当サイトのツールはすべて軽量なバニラ JavaScript で実装されています。フレームワークやビルドツールに依存しないため、ロードが速く、また将来にわたってメンテナンスしやすい構成を心がけています。</p>
+    <p>各ツールは PWA（プログレッシブ Web アプリ）に対応しており、スマートフォンの「ホーム画面に追加」機能を使うことで、ネイティブアプリのように利用できます。</p>
+
+    <h2>運営者</h2>
+    <p>個人開発者「楓の心」が運営しています。趣味として、自分や身近な人の役に立つ小さなツールを作って公開しています。</p>
+
+    <h2>お問い合わせ</h2>
+    <div class="contact-card">
+      <p>ツールに関するご質問・ご感想・不具合報告などは、下記のメールアドレスまでお送りください。</p>
+      <p id="contact-area">
+        <button type="button" id="show-email" class="reveal-btn">📧 メールアドレスを表示</button>
+      </p>
+      <p style="font-size:.78rem;color:var(--ink-500);margin-bottom:0;">※ 個別のご返信は内容により対応できかねる場合があります。あらかじめご了承ください。</p>
+    </div>
+
+    <p class="meta">最終更新: 2026年4月29日</p>
+  </div>
+
+  <footer>
+    <a href="/">tools</a>·<a href="/about/">About</a>·<a href="/privacy/">プライバシー</a>·<a href="/terms/">利用規約</a>
+  </footer>
+
+  <script>
+    document.getElementById('show-email').addEventListener('click', function () {
+      const u = 'kaede';
+      const d = 'onemancell.com';
+      const addr = u + '@' + d;
+      this.outerHTML = '<a href="mailto:' + addr + '" class="email-link">' + addr + '</a>';
+    });
+  </script>
+</body>
+</html>
