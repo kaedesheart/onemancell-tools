@@ -32,6 +32,13 @@
       url: BASE + '/noise/',
       pick: true,
     },
+    {
+      icon: '🪐',
+      name: 'スイングバイ',
+      desc: '惑星の重力で弾道を曲げる宇宙パズル（全6ステージ）',
+      url: BASE + '/swingby/',
+      pick: true,
+    },
   ];
 
   function loadFont() {
