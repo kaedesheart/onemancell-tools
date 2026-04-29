@@ -153,8 +153,8 @@ function randomRatioStage() {
   return { player, planets, targets };
 }
 
-// ある (px, angle) で発射した弾が両方の的を当てるかをシミュレート
-function simulateHitsAll(absDef, px, py, angle) {
+// 弾道シミュレーション。勝利時はステップ数も返す（飛行時間=トリックショット度）
+function simulateAndMeasure(absDef, px, py, angle) {
   const winMask = (1 << absDef.targets.length) - 1;
   const playerR = 14;
   const dt = 1 / 60;
@@ -177,10 +177,10 @@ function simulateHitsAll(absDef, px, py, angle) {
     }
     vx += ax * dt; vy += ay * dt;
     x  += vx * dt; y  += vy * dt;
-    if (x < -60 || x > W + 60 || y < -60 || y > H + 60) return false;
+    if (x < -60 || x > W + 60 || y < -60 || y > H + 60) return { hits: false };
     for (const p of absDef.planets) {
       const dx = x - p.x, dy = y - p.y;
-      if (dx * dx + dy * dy < p.r * p.r) return false;
+      if (dx * dx + dy * dy < p.r * p.r) return { hits: false };
     }
     for (let i = 0; i < absDef.targets.length; i++) {
       if (hitMask & (1 << i)) continue;
@@ -189,9 +189,9 @@ function simulateHitsAll(absDef, px, py, angle) {
       const rr = TARGET_R + 4;
       if (dx * dx + dy * dy < rr * rr) hitMask |= (1 << i);
     }
-    if (hitMask === winMask) return true;
+    if (hitMask === winMask) return { hits: true, steps: s + 1 };
   }
-  return false;
+  return { hits: false };
 }
 
 // 横20分割 × 30度刻み(12方向) で全探索、2解以上で「程よい難度」と判定
@@ -203,7 +203,7 @@ function isSolvable(absDef) {
     const px = 40 + ((W - 80) * xi) / (STEPS_X - 1);
     for (let ai = 0; ai < STEPS_ANGLE; ai++) {
       const angle = (ai * 2 * Math.PI) / STEPS_ANGLE;
-      if (simulateHitsAll(absDef, px, py, angle)) {
+      if (simulateAndMeasure(absDef, px, py, angle).hits) {
         count++;
         if (count >= REQUIRED) return true;
       }
@@ -235,7 +235,7 @@ function generateSolvableStage() {
   return easyFallback();
 }
 
-// 現在位置に最も近い解を探す（お手本プレイ用）
+// 現在位置に最も近い解を探す（通常お手本用）
 function findNearestSolution(absDef, currentPx) {
   const STEPS_X = 20, STEPS_ANGLE = 12;
   const py = absDef.player.y;
@@ -244,7 +244,7 @@ function findNearestSolution(absDef, currentPx) {
     const px = 40 + ((W - 80) * xi) / (STEPS_X - 1);
     for (let ai = 0; ai < STEPS_ANGLE; ai++) {
       const angle = (ai * 2 * Math.PI) / STEPS_ANGLE;
-      if (simulateHitsAll(absDef, px, py, angle)) {
+      if (simulateAndMeasure(absDef, px, py, angle).hits) {
         const dist = Math.abs(px - currentPx);
         if (dist < bestDist) {
           best = { px, angle };
@@ -256,29 +256,70 @@ function findNearestSolution(absDef, currentPx) {
   return best;
 }
 
+// 飛行時間が最も長い解を探す（観るだけモード用：トリックショット重視）
+function findLongestSolution(absDef) {
+  const STEPS_X = 20, STEPS_ANGLE = 12;
+  const py = absDef.player.y;
+  let best = null, bestSteps = 0;
+  for (let xi = 0; xi < STEPS_X; xi++) {
+    const px = 40 + ((W - 80) * xi) / (STEPS_X - 1);
+    for (let ai = 0; ai < STEPS_ANGLE; ai++) {
+      const angle = (ai * 2 * Math.PI) / STEPS_ANGLE;
+      const r = simulateAndMeasure(absDef, px, py, angle);
+      if (r.hits && r.steps > bestSteps) {
+        best = { px, angle };
+        bestSteps = r.steps;
+      }
+    }
+  }
+  return best;
+}
+
 // ===== Demo (お手本プレイ) =====
 const demo = { active: false, targetPx: 0, targetAngle: 0 };
+let demoFireTimer = null;
+
+// 観るだけモード用: 連鎖setTimeoutをID管理してexit時に全キャンセル
+let watchTimers = [];
+function watchSetTimeout(fn, ms) {
+  const id = setTimeout(() => {
+    watchTimers = watchTimers.filter(t => t !== id);
+    if (state.watchMode && state.running) fn();
+  }, ms);
+  watchTimers.push(id);
+  return id;
+}
+function clearWatchTimers() {
+  for (const id of watchTimers) clearTimeout(id);
+  watchTimers = [];
+  if (demoFireTimer) { clearTimeout(demoFireTimer); demoFireTimer = null; }
+}
 
 function startDemo() {
   if (!state.running || state.lockInput || demo.active || bulletInFlight()) return;
   if (!state.currentDef) return;
-  const sol = findNearestSolution(expandRatio(state.currentDef), state.player.x);
+  const absDef = expandRatio(state.currentDef);
+  // 観るだけモードはトリックショット（最長軌道）優先、通常モードは現在位置に近い解
+  const sol = state.watchMode
+    ? findLongestSolution(absDef)
+    : findNearestSolution(absDef, state.player.x);
   if (!sol) {
     if (state.watchMode) {
-      // 解が見つからないステージは飛ばして次へ
-      setTimeout(() => {
-        if (!state.watchMode || !state.running) return;
+      // 解が見つからない異常系は飛ばして次のステージへ
+      watchSetTimeout(() => {
         state.stageNum++;
         applyStage(generateSolvableStage());
-        setTimeout(() => { if (state.watchMode && state.running) startDemo(); }, 700);
+        watchSetTimeout(() => startDemo(), 2000);
       }, 500);
       return;
     }
     showResult('miss', '解が見つかりません', '', 1200);
     return;
   }
-  state.demoUsed = true;
-  updateHUD();
+  if (!state.watchMode) {
+    state.demoUsed = true;
+    updateHUD();
+  }
 
   for (const t of state.targets) t.hit = false;
   state.bullets = [];
@@ -312,7 +353,13 @@ function applyDemo(dt) {
   if (p.x === demo.targetPx && p.angle === demo.targetAngle) {
     demo.active = false;
     state.lockInput = false;
-    setTimeout(() => fire(), 220);
+    // 観るだけモードはじっくりタメてから発射、通常モードはサクッと
+    const fireDelay = state.watchMode ? 800 : 220;
+    if (demoFireTimer) clearTimeout(demoFireTimer);
+    demoFireTimer = setTimeout(() => {
+      demoFireTimer = null;
+      fire();
+    }, fireDelay);
   }
 }
 
@@ -385,8 +432,12 @@ function endShotFailed() {
   for (const t of state.targets) t.hit = false;
   updateHUD();
   if (state.watchMode) {
-    // 観るだけモード中は自動リトライ
-    setTimeout(() => { if (state.watchMode && state.running) startDemo(); }, 1200);
+    // 観るだけモード中は新しいステージに進んでリトライ（同じ詰みを繰り返さない）
+    watchSetTimeout(() => {
+      state.stageNum++;
+      applyStage(generateSolvableStage());
+      watchSetTimeout(() => startDemo(), 2000);
+    }, 1500);
     return;
   }
   showResult('miss', 'もう一度', '惑星に当たった or 外れた');
@@ -397,17 +448,17 @@ function endShotCleared() {
   state.lockInput = true;
 
   if (state.watchMode) {
-    showResult('clear', 'CLEAR', '', 700);
-    setTimeout(() => {
+    // 観るだけモード: ペースをゆったり、連鎖タイマーは watchSetTimeout で安全に管理
+    showResult('clear', 'CLEAR', '', 1300);
+    watchSetTimeout(() => {
       state.stageNum++;
       applyStage(generateSolvableStage());
       state.lockInput = false;
       hideResult();
       updateHUD();
-      setTimeout(() => {
-        if (state.watchMode && state.running) startDemo();
-      }, 700);
-    }, 800);
+      // 盤面を眺める時間 → デモ開始
+      watchSetTimeout(() => startDemo(), 2000);
+    }, 1500);
     return;
   }
 
@@ -827,9 +878,10 @@ function startGame() {
 }
 
 function startWatchMode() {
+  clearWatchTimers();
   state.stageNum = 1;
   state.totalShots = 0;
-  state.demoUsed = true;
+  state.demoUsed = false; // 観るだけモードでは demoUsed の概念は使わない
   state.watchMode = true;
   state.lockInput = false;
   state.flash = 0;
@@ -842,9 +894,8 @@ function startWatchMode() {
   controlsEl.style.display = 'none';
   setHudForWatch();
   updateHUD();
-  setTimeout(() => {
-    if (state.watchMode && state.running) startDemo();
-  }, 1000);
+  // 盤面をじっくり眺めてからデモ開始
+  watchSetTimeout(() => startDemo(), 2500);
 }
 
 function resetOverlayToTitle() {
@@ -856,6 +907,7 @@ function resetOverlayToTitle() {
 }
 
 function exitToTitle() {
+  clearWatchTimers();
   state.running = false;
   state.watchMode = false;
   state.lockInput = false;
