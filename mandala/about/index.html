@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>曼荼羅タスク分解とは - ワンマンセル ツールズ</title>
+  <meta name="description" content="曼荼羅チャート（マンダラート）をデジタル化したタスク分解ツール。目標設定・ブレインストーミングへの使い方を解説します。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'M PLUS Rounded 1c', sans-serif; background: #FFF9F6; color: #333; min-height: 100vh; }
+
+    .topbar {
+      background: #FF6B1A;
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .topbar a { color: #fff; text-decoration: none; font-weight: 700; font-size: .88rem; }
+    .topbar-brand { opacity: .85; font-size: .75rem; }
+
+    .hero {
+      background: linear-gradient(135deg, #FF6B1A 0%, #FFB347 100%);
+      color: #fff;
+      padding: 52px 24px 44px;
+      text-align: center;
+    }
+    .hero-icon { font-size: 3.8rem; margin-bottom: 14px; }
+    .hero-title { font-size: 1.8rem; font-weight: 800; line-height: 1.3; margin-bottom: 10px; }
+    .hero-sub { font-size: .92rem; opacity: .92; line-height: 1.8; max-width: 480px; margin: 0 auto; }
+    .hero-cta {
+      margin-top: 28px;
+      display: inline-block;
+      background: #fff;
+      color: #FF6B1A;
+      border-radius: 50px;
+      padding: 13px 40px;
+      font-size: .95rem;
+      font-weight: 800;
+      text-decoration: none;
+      transition: opacity .15s;
+    }
+    .hero-cta:hover { opacity: .9; }
+
+    .content {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 48px 24px 64px;
+    }
+    h2 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #FF6B1A;
+      margin: 40px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #FFD4B8;
+    }
+    h2:first-child { margin-top: 0; }
+    p { font-size: 14px; line-height: 1.9; color: #444; margin-bottom: 8px; }
+    ol { padding-left: 20px; }
+    ol li { font-size: 14px; line-height: 1.9; color: #444; margin-bottom: 8px; }
+    dl dt { font-weight: 700; color: #333; margin-top: 20px; font-size: 14px; }
+    dl dd {
+      margin-left: 0;
+      padding-left: 12px;
+      border-left: 3px solid #FFD4B8;
+      margin-top: 4px;
+      font-size: 14px;
+      line-height: 1.9;
+      color: #444;
+    }
+
+    .cta-wrap {
+      text-align: center;
+      margin-top: 56px;
+      padding-top: 36px;
+      border-top: 1px solid #F0E8E0;
+    }
+    .cta-wrap p { color: #8A7A70; margin-bottom: 16px; }
+    .cta-btn {
+      display: inline-block;
+      background: #FF6B1A;
+      color: #fff;
+      border-radius: 50px;
+      padding: 14px 52px;
+      font-size: 1rem;
+      font-weight: 800;
+      text-decoration: none;
+      transition: background .15s;
+    }
+    .cta-btn:hover { background: #E85A0D; }
+
+    footer {
+      background: #2A1810;
+      color: rgba(255,255,255,.55);
+      text-align: center;
+      padding: 20px 16px;
+      font-size: .75rem;
+      line-height: 1.8;
+    }
+    footer a { color: rgba(255,255,255,.7); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<nav class="topbar">
+  <a href="/mandala/">← ツールに戻る</a>
+  <a class="topbar-brand" href="/">ワンマンセル ツールズ</a>
+</nav>
+
+<div class="hero">
+  <div class="hero-icon">🧩</div>
+  <div class="hero-title">曼荼羅タスク分解</div>
+  <div class="hero-sub">3×3グリッドに書き込むだけで、大きな目標が具体的なタスクへ自然と整理されていきます。</div>
+  <a class="hero-cta" href="/mandala/">今すぐ使う</a>
+</div>
+
+<div class="content">
+
+  <h2>このツールについて</h2>
+  <p>曼荼羅チャート（マンダラート）をデジタル化したタスク分解ツールです。3×3のグリッドに中心テーマを置き、その周辺8マスに派生アイデアを埋めていくことで、目標や課題を体系的に整理できます。大谷翔平選手が高校時代に活用したことで広く知られ、目標設定・問題解決・アイデア発想など幅広いシーンで活用できます。入力内容はブラウザに自動保存されるため、途中で閉じても続きから再開できます。</p>
+
+  <h2>曼荼羅チャートとは</h2>
+  <p>仏教の曼荼羅から着想を得た9×9マスの思考整理フレームワークです。中心テーマを周囲8つの要素に展開し、さらに各要素を中心とした9マスを展開することで、81マスの体系的なチャートを作成できます。1979年に今泉浩晃氏が考案し、ノートや手帳でも広く使われてきましたが、このツールではデジタルで手軽に作成・保存できます。</p>
+
+  <h2>使い方</h2>
+  <ol>
+    <li>中央マスに大きなテーマや達成したい目標を入力する</li>
+    <li>周囲8マスにテーマに関連するサブテーマやアイデアを記入する</li>
+    <li>サブテーマをそれぞれ中心に置いた3×3グリッドを展開し、さらに細かいタスクへ分解する</li>
+    <li>マスが埋まらなくても大丈夫。空白は「まだ考えていない領域」として活用できる</li>
+  </ol>
+
+  <h2>活用シーン・Tips</h2>
+  <p>新年の目標設定、勉強計画の立案、プロジェクトのブレインストーミングに特に効果的です。まず中央マスを埋めるだけでも思考が整理されます。全マスを埋めようとせず、「今考えられること」を自由に書いていくのがコツです。</p>
+  <p>作業が進むにつれてマスが自然と埋まっていきます。週次レビューのタイミングで眺めると、どのサブテーマが進んでいてどこが止まっているかが一目でわかります。</p>
+
+  <h2>よくある質問</h2>
+  <dl>
+    <dt>Q. データは保存されますか？</dt>
+    <dd>A. ブラウザのlocalStorageに自動保存されます。ページを閉じても次回開いたときに続きから作業できます。ブラウザのデータを消去すると失われますのでご注意ください。</dd>
+    <dt>Q. 印刷できますか？</dt>
+    <dd>A. ブラウザの印刷機能（Ctrl+P / Cmd+P）で印刷可能です。チャート部分が用紙に収まるようにスケール調整してください。</dd>
+    <dt>Q. スマホでも使えますか？</dt>
+    <dd>A. はい。ピンチイン・アウトで拡大縮小しながらご利用いただけます。ホーム画面に追加するとアプリのように起動できます。</dd>
+    <dt>Q. 何マス埋めればいいですか？</dt>
+    <dd>A. 決まりはありません。まず中心マスだけ埋めてみるところから始めてみてください。考えが広がるにつれて周囲のマスも自然と埋まっていきます。</dd>
+  </dl>
+
+  <div class="cta-wrap">
+    <p>登録不要・インストール不要で今すぐ使えます</p>
+    <a class="cta-btn" href="/mandala/">🧩 曼荼羅タスク分解を使う</a>
+  </div>
+
+</div>
+
+<footer>
+  <p><a href="/">ワンマンセル ツールズ</a> &nbsp;|&nbsp; <a href="/privacy/">プライバシーポリシー</a> &nbsp;|&nbsp; <a href="/about/">お問い合わせ</a></p>
+  <p style="margin-top:6px;">運営: 楓の心</p>
+</footer>
+
+</body>
+</html>

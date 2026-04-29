@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>スイングバイとは - ワンマンセル ツールズ</title>
+  <meta name="description" content="惑星の重力を使って探査機を飛ばす宇宙物理パズルゲーム。重力アシスト（スイングバイ）の原理と遊び方を解説します。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'M PLUS Rounded 1c', sans-serif; background: #FFF9F6; color: #333; min-height: 100vh; }
+
+    .topbar {
+      background: #FF6B1A;
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .topbar a { color: #fff; text-decoration: none; font-weight: 700; font-size: .88rem; }
+    .topbar-brand { opacity: .85; font-size: .75rem; }
+
+    .hero {
+      background: linear-gradient(135deg, #FF6B1A 0%, #FFB347 100%);
+      color: #fff;
+      padding: 52px 24px 44px;
+      text-align: center;
+    }
+    .hero-icon { font-size: 3.8rem; margin-bottom: 14px; }
+    .hero-title { font-size: 1.8rem; font-weight: 800; line-height: 1.3; margin-bottom: 10px; }
+    .hero-sub { font-size: .92rem; opacity: .92; line-height: 1.8; max-width: 480px; margin: 0 auto; }
+    .hero-cta {
+      margin-top: 28px;
+      display: inline-block;
+      background: #fff;
+      color: #FF6B1A;
+      border-radius: 50px;
+      padding: 13px 40px;
+      font-size: .95rem;
+      font-weight: 800;
+      text-decoration: none;
+      transition: opacity .15s;
+    }
+    .hero-cta:hover { opacity: .9; }
+
+    .content {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 48px 24px 64px;
+    }
+    h2 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #FF6B1A;
+      margin: 40px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #FFD4B8;
+    }
+    h2:first-child { margin-top: 0; }
+    p { font-size: 14px; line-height: 1.9; color: #444; margin-bottom: 8px; }
+    ol { padding-left: 20px; }
+    ol li { font-size: 14px; line-height: 1.9; color: #444; margin-bottom: 8px; }
+    dl dt { font-weight: 700; color: #333; margin-top: 20px; font-size: 14px; }
+    dl dd {
+      margin-left: 0;
+      padding-left: 12px;
+      border-left: 3px solid #FFD4B8;
+      margin-top: 4px;
+      font-size: 14px;
+      line-height: 1.9;
+      color: #444;
+    }
+
+    .cta-wrap {
+      text-align: center;
+      margin-top: 56px;
+      padding-top: 36px;
+      border-top: 1px solid #F0E8E0;
+    }
+    .cta-wrap p { color: #8A7A70; margin-bottom: 16px; }
+    .cta-btn {
+      display: inline-block;
+      background: #FF6B1A;
+      color: #fff;
+      border-radius: 50px;
+      padding: 14px 52px;
+      font-size: 1rem;
+      font-weight: 800;
+      text-decoration: none;
+      transition: background .15s;
+    }
+    .cta-btn:hover { background: #E85A0D; }
+
+    footer {
+      background: #2A1810;
+      color: rgba(255,255,255,.55);
+      text-align: center;
+      padding: 20px 16px;
+      font-size: .75rem;
+      line-height: 1.8;
+    }
+    footer a { color: rgba(255,255,255,.7); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<nav class="topbar">
+  <a href="/swingby/">← ゲームに戻る</a>
+  <a class="topbar-brand" href="/">ワンマンセル ツールズ</a>
+</nav>
+
+<div class="hero">
+  <div class="hero-icon">🪐</div>
+  <div class="hero-title">スイングバイ</div>
+  <div class="hero-sub">惑星の重力を使って探査機をゴールへ届ける宇宙物理パズルゲーム。全6ステージを最少発射数でクリアしよう。</div>
+  <a class="hero-cta" href="/swingby/">今すぐ遊ぶ</a>
+</div>
+
+<div class="content">
+
+  <h2>このゲームについて</h2>
+  <p>惑星の重力場を利用して探査機の弾道を曲げ、ゴールまで届かせる宇宙物理パズルゲームです。全6ステージを「最少発射数」でクリアするのが目標です。実際の宇宙探査で使われる「重力アシスト（スイングバイ）」の原理を直感的に体験できます。ボイジャー探査機や多くの惑星探査機が使ったこの技術を、ブラウザゲームとして楽しく学べます。</p>
+
+  <h2>スイングバイ（重力アシスト）とは</h2>
+  <p>惑星の重力と公転運動を利用して宇宙機を加速・減速・方向転換させる技術です。ロケット燃料を使わずに速度を変えられるため、遠い惑星への探査機に多く使われています。惑星の「横」をかすめるように通過することで、惑星の公転エネルギーを宇宙機に転移できます。</p>
+  <p>有名な例として、1977年打ち上げのボイジャー1号・2号は木星・土星・天王星・海王星を次々とスイングバイしながら外太陽系を探査しました。カッシーニ探査機も金星を2回・地球を1回・木星を1回スイングバイして土星に到達しています。</p>
+
+  <h2>遊び方</h2>
+  <ol>
+    <li>タイトル画面の「スタート」を押してゲームを開始する</li>
+    <li>画面をタップ（またはクリック）して発射方向を指定する</li>
+    <li>探査機が惑星の重力に引き寄せられる軌道を予測してゴールのリングを狙う</li>
+    <li>リングを通過すればステージクリア。少ない発射数でのクリアを目指そう</li>
+    <li>「お手本」ボタンで正解の軌道を確認できる（使うと記録なし）</li>
+  </ol>
+
+  <h2>攻略のコツ</h2>
+  <p>惑星に近づくほど重力の影響が強くなります。惑星の「横」をかすめるように通過させると大きく方向が変わります。正面衝突コースは避けてください。</p>
+  <p>後半ステージでは惑星を複数回利用する「多重スイングバイ」が鍵になります。1回の発射で複数の惑星に接近させることで、大きな軌道変換が実現できます。「観るだけモード」でデモ飛行を繰り返し観察すると、スイングバイの軌道パターンが掴めてきます。</p>
+
+  <h2>よくある質問</h2>
+  <dl>
+    <dt>Q. クリアできません</dt>
+    <dd>A. 惑星の横をかすめるように発射してみてください。惑星に対して斜めに接近するとスリングショット効果で大きく方向が変わります。「お手本」ボタンで正解の軌道を確認することもできます。</dd>
+    <dt>Q. 「観るだけモード」とは何ですか？</dt>
+    <dd>A. ゲームを操作せずに探査機の自動飛行デモを無限に観察できるモードです。スイングバイの軌道を視覚的に楽しめます。タイトル画面の「観るだけモード」ボタンから入れます。</dd>
+    <dt>Q. ステージを増やしてほしいです</dt>
+    <dd>A. <a href="/about/" style="color:#FF6B1A;">お問い合わせページ</a>からご要望をお送りください。お気軽にどうぞ。</dd>
+    <dt>Q. スコアはどこで確認できますか？</dt>
+    <dd>A. タイトル画面にベストスコア（最少発射数）が表示されます。お手本やリトライを使わずにクリアした場合のみ記録されます。</dd>
+  </dl>
+
+  <div class="cta-wrap">
+    <p>インストール不要・登録不要でブラウザからすぐに遊べます</p>
+    <a class="cta-btn" href="/swingby/">🪐 スイングバイをプレイする</a>
+  </div>
+
+</div>
+
+<footer>
+  <p><a href="/">ワンマンセル ツールズ</a> &nbsp;|&nbsp; <a href="/privacy/">プライバシーポリシー</a> &nbsp;|&nbsp; <a href="/about/">お問い合わせ</a></p>
+  <p style="margin-top:6px;">運営: 楓の心</p>
+</footer>
+
+</body>
+</html>

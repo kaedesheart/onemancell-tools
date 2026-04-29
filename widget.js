@@ -9,6 +9,7 @@
       name: 'エモクロアダイスツール',
       desc: 'エモクロアTRPG 用の判定・ステータス管理',
       url: BASE + '/dice/',
+      aboutUrl: BASE + '/dice/about/',
       pick: true,
     },
     {
@@ -16,6 +17,7 @@
       name: 'ポモドーロタイマー',
       desc: '25分集中・休憩サイクルで生産性アップ',
       url: BASE + '/pomo/',
+      aboutUrl: BASE + '/pomo/about/',
       pick: true,
     },
     {
@@ -23,6 +25,7 @@
       name: '曼荼羅タスク分解',
       desc: '3×3 グリッドでタスクを細分化・整理',
       url: BASE + '/mandala/',
+      aboutUrl: BASE + '/mandala/about/',
       pick: true,
     },
     {
@@ -30,6 +33,7 @@
       name: 'のんびりノイズ',
       desc: '雨・波・風・焚き火を自由にミックスできるノイズミキサー',
       url: BASE + '/noise/',
+      aboutUrl: BASE + '/noise/about/',
       pick: true,
     },
   ];
@@ -58,8 +62,11 @@
       .omc-icon { width: 48px; height: 48px; border-radius: 12px; background: #FFE8D6; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; flex-shrink: 0; }
       .omc-name { font-weight: 800; font-size: .95rem; line-height: 1.35; color: #2A1810; padding-right: 36px; }
       .omc-desc { font-size: .75rem; color: #8A7A70; line-height: 1.6; }
-      .omc-btn { display: inline-block; background: #FF6B1A; color: #fff !important; border-radius: 50px; padding: 9px 24px; font-size: .82rem; font-weight: 800; text-decoration: none !important; font-family: inherit; transition: background .15s; align-self: flex-start; }
+      .omc-btn-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .omc-btn { display: inline-block; background: #FF6B1A; color: #fff !important; border-radius: 50px; padding: 9px 24px; font-size: .82rem; font-weight: 800; text-decoration: none !important; font-family: inherit; transition: background .15s; }
       .omc-btn:hover { background: #E85A0D; }
+      .omc-about-btn { display: inline-block; background: transparent; color: #E85A0D !important; border: 1.5px solid #FFB88A; border-radius: 50px; padding: 8px 18px; font-size: .78rem; font-weight: 700; text-decoration: none !important; font-family: inherit; transition: background .15s, border-color .15s; }
+      .omc-about-btn:hover { background: #FFF0E6; border-color: #FF6B1A; }
       .omc-footer { text-align: center; }
       .omc-all-btn { display: inline-flex; align-items: center; gap: 8px; background: #FFF0E6; color: #E85A0D !important; border-radius: 50px; padding: 11px 28px; font-size: .88rem; font-weight: 800; text-decoration: none !important; font-family: inherit; transition: background .15s; }
       .omc-all-btn:hover { background: #FFE0CC; }
@@ -86,7 +93,10 @@
           <div class="omc-name">${t.name}</div>
         </div>
         <div class="omc-desc">${t.desc}</div>
-        <a class="omc-btn" href="${t.url}" target="_blank" rel="noopener">使う</a>
+        <div class="omc-btn-row">
+          <a class="omc-btn" href="${t.url}" target="_blank" rel="noopener">使う</a>
+          <a class="omc-about-btn" href="${t.aboutUrl}" target="_blank" rel="noopener">詳しく →</a>
+        </div>
       </div>
     `).join('');
 
