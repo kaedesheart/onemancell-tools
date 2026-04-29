@@ -56,19 +56,95 @@ function makeStars(n) {
       y: Math.random(),
       r: Math.random() * 1.2 + 0.3,
       a: Math.random() * 0.7 + 0.2,
+      twinkleSpeed: 0.5 + Math.random() * 2.0,
+      twinklePhase: Math.random() * Math.PI * 2,
     });
   }
   return stars;
 }
 
+const NEBULA_COLORS = [
+  'rgba(124, 200, 232, 0.10)',
+  'rgba(201, 155, 255, 0.09)',
+  'rgba(255, 178, 112, 0.07)',
+  'rgba(159, 230, 160, 0.06)',
+];
+function makeNebulae(n) {
+  const list = [];
+  for (let i = 0; i < n; i++) {
+    list.push({
+      x: Math.random(),
+      y: Math.random(),
+      r: 220 + Math.random() * 360,
+      color: NEBULA_COLORS[i % NEBULA_COLORS.length],
+    });
+  }
+  return list;
+}
+
+// ===== Particles & Camera shake =====
+const particles = [];
+function spawnHitParticles(x, y, color = '#FFE7A5', count = 28) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 90 + Math.random() * 220;
+    const life = 0.55 + Math.random() * 0.55;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life,
+      maxLife: life,
+      color,
+      size: 1.6 + Math.random() * 2.2,
+    });
+  }
+}
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= 0.94;
+    p.vy *= 0.94;
+    p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+function drawParticles() {
+  ctx.save();
+  for (const p of particles) {
+    const t = Math.max(0, p.life / p.maxLife);
+    ctx.globalAlpha = t;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * (0.5 + 0.5 * t), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+const shake = { magnitude: 0, x: 0, y: 0 };
+function triggerShake(amount) {
+  shake.magnitude = Math.max(shake.magnitude, amount);
+}
+function updateShake(dt) {
+  shake.magnitude *= Math.pow(0.0001, dt);
+  if (shake.magnitude < 0.05) shake.magnitude = 0;
+  shake.x = (Math.random() - 0.5) * shake.magnitude;
+  shake.y = (Math.random() - 0.5) * shake.magnitude;
+}
+
 // タイトル画面用の背景（state・makeStars定義後に呼ぶ）
 function initTitleBg() {
   state.stars = makeStars(150);
+  state.nebulae = makeNebulae(3);
   state.planets = [
     { x: W * 0.10, y: H * 0.22, r: 38, mass: 2280, color: '#7CC8E8' },
     { x: W * 0.88, y: H * 0.68, r: 30, mass: 1800, color: '#C99BFF' },
     { x: W * 0.72, y: H * 0.10, r: 20, mass: 1200, color: '#FFB270' },
   ];
+  particles.length = 0;
 }
 initTitleBg();
 
@@ -86,6 +162,9 @@ function applyStage(ratioDef) {
   }));
   state.bullets = [];
   state.stars = makeStars(120);
+  state.nebulae = makeNebulae(3);
+  particles.length = 0;
+  shake.magnitude = 0;
   updateHUD();
 }
 
@@ -511,6 +590,8 @@ function updateBullets(dt) {
       const rr = t.r + 4;
       if (dx * dx + dy * dy < rr * rr) {
         t.hit = true;
+        spawnHitParticles(t.x, t.y, '#FFE7A5', 28);
+        triggerShake(8);
         if (allCleared()) { immediateClear = true; break; }
       }
     }
@@ -574,10 +655,25 @@ function predictPath() {
 }
 
 // ===== Render =====
-function drawStars() {
+function drawNebulae() {
+  if (!state.nebulae) return;
+  ctx.save();
+  for (const n of state.nebulae) {
+    const cx = n.x * W, cy = n.y * H;
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, n.r);
+    grad.addColorStop(0, n.color);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.restore();
+}
+
+function drawStars(time) {
   ctx.save();
   for (const s of state.stars) {
-    ctx.globalAlpha = s.a;
+    const flicker = 0.7 + 0.3 * Math.sin(time * s.twinkleSpeed + s.twinklePhase);
+    ctx.globalAlpha = s.a * flicker;
     ctx.fillStyle = '#E8ECF8';
     ctx.beginPath();
     ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
@@ -707,34 +803,59 @@ function drawTarget(t, time) {
 
 function drawBullet(b) {
   ctx.save();
+  // プラズマトレイル: 軌跡の各点にグローと白い核を描く
   for (let i = 0; i < b.trail.length; i++) {
     const t = i / b.trail.length;
-    ctx.globalAlpha = t * 0.55;
-    ctx.fillStyle = '#FFD178';
     const tp = b.trail[i];
+    // グロー
+    ctx.globalAlpha = t * 0.5;
+    const tg = ctx.createRadialGradient(tp.x, tp.y, 0, tp.x, tp.y, 6 + t * 6);
+    tg.addColorStop(0, 'rgba(255,231,165,0.9)');
+    tg.addColorStop(1, 'rgba(255,209,120,0)');
+    ctx.fillStyle = tg;
     ctx.beginPath();
-    ctx.arc(tp.x, tp.y, 1.5 + t * 1.6, 0, Math.PI * 2);
+    ctx.arc(tp.x, tp.y, 6 + t * 6, 0, Math.PI * 2);
+    ctx.fill();
+    // コア
+    ctx.globalAlpha = t * 0.85;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(tp.x, tp.y, 0.6 + t * 1.4, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
-  const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 9);
-  grad.addColorStop(0, '#FFFFFF');
-  grad.addColorStop(0.4, '#FFD178');
-  grad.addColorStop(1, 'rgba(255,209,120,0)');
-  ctx.fillStyle = grad;
+  // 弾本体: 大きめのグロー
+  const halo = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 18);
+  halo.addColorStop(0, 'rgba(255,231,165,0.8)');
+  halo.addColorStop(0.5, 'rgba(255,209,120,0.35)');
+  halo.addColorStop(1, 'rgba(255,209,120,0)');
+  ctx.fillStyle = halo;
   ctx.beginPath();
-  ctx.arc(b.x, b.y, 9, 0, Math.PI * 2);
+  ctx.arc(b.x, b.y, 18, 0, Math.PI * 2);
+  ctx.fill();
+  // コア
+  const core = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 6);
+  core.addColorStop(0, '#FFFFFF');
+  core.addColorStop(0.6, '#FFE7A5');
+  core.addColorStop(1, 'rgba(255,209,120,0)');
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
 
 function render(time) {
-  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  // カメラシェイク（命中時の余韻）
+  if (shake.magnitude > 0) ctx.translate(shake.x, shake.y);
+  ctx.clearRect(-32, -32, W + 64, H + 64);
   if (state.flash > 0) {
     ctx.fillStyle = 'rgba(240, 138, 138,' + Math.min(0.25, state.flash * 0.4) + ')';
     ctx.fillRect(0, 0, W, H);
   }
-  drawStars();
+  drawNebulae();
+  drawStars(time);
   for (const p of state.planets) drawPlanet(p);
   for (const t of state.targets) drawTarget(t, time);
   if (state.running) {
@@ -742,6 +863,8 @@ function render(time) {
     for (const b of state.bullets) drawBullet(b);
     drawPlayer(state.player);
   }
+  drawParticles();
+  ctx.restore();
 }
 
 // ===== Game loop =====
@@ -763,6 +886,9 @@ function loop(ts) {
     }
     state.flash = Math.max(0, state.flash - frameDt);
   }
+  // パーティクル・シェイクは実時間で更新（タイトルでも動く）
+  updateParticles(frameDt);
+  updateShake(frameDt);
   render(ts / 1000);
   requestAnimationFrame(loop);
 }
