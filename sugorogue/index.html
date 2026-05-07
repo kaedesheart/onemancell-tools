@@ -51,14 +51,18 @@
     </main>
 
     <footer class="hand-area">
-      <div class="deck-info">
-        <span class="deck-label">山札</span>
-        <span class="deck-count" id="deck-count">0</span>
-        <span class="deck-divider">/</span>
-        <span class="deck-label">捨</span>
-        <span class="deck-count" id="discard-count">0</span>
+      <div class="hand-info">
+        <div class="deck-info">
+          <span class="deck-label">山札</span>
+          <span class="deck-count" id="deck-count">0</span>
+          <span class="deck-divider">/</span>
+          <span class="deck-label">捨</span>
+          <span class="deck-count" id="discard-count">0</span>
+        </div>
+        <div class="roll-preview" id="roll-preview">サイコロを選んでロール</div>
       </div>
       <div class="hand" id="hand"></div>
+      <button class="roll-btn" id="roll-btn" disabled>ロール！</button>
     </footer>
 
     <div id="result-overlay" class="overlay" hidden>

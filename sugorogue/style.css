@@ -192,11 +192,17 @@ button { font-family: inherit; cursor: pointer; }
   padding: 10px 12px 14px;
   box-shadow: var(--shadow-sm);
 }
+.hand-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 8px;
+}
 .deck-info {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
   font-size: .72rem;
   color: var(--ink-muted);
   font-weight: 700;
@@ -208,12 +214,43 @@ button { font-family: inherit; cursor: pointer; }
   font-variant-numeric: tabular-nums;
   font-weight: 800;
 }
+.roll-preview {
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
 
 .hand {
   display: flex;
   gap: 8px;
   justify-content: center;
-  min-height: 120px;
+  min-height: 130px;
+  align-items: flex-end;
+  padding-top: 12px;
+}
+
+.roll-btn {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-pill);
+  padding: 14px 20px;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+  box-shadow: var(--shadow-md), inset 0 -3px 0 rgba(0,0,0,0.12);
+  transition: transform .08s, background .15s, opacity .15s;
+}
+.roll-btn:hover:not(:disabled) { background: var(--accent-dark); }
+.roll-btn:active:not(:disabled) { transform: translateY(2px); }
+.roll-btn:disabled {
+  background: var(--neutral);
+  opacity: .6;
+  box-shadow: var(--shadow-sm);
+  cursor: not-allowed;
 }
 
 /* Die (サイコロカード) */
@@ -264,6 +301,28 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--ink-soft);
   letter-spacing: .04em;
   margin-top: 6px;
+}
+
+.die.selected {
+  transform: translateY(-12px);
+  box-shadow: var(--shadow-md), 0 0 0 3px var(--accent);
+}
+.die.selected::after {
+  content: '✓';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 50%;
+  font-size: .9rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
 }
 
 .die.disabled {

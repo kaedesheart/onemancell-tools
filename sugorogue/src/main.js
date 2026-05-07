@@ -1,6 +1,6 @@
 // ===== Entry point =====
 import { state, startNewRun } from './state.js';
-import { drawHand, playFromHand, rollDie, DIE_DEFS } from './dice.js';
+import { drawHand, DIE_DEFS } from './dice.js';
 import { SQUARE_TYPES } from './board.js';
 import { setupCanvas, draw, animatePlayerTo, setPlayerVisualIndex } from './render.js';
 import {
@@ -16,7 +16,7 @@ setupUi({
     setupCanvas();
     setPlayerVisualIndex(0);
     updateHud();
-    renderHand(handlePlayDie);
+    renderHand(handleToggleSelect, handleRoll);
     requestAnimationFrame(loop);
   },
   onResultBtn: () => {
@@ -31,35 +31,51 @@ function loop() {
   if (state.screen !== 'title') requestAnimationFrame(loop);
 }
 
-function handlePlayDie(handIndex) {
+function handleToggleSelect(handIndex) {
   if (state.busy) return;
-  const dieId = state.hand[handIndex];
-  const def = DIE_DEFS[dieId];
+  const idx = state.selected.indexOf(handIndex);
+  if (idx >= 0) state.selected.splice(idx, 1);
+  else state.selected.push(handIndex);
+  renderHand(handleToggleSelect, handleRoll);
+}
+
+function handleRoll() {
+  if (state.busy || state.selected.length === 0) return;
   state.busy = true;
 
-  // ロール演出: カードがガタガタ揺れて数字がカチカチ変わる → 確定
-  animateRoll(handIndex, def, (finalValue) => {
-    // 演出後に実際にプレイ → 移動
-    playFromHand(state, handIndex);
-    showToast(`${def.name} → ${finalValue}`);
+  // sort indexes ascending so removal order is consistent
+  const indexes = [...state.selected].sort((a, b) => a - b);
+  const defs = indexes.map(i => DIE_DEFS[state.hand[i]]);
+
+  animateRoll(indexes, defs, (results, sum) => {
+    // 振ったサイコロを捨て札へ移動（後ろから消すことで index ずれ防止）
+    for (let i = indexes.length - 1; i >= 0; i--) {
+      const id = state.hand.splice(indexes[i], 1)[0];
+      state.discard.push(id);
+    }
+    state.selected = [];
+
+    showToast(`合計 ${sum} 進む！`);
 
     const total = state.board.length;
-    const target = (state.position + finalValue) % total;
-    const crossings = Math.floor((state.position + finalValue) / total);
+    const target = (state.position + sum) % total;
+    const crossings = Math.floor((state.position + sum) / total);
 
-    animatePlayerTo(target, () => {
-      state.position = target;
-      state.lap += crossings;
-      state.board[target].flash = 1;
-      applySquareEffect(target);
-      updateHud();
-      if (state.hp <= 0) return endRun('fail', '力尽きた…', `${state.lap}周進みました。コイン: ${state.coins}`);
-      if (state.lap >= state.targetLaps) return endRun('clear', 'クリア！', `${state.targetLaps}周達成！コイン: ${state.coins}`);
-      drawHand(state);
-      state.busy = false;
-      updateHud();
-      renderHand(handlePlayDie);
-    });
+    setTimeout(() => {
+      animatePlayerTo(target, () => {
+        state.position = target;
+        state.lap += crossings;
+        state.board[target].flash = 1;
+        applySquareEffect(target);
+        updateHud();
+        if (state.hp <= 0) return endRun('fail', '力尽きた…', `${state.lap}周進みました。コイン: ${state.coins}`);
+        if (state.lap >= state.targetLaps) return endRun('clear', 'クリア！', `${state.targetLaps}周達成！コイン: ${state.coins}`);
+        drawHand(state);
+        state.busy = false;
+        updateHud();
+        renderHand(handleToggleSelect, handleRoll);
+      });
+    }, 200);
   });
 }
 
@@ -76,6 +92,3 @@ function endRun(kind, title, text) {
   state.busy = true;
   setTimeout(() => showResult(kind, title, text, 'タイトルへ'), 700);
 }
-
-// rollDie を import 用に再エクスポート（ui.js のロール演出で使用）
-export { rollDie };

@@ -13,8 +13,9 @@ export const state = {
   position: 0,              // 盤上の現在マス index
   lap: 0,
   targetLaps: 2,
-  deck: [],                 // 山札（次に引くカード id 配列）
-  hand: [],                 // 手札（カード id 配列）
+  deck: [],                 // 山札（次に引くサイコロ id 配列）
+  hand: [],                 // 手札（サイコロ id 配列）
+  selected: [],             // 選択中の手札 index 配列
   discard: [],              // 捨て札
   handLimit: 3,
   board: [],                // [{ type, ... }]
@@ -30,6 +31,7 @@ export function startNewRun() {
   state.targetLaps = 2;
   state.deck = [...STARTER_DECK];
   state.hand = [];
+  state.selected = [];
   state.discard = [];
   state.busy = false;
   state.board = generateBoard(BOARD_LENGTH);
