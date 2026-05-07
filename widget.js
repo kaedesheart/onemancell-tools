@@ -44,6 +44,13 @@
       aboutUrl: BASE + '/swingby/about/',
       pick: true,
     },
+    {
+      icon: '🎲',
+      name: 'スゴローグ',
+      desc: 'すごろく × ローグライト。カードを引いて進み、デッキを育てる',
+      url: BASE + '/sugorogue/',
+      pick: true,
+    },
   ];
 
   function loadFont() {

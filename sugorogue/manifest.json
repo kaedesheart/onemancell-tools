@@ -1,0 +1,12 @@
+{
+  "name": "スゴローグ",
+  "short_name": "Sugorogue",
+  "description": "サイコロを引いて、進め、強くなれ。すごろく × ローグライクのデッキ構築ゲーム。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAF7F0",
+  "theme_color": "#FAF7F0",
+  "lang": "ja"
+}

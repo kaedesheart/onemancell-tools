@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>スゴローグ - ワンマンセル ツールズ</title>
+  <meta name="theme-color" content="#FAF7F0">
+  <meta name="description" content="サイコロを引いて、進め、強くなれ。すごろく × ローグライクのデッキ構築ゲーム。">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Sugorogue">
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="title-screen" class="screen screen-title">
+    <div class="title-card">
+      <div class="title-eyebrow">SUGOROGUE</div>
+      <h1 class="title-main">スゴローグ</h1>
+      <p class="title-tagline">サイコロを引いて、進め、強くなれ。</p>
+      <button id="start-btn" class="btn-primary">はじめる</button>
+      <p class="title-hint">すごろく × ローグライト</p>
+    </div>
+  </div>
+
+  <div id="game-screen" class="screen screen-game" hidden>
+    <header class="hud">
+      <div class="stat stat-hp">
+        <span class="stat-label">HP</span>
+        <span class="stat-value" id="hp-value">10</span><span class="stat-max">/<span id="hp-max">10</span></span>
+      </div>
+      <div class="stat stat-coin">
+        <span class="stat-label">$</span>
+        <span class="stat-value" id="coin-value">0</span>
+      </div>
+      <div class="stat stat-lap">
+        <span class="stat-label">周回</span>
+        <span class="stat-value" id="lap-value">0</span><span class="stat-max">/<span id="lap-target">2</span></span>
+      </div>
+    </header>
+
+    <main class="play-area">
+      <canvas id="board"></canvas>
+      <div class="abilities" id="abilities">
+        <div class="ability-slot empty">+</div>
+        <div class="ability-slot empty">+</div>
+        <div class="ability-slot empty">+</div>
+      </div>
+    </main>
+
+    <footer class="hand-area">
+      <div class="deck-info">
+        <span class="deck-label">山札</span>
+        <span class="deck-count" id="deck-count">0</span>
+        <span class="deck-divider">/</span>
+        <span class="deck-label">捨</span>
+        <span class="deck-count" id="discard-count">0</span>
+      </div>
+      <div class="hand" id="hand"></div>
+    </footer>
+
+    <div id="result-overlay" class="overlay" hidden>
+      <div class="result-card">
+        <h2 id="result-title"></h2>
+        <p id="result-text"></p>
+        <button id="result-btn" class="btn-primary"></button>
+      </div>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
