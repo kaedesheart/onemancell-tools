@@ -216,61 +216,87 @@ button { font-family: inherit; cursor: pointer; }
   min-height: 120px;
 }
 
-/* Card */
-.card {
-  width: 84px;
+/* Die (サイコロカード) */
+.die {
+  width: 92px;
   height: 116px;
   background: linear-gradient(180deg, #FFFFFF 0%, #F8F4EA 100%);
-  border-radius: 14px;
-  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+  border: 3px solid var(--ink);
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 8px;
+  padding: 6px;
   cursor: pointer;
-  transition: transform .15s, box-shadow .15s;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
   position: relative;
   overflow: hidden;
 }
-.card::before {
+.die::before {
   content: '';
   position: absolute;
-  inset: 4px;
-  border: 1px dashed rgba(26,39,64,0.2);
-  border-radius: 10px;
+  inset: 5px;
+  border: 1.5px dashed rgba(26,39,64,0.18);
+  border-radius: 11px;
   pointer-events: none;
 }
-.card:hover {
+.die:hover {
   transform: translateY(-6px);
   box-shadow: var(--shadow-md);
 }
-.card:active { transform: translateY(-2px) scale(.98); }
-.card-icon {
-  font-size: 1.6rem;
+.die:active { transform: translateY(-2px) scale(.98); }
+.die-icon {
+  font-size: 1.4rem;
   margin-bottom: 2px;
-}
-.card-value {
-  font-size: 2.2rem;
-  font-weight: 900;
-  color: var(--primary);
   line-height: 1;
 }
-.card-name {
+.die-name {
+  font-size: 1.6rem;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.die-label {
   font-size: .72rem;
   font-weight: 700;
   color: var(--ink-soft);
   letter-spacing: .04em;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
-.card.special .card-value { color: var(--accent); font-size: 1.6rem; letter-spacing: -.05em; }
-
-.card.disabled {
+.die.disabled {
   opacity: .5;
   pointer-events: none;
   filter: grayscale(.4);
+}
+
+/* ロール中: 揺れる */
+@keyframes die-shake {
+  0%, 100% { transform: translateY(-6px) rotate(-3deg); }
+  25% { transform: translateY(-8px) rotate(2deg); }
+  50% { transform: translateY(-6px) rotate(-2deg); }
+  75% { transform: translateY(-8px) rotate(3deg); }
+}
+.die.rolling {
+  animation: die-shake .12s infinite;
+  box-shadow: var(--shadow-md);
+}
+.die.rolling .die-name { font-size: 2rem; }
+
+/* ロール確定: ぽんっと跳ねる */
+@keyframes die-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+.die.rolled {
+  animation: die-pop .35s ease-out;
+}
+.die.rolled .die-name {
+  font-size: 2.4rem;
+  color: var(--accent) !important;
 }
 
 /* Result Overlay */

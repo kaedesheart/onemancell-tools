@@ -1,6 +1,6 @@
 // ===== DOM-based UI: HUD / hand / toast / result overlay =====
 import { state } from './state.js';
-import { CARD_DEFS } from './cards.js';
+import { DIE_DEFS, rollDie } from './dice.js';
 
 const els = {};
 
@@ -48,15 +48,16 @@ export function updateHud() {
 
 export function renderHand(onPlay) {
   els.hand.innerHTML = '';
-  state.hand.forEach((cardId, i) => {
-    const def = CARD_DEFS[cardId];
+  state.hand.forEach((dieId, i) => {
+    const def = DIE_DEFS[dieId];
     const btn = document.createElement('button');
-    btn.className = 'card' + (def.special ? ' special' : '');
+    btn.className = 'die';
+    btn.style.borderColor = def.color;
     if (state.busy) btn.classList.add('disabled');
     btn.innerHTML = `
-      <span class="card-icon">${def.icon}</span>
-      <span class="card-value">${def.display}</span>
-      <span class="card-name">${def.name}</span>
+      <span class="die-icon" style="color:${def.color}">⬢</span>
+      <span class="die-name" style="color:${def.color}">${def.name}</span>
+      <span class="die-label">${def.label}</span>
     `;
     btn.addEventListener('click', () => {
       if (state.busy) return;
@@ -66,12 +67,52 @@ export function renderHand(onPlay) {
   });
 }
 
+// ===== ロール演出 =====
+// 選ばれたサイコロをカチカチ揺らして出目を確定 → コールバックに finalValue
+export function animateRoll(handIndex, def, onFinish) {
+  const dieEls = els.hand.querySelectorAll('.die');
+  const target = dieEls[handIndex];
+  if (!target) {
+    onFinish(rollDie(def));
+    return;
+  }
+  // 他のサイコロは無効化
+  dieEls.forEach((d, idx) => {
+    if (idx !== handIndex) d.classList.add('disabled');
+  });
+  target.classList.add('rolling');
+
+  const nameEl = target.querySelector('.die-name');
+  const labelEl = target.querySelector('.die-label');
+  const iconEl = target.querySelector('.die-icon');
+
+  // 確定サイコロは演出を短縮
+  const isFixed = def.sides.length === 1;
+  const totalMs = isFixed ? 350 : 700;
+  const interval = 55;
+  let elapsed = 0;
+  const ticker = setInterval(() => {
+    elapsed += interval;
+    nameEl.textContent = String(rollDie(def));
+    if (elapsed >= totalMs) {
+      clearInterval(ticker);
+      const finalValue = rollDie(def);
+      nameEl.textContent = String(finalValue);
+      labelEl.textContent = '出目!';
+      iconEl.textContent = '⬢';
+      target.classList.remove('rolling');
+      target.classList.add('rolled');
+      // 出目を一拍見せてから次へ
+      setTimeout(() => onFinish(finalValue), 380);
+    }
+  }, interval);
+}
+
 let toastTimer = null;
 export function showToast(text, kind = '') {
   els.toast.textContent = text;
   els.toast.className = 'toast' + (kind ? ' ' + kind : '');
   els.toast.hidden = false;
-  // reflow → animate
   void els.toast.offsetWidth;
   els.toast.classList.add('show');
   clearTimeout(toastTimer);

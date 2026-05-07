@@ -2,7 +2,7 @@
 // 単一の state オブジェクトでラン全体を管理。
 // シリアライズ可能（localStorage 保存に向く）に保つ。
 
-import { STARTER_DECK, drawHand } from './cards.js';
+import { STARTER_DECK, drawHand } from './dice.js';
 import { generateBoard, BOARD_LENGTH } from './board.js';
 
 export const state = {
