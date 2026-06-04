@@ -9,7 +9,6 @@
       name: 'エモクロアダイスツール',
       desc: 'エモクロアTRPG 用の判定・ステータス管理',
       url: BASE + '/dice/',
-      aboutUrl: BASE + '/dice/about/',
       pick: true,
     },
     {
@@ -17,7 +16,6 @@
       name: 'ポモドーロタイマー',
       desc: '25分集中・休憩サイクルで生産性アップ',
       url: BASE + '/pomo/',
-      aboutUrl: BASE + '/pomo/about/',
       pick: true,
     },
     {
@@ -25,7 +23,6 @@
       name: '曼荼羅タスク分解',
       desc: '3×3 グリッドでタスクを細分化・整理',
       url: BASE + '/mandala/',
-      aboutUrl: BASE + '/mandala/about/',
       pick: true,
     },
     {
@@ -33,7 +30,6 @@
       name: 'のんびりノイズ',
       desc: '雨・波・風・焚き火を自由にミックスできるノイズミキサー',
       url: BASE + '/noise/',
-      aboutUrl: BASE + '/noise/about/',
       pick: true,
     },
     {
@@ -41,7 +37,6 @@
       name: 'スイングバイ',
       desc: '惑星の重力で弾道を曲げる宇宙パズル（全6ステージ）',
       url: BASE + '/swingby/',
-      aboutUrl: BASE + '/swingby/about/',
       pick: true,
     },
     {
