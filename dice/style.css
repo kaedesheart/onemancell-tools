@@ -1160,3 +1160,326 @@ ul { list-style: none; }
     margin-bottom: 0;
   }
 }
+
+/* ── Character sheet ───────────────────────────────────────── */
+.chara-section {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 12px;
+  box-shadow: var(--shadow);
+  margin-bottom: 14px;
+}
+.chara-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.chara-section-title {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--accent-dark);
+  letter-spacing: 0.02em;
+}
+.chara-points {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-radius: 50px;
+  padding: 4px 12px;
+}
+.chara-points.over { color: #fff; background: var(--die-error); }
+.chara-points.done { color: #fff; background: var(--accent); }
+.chara-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 10px;
+  line-height: 1.6;
+}
+
+/* 能力値 */
+.ability-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ability-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+}
+.ability-item.luck {
+  grid-column: 1 / -1;
+  background: #FFF6E6;
+}
+.ability-name {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+.ability-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ability-val {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--accent-dark);
+  min-width: 1.4ch;
+  text-align: center;
+}
+.luck-roll-btn {
+  border: none;
+  background: var(--die-critical);
+  color: #fff;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-left: 2px;
+  transition: transform 0.1s;
+}
+.luck-roll-btn:active { transform: scale(0.86); }
+
+/* HP/MP 導出値 */
+.chara-derived {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.derived-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  background: var(--accent-light);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+.derived-label {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--accent-dark);
+}
+.derived-formula {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  flex: 1;
+}
+.derived-val {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+/* 技能リスト */
+.skill-list { display: flex; flex-direction: column; }
+.skill-cat {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  padding: 12px 2px 5px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.skill-cat:first-child { padding-top: 0; }
+.skill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--surface-2);
+}
+.skill-lv {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.skill-lv.fixed {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  width: 68px;
+  justify-content: center;
+}
+.skill-row.infinity .skill-lv.fixed,
+.skill-row.base .skill-lv.fixed { color: var(--accent); }
+.lv-btn {
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--accent);
+  background: var(--surface);
+  color: var(--accent);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.lv-btn:active { background: var(--accent); color: #fff; transform: scale(0.9); }
+.lv-val {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+  min-width: 16px;
+  text-align: center;
+}
+.skill-main { flex: 1; min-width: 0; }
+.skill-name {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.t-badge {
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  line-height: 1.5;
+}
+.t-badge.ex   { background: #FBE3F1; color: #C24F97; }
+.t-badge.base { background: var(--accent-light); color: var(--accent-dark); }
+.skill-tags { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.abil-tag {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.abil-tag.used { color: #fff; background: var(--accent); }
+.skill-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.skill-meta b { color: var(--accent-dark); font-size: 0.86rem; }
+.skill-meta .muted { color: var(--text-muted); }
+.skill-meta .f-note {
+  display: inline-block;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  margin-left: 4px;
+  opacity: 0.85;
+}
+.skill-roll {
+  flex-shrink: 0;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 50px;
+  padding: 7px 12px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+  min-width: 52px;
+  transition: background 0.15s, transform 0.1s;
+}
+.skill-roll:active { transform: scale(0.92); background: var(--accent-dark); }
+.skill-roll:disabled {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: default;
+}
+
+/* 名称付き技能 */
+.skill-row.named-head { border-bottom: none; padding-bottom: 2px; }
+.named-add {
+  flex-shrink: 0;
+  border: 1.5px solid var(--accent);
+  background: var(--surface);
+  color: var(--accent-dark);
+  border-radius: 50px;
+  padding: 6px 12px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.named-add:active { background: var(--accent-light); }
+.named-add:disabled { border-color: var(--border); color: var(--text-muted); cursor: default; }
+.skill-row.named-inst {
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border-bottom: none;
+  padding: 7px 8px;
+  margin-bottom: 4px;
+}
+.named-name {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--surface);
+}
+.named-name:focus { outline: none; border-color: var(--accent); }
+.named-del {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+.named-del:active { background: var(--surface); color: var(--die-error); }
+
+/* キャラ設定 */
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.profile-field-wide { grid-column: 1 / -1; }
+.profile-field span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding-left: 2px;
+}
+.profile-input,
+.profile-textarea {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--surface);
+  width: 100%;
+}
+.profile-input:focus,
+.profile-textarea:focus { outline: none; border-color: var(--accent); }
+.profile-textarea {
+  min-height: 90px;
+  resize: vertical;
+  line-height: 1.7;
+}

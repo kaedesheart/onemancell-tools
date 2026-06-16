@@ -203,7 +203,7 @@ function makeDieEl(value, cls) {
 }
 
 // ── エモクロア roll ────────────────────────────────────────────────────
-function rollEmoklore() {
+function rollEmoklore(skillLabel) {
   const btn = document.getElementById('roll-btn');
   if (btn.disabled) return;
   btn.disabled = true;
@@ -213,6 +213,7 @@ function rollEmoklore() {
   const results = rollDice(count, 10);
   const successes = countSuccesses(results, target);
   const { label, cls } = getResultInfo(successes);
+  const prefix = (typeof skillLabel === 'string' && skillLabel) ? skillLabel + ' ' : '';
 
   playRollSound();
 
@@ -282,7 +283,7 @@ function rollEmoklore() {
             btn.disabled = false;
 
             const sign = successes > 0 ? '+' : '';
-            addHistory(`${count}d10(判${target}) → ${label} (${sign}${successes})`);
+            addHistory(`${prefix}${count}d10(判${target}) → ${label} (${sign}${successes})`);
           }, 240);
         }, 160);
       }, { once: true });
@@ -300,7 +301,7 @@ function rollEmoklore() {
     btn.disabled = false;
 
     const sign = successes > 0 ? '+' : '';
-    addHistory(`${count}d10(判${target}) → ${label} (${sign}${successes})`);
+    addHistory(`${prefix}${count}d10(判${target}) → ${label} (${sign}${successes})`);
   }
 }
 
@@ -422,18 +423,21 @@ function rollExtra() {
 }
 
 // ── UI wiring ──────────────────────────────────────────────────────────
+function switchToTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', String(on));
+  });
+  ['emoklore', 'chara', 'extra', 'status', 'note'].forEach(id => {
+    const el = document.getElementById(`tab-${id}`);
+    if (el) el.classList.toggle('hidden', tab !== id);
+  });
+}
+
 function setupTabs() {
   document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tab = btn.dataset.tab;
-      document.querySelectorAll('.tab-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.tab === tab);
-        b.setAttribute('aria-selected', String(b.dataset.tab === tab));
-      });
-      ['emoklore', 'extra', 'status', 'note'].forEach(id => {
-        document.getElementById(`tab-${id}`).classList.toggle('hidden', tab !== id);
-      });
-    });
+    btn.addEventListener('click', () => switchToTab(btn.dataset.tab));
   });
 }
 
@@ -653,6 +657,18 @@ function syncMemoUI() {
     if (el) el.textContent = formatEmotion(val);
   }
 
+  // キャラタブ側の共鳴感情セレクト・∞共鳴レベル
+  const charaEmo = {
+    'chara-emotion-omote': memo.emotionOmote,
+    'chara-emotion-ura':   memo.emotionUra,
+    'chara-emotion-roots': memo.emotionRoots,
+  };
+  for (const [id, val] of Object.entries(charaEmo)) {
+    const el = document.getElementById(id);
+    if (el && el.value !== val) el.value = val;
+  }
+  const charaInf = document.getElementById('chara-infinity');
+  if (charaInf) charaInf.textContent = memo.infinityLevel;
 }
 
 // ── HP/MP履歴 debounce ─────────────────────────────────────────────────
@@ -804,9 +820,10 @@ function setupNote() {
 // ── Session reset ──────────────────────────────────────────────────────
 function setupReset() {
   document.getElementById('reset-btn').addEventListener('click', () => {
-    if (!confirm('ステータス・メモ・履歴をリセットします。\nこの操作は元に戻せません。よろしいですか？')) return;
+    if (!confirm('キャラクター・ステータス・メモ・履歴をリセットします。\nこの操作は元に戻せません。よろしいですか？')) return;
     localStorage.removeItem(MEMO_KEY);
     localStorage.removeItem(NOTE_KEY);
+    localStorage.removeItem(CHARA_KEY);
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
       if (saved) {
@@ -837,6 +854,7 @@ function buildExportCode() {
   return encodeBundle({
     m: JSON.parse(localStorage.getItem(MEMO_KEY) || 'null'),
     n: localStorage.getItem(NOTE_KEY) || '',
+    c: JSON.parse(localStorage.getItem(CHARA_KEY) || 'null'),
   });
 }
 
@@ -844,6 +862,7 @@ function applyImport(code) {
   const bundle = decodeBundle(code);
   if (bundle.m != null) localStorage.setItem(MEMO_KEY, JSON.stringify(bundle.m));
   if (bundle.n != null) localStorage.setItem(NOTE_KEY, bundle.n);
+  if (bundle.c != null) localStorage.setItem(CHARA_KEY, JSON.stringify(bundle.c));
   location.reload();
 }
 
@@ -1007,12 +1026,514 @@ async function setupAd() {
   } catch (_) {}
 }
 
+// ── Character sheet ────────────────────────────────────────────────────
+const CHARA_KEY = 'emoklore-chara-v1';
+
+const ABILITIES = [
+  { key: '身体', emoji: '💪' },
+  { key: '器用', emoji: '👋' },
+  { key: '精神', emoji: '😶' },
+  { key: '五感', emoji: '👂' },
+  { key: '知力', emoji: '📖' },
+  { key: '魅力', emoji: '💘' },
+  { key: '社会', emoji: '💳' },
+  { key: '運勢', emoji: '🎲' },
+];
+const ABILITY_EMOJI = {};
+ABILITIES.forEach(a => { ABILITY_EMOJI[a.key] = a.emoji; });
+
+// type: base / normal / ex / infinity
+// formula: plus=能力+レベル / base=能力のみ(ベース技能,Lv1固定) /
+//          half=⌈能力÷2⌉(ベース技能) / halfFixed=⌈能力÷2⌉(レベルで判定値不変) /
+//          special=∞共鳴(通常判定なし)
+// abil: 参照能力の候補（複数なら振る時に最も高い能力を自動採用）
+const SKILLS = [
+  // 調査系
+  { id:'調査',       cat:'調査系', type:'base',     abil:['器用'],               formula:'base' },
+  { id:'検索',       cat:'調査系', type:'normal',   abil:['知力'],               formula:'plus' },
+  { id:'洞察',       cat:'調査系', type:'normal',   abil:['知力'],               formula:'plus' },
+  { id:'マッピング', cat:'調査系', type:'normal',   abil:['器用','五感'],        formula:'plus' },
+  { id:'直感',       cat:'調査系', type:'normal',   abil:['精神','運勢'],        formula:'plus' },
+  { id:'鑑定',       cat:'調査系', type:'normal',   abil:['五感','知力'],        formula:'plus' },
+  // 知覚系
+  { id:'知覚',       cat:'知覚系', type:'base',     abil:['五感'],               formula:'base' },
+  { id:'観察眼',     cat:'知覚系', type:'normal',   abil:['五感'],               formula:'plus' },
+  { id:'聞き耳',     cat:'知覚系', type:'normal',   abil:['五感'],               formula:'plus' },
+  { id:'毒見',       cat:'知覚系', type:'normal',   abil:['五感'],               formula:'plus' },
+  { id:'危機察知',   cat:'知覚系', type:'normal',   abil:['五感','運勢'],        formula:'plus' },
+  { id:'霊感',       cat:'知覚系', type:'ex',       abil:['精神','運勢'],        formula:'plus' },
+  // 交渉系
+  { id:'交渉',       cat:'交渉系', type:'base',     abil:['魅力'],               formula:'base' },
+  { id:'社交術',     cat:'交渉系', type:'normal',   abil:['社会'],               formula:'plus' },
+  { id:'ディベート', cat:'交渉系', type:'normal',   abil:['知力'],               formula:'plus' },
+  { id:'魅了',       cat:'交渉系', type:'normal',   abil:['魅力'],               formula:'plus' },
+  { id:'心理',       cat:'交渉系', type:'normal',   abil:['精神','知力'],        formula:'plus' },
+  // 情報系
+  { id:'知識',       cat:'情報系', type:'base',     abil:['知力'],               formula:'base' },
+  { id:'専門知識',   cat:'情報系', type:'normal',   abil:['知力'],               formula:'plus', named:true },
+  { id:'ニュース',   cat:'情報系', type:'base',     abil:['社会'],               formula:'base' },
+  { id:'事情通',     cat:'情報系', type:'normal',   abil:['五感','社会'],        formula:'plus' },
+  { id:'業界',       cat:'情報系', type:'normal',   abil:['社会','魅力'],        formula:'plus', named:true },
+  // 運動系
+  { id:'運動',       cat:'運動系', type:'base',     abil:['身体'],               formula:'base' },
+  { id:'スピード',   cat:'運動系', type:'normal',   abil:['身体'],               formula:'plus' },
+  { id:'ストレングス', cat:'運動系', type:'normal', abil:['身体'],               formula:'plus' },
+  { id:'アクロバット', cat:'運動系', type:'normal', abil:['身体','器用'],        formula:'plus' },
+  { id:'ダイブ',     cat:'運動系', type:'normal',   abil:['身体'],               formula:'plus' },
+  { id:'格闘',       cat:'運動系', type:'base',     abil:['身体'],               formula:'base' },
+  { id:'武術',       cat:'運動系', type:'normal',   abil:['身体'],               formula:'plus', named:true },
+  { id:'奥義',       cat:'運動系', type:'ex',       abil:['身体','精神','器用'], formula:'plus', named:true, max1:true },
+  { id:'投擲',       cat:'運動系', type:'base',     abil:['器用'],               formula:'base' },
+  { id:'射撃',       cat:'運動系', type:'ex',       abil:['器用','五感'],        formula:'plus', named:true },
+  // 生存系
+  { id:'生存',       cat:'生存系', type:'base',     abil:['身体'],               formula:'base' },
+  { id:'耐久',       cat:'生存系', type:'normal',   abil:['身体'],               formula:'plus' },
+  { id:'自我',       cat:'生存系', type:'base',     abil:['精神'],               formula:'base' },
+  { id:'根性',       cat:'生存系', type:'normal',   abil:['精神'],               formula:'plus' },
+  { id:'手当て',     cat:'生存系', type:'base',     abil:['知力'],               formula:'half',      hint:'判定値=知力÷2(切上)' },
+  { id:'医術',       cat:'生存系', type:'normal',   abil:['器用','知力'],        formula:'plus' },
+  { id:'蘇生',       cat:'生存系', type:'ex',       abil:['知力','精神'],        formula:'halfFixed', hint:'判定値=能力÷2(切上)・Lvで判定値不変' },
+  // 特殊
+  { id:'細工',       cat:'特殊',   type:'base',     abil:['器用'],               formula:'base' },
+  { id:'技巧',       cat:'特殊',   type:'normal',   abil:['器用'],               formula:'plus', named:true },
+  { id:'芸術',       cat:'特殊',   type:'normal',   abil:['器用','精神','五感'], formula:'plus', named:true },
+  { id:'操縦',       cat:'特殊',   type:'normal',   abil:['器用','五感','知力'], formula:'plus', named:true },
+  { id:'暗号',       cat:'特殊',   type:'normal',   abil:['知力'],               formula:'plus' },
+  { id:'電脳',       cat:'特殊',   type:'normal',   abil:['知力'],               formula:'plus' },
+  { id:'隠匿',       cat:'特殊',   type:'normal',   abil:['器用','社会','運勢'], formula:'plus' },
+  { id:'幸運',       cat:'特殊',   type:'base',     abil:['運勢'],               formula:'base' },
+  { id:'強運',       cat:'特殊',   type:'ex',       abil:['運勢'],               formula:'plus' },
+  { id:'∞共鳴',     cat:'特殊',   type:'infinity', abil:[],                     formula:'special' },
+];
+const SKILL_BY_ID = {};
+SKILLS.forEach(s => { SKILL_BY_ID[s.id] = s; });
+const SKILL_CATS = ['調査系', '知覚系', '交渉系', '情報系', '運動系', '生存系', '特殊'];
+
+const ABILITY_TOTAL = 25; // 運勢以外の7能力の合計
+const SKILL_TOTAL   = 30; // 技能ポイント
+const NORMAL_COST = { 1: 1, 2: 5, 3: 15 };
+
+function skillCost(type, level) {
+  if (level <= 0) return 0;
+  const base = NORMAL_COST[level] || 0;
+  return type === 'ex' ? base * 2 : base;
+}
+
+function escapeAttr(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const chara = {
+  profile: { name:'', age:'', gender:'', origin:'', job:'', note:'' },
+  abilities: { 身体:1, 器用:1, 精神:1, 五感:1, 知力:1, 魅力:1, 社会:1, 運勢:1 },
+  skills: {},  // id -> level (normal/ex の非named技能)
+  named: [],   // { uid, base, name, level }
+};
+let charaNamedUid = 1;
+
+function loadChara() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CHARA_KEY));
+    if (!saved) return;
+    if (saved.profile) Object.keys(chara.profile).forEach(k => {
+      if (typeof saved.profile[k] === 'string') chara.profile[k] = saved.profile[k];
+    });
+    if (saved.abilities) ABILITIES.forEach(a => {
+      const v = saved.abilities[a.key];
+      if (typeof v === 'number') chara.abilities[a.key] = Math.min(6, Math.max(1, v));
+    });
+    if (saved.skills && typeof saved.skills === 'object') {
+      chara.skills = {};
+      Object.entries(saved.skills).forEach(([id, lv]) => {
+        const s = SKILL_BY_ID[id];
+        if (s && s.type !== 'base' && s.type !== 'infinity' && !s.named && typeof lv === 'number') {
+          const clamped = Math.min(3, Math.max(0, lv));
+          if (clamped > 0) chara.skills[id] = clamped;
+        }
+      });
+    }
+    if (Array.isArray(saved.named)) {
+      chara.named = saved.named
+        .filter(n => n && SKILL_BY_ID[n.base] && SKILL_BY_ID[n.base].named)
+        .map(n => ({
+          uid: charaNamedUid++,
+          base: n.base,
+          name: String(n.name || ''),
+          level: Math.min(3, Math.max(1, n.level || 1)),
+        }));
+    }
+  } catch (_) {}
+}
+
+function saveChara() {
+  try {
+    localStorage.setItem(CHARA_KEY, JSON.stringify({
+      profile: chara.profile,
+      abilities: chara.abilities,
+      skills: chara.skills,
+      named: chara.named.map(n => ({ base: n.base, name: n.name, level: n.level })),
+    }));
+  } catch (_) {}
+}
+
+// ── chara calculations ─────────────────────────────────────────────────
+function abilityVal(key) {
+  const v = chara.abilities[key];
+  return (typeof v === 'number') ? v : 1;
+}
+
+function abilitySpent() {
+  return ABILITIES.reduce((sum, a) => a.key === '運勢' ? sum : sum + abilityVal(a.key), 0);
+}
+
+function skillSpent() {
+  let total = 0;
+  Object.entries(chara.skills).forEach(([id, lv]) => {
+    const s = SKILL_BY_ID[id];
+    if (s) total += skillCost(s.type, lv);
+  });
+  chara.named.forEach(n => {
+    const s = SKILL_BY_ID[n.base];
+    if (s) total += skillCost(s.type, n.level);
+  });
+  return total;
+}
+
+function bestAbilityKey(abil) {
+  let best = abil[0], bestV = -Infinity;
+  abil.forEach(k => { const v = abilityVal(k); if (v > bestV) { bestV = v; best = k; } });
+  return best;
+}
+
+function skillDice(skill, level) {
+  if (skill.type === 'base') return 1; // ベース技能はLv1固定
+  return Math.max(1, level);
+}
+
+function skillJudgment(skill, level, abilKey) {
+  const a = abilityVal(abilKey);
+  switch (skill.formula) {
+    case 'base':      return a;
+    case 'plus':      return a + level;
+    case 'half':      return Math.ceil(a / 2);
+    case 'halfFixed': return Math.ceil(a / 2);
+    default:          return a;
+  }
+}
+
+function updateDerived() {
+  const hp = abilityVal('身体') + 10;
+  const mp = abilityVal('精神') + abilityVal('知力');
+  const hpEl = document.getElementById('chara-hp');
+  const mpEl = document.getElementById('chara-mp');
+  if (hpEl) hpEl.textContent = hp;
+  if (mpEl) mpEl.textContent = mp;
+  return { hp, mp };
+}
+
+function applyHpMpToStatus() {
+  const { hp, mp } = updateDerived();
+  memo.hpMax = hp;
+  memo.mpMax = mp;
+  memo.hpCurrent = hp; // 作成時は満タン
+  memo.mpCurrent = mp;
+  syncMemoUI();
+  saveMemo();
+}
+
+// ── chara rendering ────────────────────────────────────────────────────
+function updateAbilityPoints() {
+  const el = document.getElementById('ability-points');
+  if (!el) return;
+  const remain = ABILITY_TOTAL - abilitySpent();
+  el.textContent = `残り ${remain} / ${ABILITY_TOTAL}`;
+  el.classList.toggle('over', remain < 0);
+  el.classList.toggle('done', remain === 0);
+}
+
+function updateSkillPoints() {
+  const el = document.getElementById('skill-points');
+  if (!el) return;
+  const remain = SKILL_TOTAL - skillSpent();
+  el.textContent = `残り ${remain} / ${SKILL_TOTAL}`;
+  el.classList.toggle('over', remain < 0);
+  el.classList.toggle('done', remain === 0);
+}
+
+function renderAbilities() {
+  const grid = document.getElementById('ability-grid');
+  if (!grid) return;
+  grid.innerHTML = ABILITIES.map(a => {
+    const luck = a.key === '運勢';
+    return `<div class="ability-item${luck ? ' luck' : ''}">
+      <div class="ability-name">${a.emoji} ${a.key}</div>
+      <div class="ability-ctrl">
+        <button class="stepper-btn stepper-btn-sm" data-ability="${a.key}" data-delta="-1" aria-label="${a.key}を減らす">－</button>
+        <span class="ability-val" id="ability-val-${a.key}">${abilityVal(a.key)}</span>
+        <button class="stepper-btn stepper-btn-sm" data-ability="${a.key}" data-delta="1" aria-label="${a.key}を増やす">＋</button>
+        ${luck ? '<button class="luck-roll-btn" id="luck-roll" aria-label="運勢を1D6で決定">🎲</button>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function abilTagsHtml(skill, usedKey) {
+  return skill.abil.map(k =>
+    `<span class="abil-tag${k === usedKey ? ' used' : ''}">${k}</span>`
+  ).join('');
+}
+
+function plainRowHtml(s) {
+  const isBase = s.type === 'base';
+  const lv = isBase ? 1 : (chara.skills[s.id] || 0);
+  const usedKey = bestAbilityKey(s.abil);
+  const dice = skillDice(s, lv);
+  const judg = Math.min(10, Math.max(1, skillJudgment(s, lv, usedKey)));
+  const badge = s.type === 'ex'
+    ? '<span class="t-badge ex">★</span>'
+    : (isBase ? '<span class="t-badge base">＊</span>' : '');
+  const hint = s.hint ? `<span class="f-note">${s.hint}</span>` : '';
+
+  let lvCol;
+  if (isBase) {
+    lvCol = '<div class="skill-lv fixed">Lv1</div>';
+  } else {
+    lvCol = `<div class="skill-lv">
+      <button class="lv-btn" data-skill-lv="${s.id}" data-delta="-1" aria-label="レベルを下げる">－</button>
+      <span class="lv-val">${lv}</span>
+      <button class="lv-btn" data-skill-lv="${s.id}" data-delta="1" aria-label="レベルを上げる">＋</button>
+    </div>`;
+  }
+
+  const canRoll = isBase || lv >= 1;
+  const cost = (!isBase && lv >= 1) ? ` ・ ${skillCost(s.type, lv)}pt` : '';
+  const meta = canRoll
+    ? `判定値 <b>${judg}</b>${cost}${hint}`
+    : `<span class="muted">未取得・ベース技能で代用</span>${hint}`;
+  const rollBtn = canRoll
+    ? `<button class="skill-roll" data-skill-roll="${s.id}">${dice}D10</button>`
+    : '<button class="skill-roll" disabled>Lv0</button>';
+
+  return `<div class="skill-row${isBase ? ' base' : ''}">
+    ${lvCol}
+    <div class="skill-main">
+      <div class="skill-name">${s.id}${badge}<span class="skill-tags">${abilTagsHtml(s, usedKey)}</span></div>
+      <div class="skill-meta">${meta}</div>
+    </div>
+    ${rollBtn}
+  </div>`;
+}
+
+function namedGroupHtml(s) {
+  const badge = s.type === 'ex' ? '<span class="t-badge ex">★</span>' : '';
+  const insts = chara.named.filter(n => n.base === s.id);
+  const blockAdd = s.max1 && insts.length >= 1;
+
+  let html = `<div class="skill-row named-head">
+    <div class="skill-main">
+      <div class="skill-name">${s.id}：○○${badge}<span class="skill-tags">${abilTagsHtml(s, null)}</span></div>
+      <div class="skill-meta"><span class="muted">名称を付けて取得${s.max1 ? '（1つまで）' : '（複数可）'}</span></div>
+    </div>
+    <button class="named-add" data-named-add="${s.id}"${blockAdd ? ' disabled' : ''}>＋追加</button>
+  </div>`;
+
+  insts.forEach(n => {
+    const usedKey = bestAbilityKey(s.abil);
+    const dice = skillDice(s, n.level);
+    const judg = Math.min(10, Math.max(1, skillJudgment(s, n.level, usedKey)));
+    html += `<div class="skill-row named-inst">
+      <div class="skill-lv">
+        <button class="lv-btn" data-named-lv="${n.uid}" data-delta="-1" aria-label="レベルを下げる">－</button>
+        <span class="lv-val">${n.level}</span>
+        <button class="lv-btn" data-named-lv="${n.uid}" data-delta="1" aria-label="レベルを上げる">＋</button>
+      </div>
+      <div class="skill-main">
+        <input class="named-name" data-named-name="${n.uid}" value="${escapeAttr(n.name)}" placeholder="名称（例：考古学）" autocomplete="off">
+        <div class="skill-meta">判定値 <b>${judg}</b> ・ ${skillCost(s.type, n.level)}pt</div>
+      </div>
+      <button class="named-del" data-named-del="${n.uid}" aria-label="削除">✕</button>
+      <button class="skill-roll" data-named-roll="${n.uid}">${dice}D10</button>
+    </div>`;
+  });
+  return html;
+}
+
+function infinityRowHtml() {
+  const lv = memo.infinityLevel || 0;
+  return `<div class="skill-row infinity">
+    <div class="skill-lv fixed">∞</div>
+    <div class="skill-main">
+      <div class="skill-name">∞共鳴</div>
+      <div class="skill-meta"><span class="muted">Lv <b id="chara-infinity">${lv}</b> ・ ステータスタブで変動（上限9 / 10で逸脱）</span></div>
+    </div>
+  </div>`;
+}
+
+function renderSkills() {
+  const list = document.getElementById('skill-list');
+  if (!list) return;
+  let html = '';
+  SKILL_CATS.forEach(cat => {
+    html += `<div class="skill-cat">${cat}技能</div>`;
+    SKILLS.filter(s => s.cat === cat).forEach(s => {
+      if (s.type === 'infinity') html += infinityRowHtml();
+      else if (s.named)          html += namedGroupHtml(s);
+      else                       html += plainRowHtml(s);
+    });
+  });
+  list.innerHTML = html;
+  updateSkillPoints();
+}
+
+// ── chara actions ──────────────────────────────────────────────────────
+function rollSkill(skill, level, displayName) {
+  if (!skill || skill.type === 'infinity') return;
+  const dice = skillDice(skill, level);
+  const usedKey = bestAbilityKey(skill.abil);
+  const judgment = Math.min(10, Math.max(1, skillJudgment(skill, level, usedKey)));
+  state.diceCount = dice;
+  state.targetValue = judgment;
+  document.getElementById('diceCount-display').textContent = dice;
+  document.getElementById('targetValue-display').textContent = judgment;
+  switchToTab('emoklore');
+  rollEmoklore(`〈${displayName}〉`);
+}
+
+function setAbility(key, delta) {
+  const next = Math.min(6, Math.max(1, abilityVal(key) + delta));
+  chara.abilities[key] = next;
+  const el = document.getElementById(`ability-val-${key}`);
+  if (el) el.textContent = next;
+  updateAbilityPoints();
+  applyHpMpToStatus();
+  renderSkills();
+  saveChara();
+}
+
+function rollLuck() {
+  const v = rollDie(6);
+  chara.abilities['運勢'] = v;
+  const el = document.getElementById('ability-val-運勢');
+  if (el) el.textContent = v;
+  renderSkills();
+  saveChara();
+  addHistory(`運勢決定 1D6 → ${v}`);
+}
+
+function setSkillLevel(id, delta) {
+  const s = SKILL_BY_ID[id];
+  if (!s || s.type === 'base' || s.type === 'infinity') return;
+  const next = Math.min(3, Math.max(0, (chara.skills[id] || 0) + delta));
+  if (next === 0) delete chara.skills[id];
+  else chara.skills[id] = next;
+  saveChara();
+  renderSkills();
+}
+
+function addNamed(base) {
+  const s = SKILL_BY_ID[base];
+  if (!s || !s.named) return;
+  if (s.max1 && chara.named.some(n => n.base === base)) return;
+  chara.named.push({ uid: charaNamedUid++, base, name: '', level: 1 });
+  saveChara();
+  renderSkills();
+}
+
+function setNamedLevel(uid, delta) {
+  const n = chara.named.find(x => x.uid === uid);
+  if (!n) return;
+  n.level = Math.min(3, Math.max(1, n.level + delta));
+  saveChara();
+  renderSkills();
+}
+
+function delNamed(uid) {
+  chara.named = chara.named.filter(x => x.uid !== uid);
+  saveChara();
+  renderSkills();
+}
+
+function setNamedName(uid, value) {
+  const n = chara.named.find(x => x.uid === uid);
+  if (!n) return;
+  n.name = value;
+  saveChara(); // 判定値は変わらないので再描画しない（入力フォーカス維持）
+}
+
+function bindProfile() {
+  const map = {
+    'profile-name': 'name', 'profile-age': 'age', 'profile-gender': 'gender',
+    'profile-origin': 'origin', 'profile-job': 'job', 'profile-note': 'note',
+  };
+  Object.entries(map).forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = chara.profile[key] || '';
+    el.addEventListener('input', () => { chara.profile[key] = el.value; saveChara(); });
+  });
+}
+
+function bindCharaEmotions() {
+  const html = buildEmotionHTML();
+  const ids = {
+    'chara-emotion-omote': 'emotionOmote',
+    'chara-emotion-ura':   'emotionUra',
+    'chara-emotion-roots': 'emotionRoots',
+  };
+  Object.entries(ids).forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = html;
+    el.value = memo[key] || '';
+    el.addEventListener('change', () => { memo[key] = el.value; syncMemoUI(); saveMemo(); });
+  });
+}
+
+function setupChara() {
+  renderAbilities();
+  renderSkills();
+  updateAbilityPoints();
+  updateDerived();
+  bindProfile();
+  bindCharaEmotions();
+
+  document.getElementById('ability-grid').addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    if (btn.id === 'luck-roll') { rollLuck(); return; }
+    if (btn.dataset.ability) setAbility(btn.dataset.ability, parseInt(btn.dataset.delta, 10));
+  });
+
+  const list = document.getElementById('skill-list');
+  list.addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    if (btn.dataset.skillLv)   { setSkillLevel(btn.dataset.skillLv, parseInt(btn.dataset.delta, 10)); return; }
+    if (btn.dataset.skillRoll) { const s = SKILL_BY_ID[btn.dataset.skillRoll]; rollSkill(s, chara.skills[s.id] || 0, s.id); return; }
+    if (btn.dataset.namedAdd)  { addNamed(btn.dataset.namedAdd); return; }
+    if (btn.dataset.namedDel)  { delNamed(parseInt(btn.dataset.namedDel, 10)); return; }
+    if (btn.dataset.namedLv)   { setNamedLevel(parseInt(btn.dataset.namedLv, 10), parseInt(btn.dataset.delta, 10)); return; }
+    if (btn.dataset.namedRoll) {
+      const n = chara.named.find(x => x.uid === parseInt(btn.dataset.namedRoll, 10));
+      if (n) { const s = SKILL_BY_ID[n.base]; rollSkill(s, n.level, n.name ? `${s.id}：${n.name}` : s.id); }
+      return;
+    }
+  });
+  list.addEventListener('input', e => {
+    const inp = e.target.closest('input[data-named-name]');
+    if (inp) setNamedName(parseInt(inp.dataset.namedName, 10), inp.value);
+  });
+}
+
 // ── Boot ───────────────────────────────────────────────────────────────
 function init() {
   loadState();
   syncUIToState();
   renderHistory();
   loadMemo();
+  loadChara();
   if (memo.hpMax === memo.hpCurrent && memo.mpMax === memo.mpCurrent) linked = true;
   populateEmotionSelects();
   syncMemoUI();
@@ -1022,6 +1543,7 @@ function init() {
   setupDiceTypeButtons();
   setupSettings();
   setupMemo();
+  setupChara();
   setupNote();
   setupInstallButton();
   setupReset();

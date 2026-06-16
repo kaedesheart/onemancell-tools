@@ -40,7 +40,8 @@
     </section>
 
     <nav class="tab-nav" role="tablist">
-      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="emoklore">エモクロア判定</button>
+      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="emoklore">判定</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="chara">キャラ</button>
       <button class="tab-btn" role="tab" aria-selected="false" data-tab="extra">ダイスロール</button>
       <button class="tab-btn" role="tab" aria-selected="false" data-tab="status">ステータス</button>
       <button class="tab-btn" role="tab" aria-selected="false" data-tab="note">メモ</button>
@@ -141,6 +142,74 @@
             <span class="emotion-bar-role">ルーツ</span>
             <span id="status-emotion-roots" class="emotion-bar-value">—</span>
           </div>
+        </div>
+
+      </section>
+
+      <!-- キャラタブ -->
+      <section id="tab-chara" class="tab-panel hidden" role="tabpanel" aria-label="キャラクター">
+
+        <div class="chara-section">
+          <div class="chara-section-head">
+            <h2 class="chara-section-title">能力値</h2>
+            <span id="ability-points" class="chara-points">残り 25 / 25</span>
+          </div>
+          <div id="ability-grid" class="ability-grid"></div>
+          <div class="chara-derived">
+            <div class="derived-item">
+              <span class="derived-label">HP</span>
+              <span class="derived-formula">身体+10</span>
+              <span id="chara-hp" class="derived-val">11</span>
+            </div>
+            <div class="derived-item">
+              <span class="derived-label">MP</span>
+              <span class="derived-formula">精神+知力</span>
+              <span id="chara-mp" class="derived-val">2</span>
+            </div>
+          </div>
+          <p class="chara-hint">能力値を変更するとHP/MPが再計算され、ステータスに反映されます。</p>
+        </div>
+
+        <div class="chara-section">
+          <div class="chara-section-head">
+            <h2 class="chara-section-title">技能</h2>
+            <span id="skill-points" class="chara-points">残り 30 / 30</span>
+          </div>
+          <div id="skill-list" class="skill-list"></div>
+        </div>
+
+        <div class="chara-section">
+          <div class="chara-section-head">
+            <h2 class="chara-section-title">共鳴感情</h2>
+          </div>
+          <div class="emotion-grid">
+            <div class="emotion-row">
+              <span class="emotion-label">表</span>
+              <select id="chara-emotion-omote" class="memo-select"></select>
+            </div>
+            <div class="emotion-row">
+              <span class="emotion-label">裏</span>
+              <select id="chara-emotion-ura" class="memo-select"></select>
+            </div>
+            <div class="emotion-row">
+              <span class="emotion-label">ルーツ</span>
+              <select id="chara-emotion-roots" class="memo-select"></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="chara-section">
+          <div class="chara-section-head">
+            <h2 class="chara-section-title">キャラクター設定</h2>
+          </div>
+          <div class="profile-grid">
+            <label class="profile-field"><span>名前</span><input id="profile-name" type="text" class="profile-input" autocomplete="off"></label>
+            <label class="profile-field"><span>年齢</span><input id="profile-age" type="text" class="profile-input" autocomplete="off"></label>
+            <label class="profile-field"><span>性別</span><input id="profile-gender" type="text" class="profile-input" autocomplete="off"></label>
+            <label class="profile-field"><span>出身</span><input id="profile-origin" type="text" class="profile-input" autocomplete="off"></label>
+            <label class="profile-field profile-field-wide"><span>職業</span><input id="profile-job" type="text" class="profile-input" autocomplete="off"></label>
+          </div>
+          <textarea id="profile-note" class="profile-textarea" placeholder="性格・外見的特徴・経歴・好きなもの・嫌いなもの など自由に…"></textarea>
         </div>
 
       </section>
