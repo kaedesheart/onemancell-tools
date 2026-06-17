@@ -1388,45 +1388,57 @@ function renderSkills() {
   renderQuickSkills();
 }
 
+function quickItemHtml(it) {
+  const dice = skillDice(it.skill, it.level);
+  const usedKey = bestAbilityKey(it.skill.abil);
+  const judg = Math.min(10, Math.max(1, skillJudgment(it.skill, it.level, usedKey)));
+  const badge = it.skill.type === 'ex'
+    ? '<span class="t-badge ex">★</span>'
+    : (it.skill.type === 'base' ? '<span class="t-badge base">＊</span>' : '');
+  const dataAttr = it.kind === 'plain'
+    ? `data-quick-skill="${it.skill.id}"`
+    : `data-quick-named="${it.uid}"`;
+  return `<button class="quick-btn" ${dataAttr}>
+    <span class="quick-name">${badge}${it.label}</span>
+    <span class="quick-meta">${dice}D10 ・ 判<b>${judg}</b></span>
+  </button>`;
+}
+
 function renderQuickSkills() {
-  const wrap = document.getElementById('quick-skills');
-  if (!wrap) return;
-  const items = [];
+  const baseWrap  = document.getElementById('quick-skills-base');
+  const ownedWrap = document.getElementById('quick-skills-owned');
+  if (!baseWrap || !ownedWrap) return;
+
+  const baseItems = [];
+  const ownedItems = [];
   SKILLS.forEach(s => {
     if (s.type === 'infinity' || s.named) return;
     if (s.type === 'base') {
-      items.push({ kind: 'plain', skill: s, level: 1, label: s.id });
+      baseItems.push({ kind: 'plain', skill: s, level: 1, label: s.id });
     } else {
       const lv = chara.skills[s.id] || 0;
-      if (lv >= 2) items.push({ kind: 'plain', skill: s, level: lv, label: s.id });
+      if (lv >= 1) ownedItems.push({ kind: 'plain', skill: s, level: lv, label: `${s.id} Lv${lv}` });
     }
   });
   chara.named.forEach(n => {
-    if (n.level < 2) return;
+    if (n.level < 1) return;
     const s = SKILL_BY_ID[n.base];
     if (!s) return;
-    const label = n.name ? `${s.id}：${n.name}` : `${s.id}：○○`;
-    items.push({ kind: 'named', skill: s, level: n.level, label, uid: n.uid });
+    const head = n.name ? `${s.id}：${n.name}` : `${s.id}：○○`;
+    ownedItems.push({ kind: 'named', skill: s, level: n.level, label: `${head} Lv${n.level}`, uid: n.uid });
   });
-  if (items.length === 0) {
-    wrap.innerHTML = '<div class="quick-empty">技能をLv2以上で取得すると、ここから直接ロールできます</div>';
-    return;
-  }
-  wrap.innerHTML = items.map(it => {
-    const dice = skillDice(it.skill, it.level);
-    const usedKey = bestAbilityKey(it.skill.abil);
-    const judg = Math.min(10, Math.max(1, skillJudgment(it.skill, it.level, usedKey)));
-    const badge = it.skill.type === 'ex'
-      ? '<span class="t-badge ex">★</span>'
-      : (it.skill.type === 'base' ? '<span class="t-badge base">＊</span>' : '');
-    const dataAttr = it.kind === 'plain'
-      ? `data-quick-skill="${it.skill.id}"`
-      : `data-quick-named="${it.uid}"`;
-    return `<button class="quick-btn" ${dataAttr}>
-      <span class="quick-name">${badge}${it.label}</span>
-      <span class="quick-meta">${dice}D10 ・ 判<b>${judg}</b></span>
-    </button>`;
-  }).join('');
+
+  baseWrap.innerHTML = baseItems.length
+    ? baseItems.map(quickItemHtml).join('')
+    : '<div class="quick-empty">ベース技能はありません</div>';
+  ownedWrap.innerHTML = ownedItems.length
+    ? ownedItems.map(quickItemHtml).join('')
+    : '<div class="quick-empty">「キャラ」タブで技能を取得すると、ここから直接ロールできます</div>';
+
+  const baseCount  = document.getElementById('quick-base-count');
+  const ownedCount = document.getElementById('quick-owned-count');
+  if (baseCount)  baseCount.textContent  = baseItems.length;
+  if (ownedCount) ownedCount.textContent = ownedItems.length;
 }
 
 // ── chara actions ──────────────────────────────────────────────────────
@@ -1501,7 +1513,10 @@ function setNamedName(uid, value) {
   const n = chara.named.find(x => x.uid === uid);
   if (!n) return;
   n.name = value;
-  saveChara(); // 判定値は変わらないので再描画しない（入力フォーカス維持）
+  saveChara();
+  // 判定値は変わらないが、クイックパネルのラベルは更新したいので
+  // 入力フォーカスを保ったまま、クイック側だけ再描画する
+  renderQuickSkills();
 }
 
 function bindProfile() {
@@ -1541,7 +1556,7 @@ function setupChara() {
   bindProfile();
   bindCharaEmotions();
 
-  const quick = document.getElementById('quick-skills');
+  const quick = document.getElementById('quick-skills-section');
   if (quick) {
     quick.addEventListener('click', e => {
       const btn = e.target.closest('button.quick-btn');
