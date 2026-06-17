@@ -1297,6 +1297,32 @@ ul { list-style: none; }
   line-height: 1.6;
 }
 
+/* 能力値ランダム配分 */
+.ability-randomize {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.rand-btn {
+  flex: 1;
+  border: 1.5px solid var(--accent);
+  background: var(--surface);
+  color: var(--accent-dark);
+  border-radius: 50px;
+  padding: 8px 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+.rand-btn:active {
+  transform: scale(0.96);
+  background: var(--accent);
+  color: #fff;
+}
+
 /* 能力値 */
 .ability-grid {
   display: grid;

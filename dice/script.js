@@ -1476,6 +1476,38 @@ function rollLuck() {
   addHistory(`運勢決定 1D6 → ${v}`);
 }
 
+// 7能力に合計25点を、各1〜6の範囲でランダム配分する
+function randomDistribute7() {
+  const keys = ['身体', '器用', '精神', '五感', '知力', '魅力', '社会'];
+  const vals = keys.map(() => 1);
+  let remain = ABILITY_TOTAL - keys.length; // 25 - 7 = 18
+  while (remain > 0) {
+    const candidates = vals
+      .map((v, i) => v < 6 ? i : -1)
+      .filter(i => i >= 0);
+    if (candidates.length === 0) break;
+    const idx = candidates[Math.floor(Math.random() * candidates.length)];
+    vals[idx]++;
+    remain--;
+  }
+  const out = {};
+  keys.forEach((k, i) => { out[k] = vals[i]; });
+  return out;
+}
+
+function randomizeAbilities(includeLuck) {
+  Object.assign(chara.abilities, randomDistribute7());
+  if (includeLuck) chara.abilities['運勢'] = rollDie(6);
+  renderAbilities();
+  updateAbilityPoints();
+  applyHpMpToStatus();
+  renderSkills();
+  saveChara();
+  const a = chara.abilities;
+  const luckText = includeLuck ? `運${a['運勢']} ` : '';
+  addHistory(`能力値ランダム (${luckText}身${a['身体']} 器${a['器用']} 精${a['精神']} 五${a['五感']} 知${a['知力']} 魅${a['魅力']} 社${a['社会']})`);
+}
+
 function setSkillLevel(id, delta) {
   const s = SKILL_BY_ID[id];
   if (!s || s.type === 'base' || s.type === 'infinity') return;
@@ -1581,6 +1613,9 @@ function setupChara() {
     if (btn.id === 'luck-roll') { rollLuck(); return; }
     if (btn.dataset.ability) setAbility(btn.dataset.ability, parseInt(btn.dataset.delta, 10));
   });
+
+  document.getElementById('rand-all').addEventListener('click', () => randomizeAbilities(true));
+  document.getElementById('rand-except-luck').addEventListener('click', () => randomizeAbilities(false));
 
   const list = document.getElementById('skill-list');
   list.addEventListener('click', e => {
