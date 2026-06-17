@@ -1385,6 +1385,48 @@ function renderSkills() {
   });
   list.innerHTML = html;
   updateSkillPoints();
+  renderQuickSkills();
+}
+
+function renderQuickSkills() {
+  const wrap = document.getElementById('quick-skills');
+  if (!wrap) return;
+  const items = [];
+  SKILLS.forEach(s => {
+    if (s.type === 'infinity' || s.named) return;
+    if (s.type === 'base') {
+      items.push({ kind: 'plain', skill: s, level: 1, label: s.id });
+    } else {
+      const lv = chara.skills[s.id] || 0;
+      if (lv >= 2) items.push({ kind: 'plain', skill: s, level: lv, label: s.id });
+    }
+  });
+  chara.named.forEach(n => {
+    if (n.level < 2) return;
+    const s = SKILL_BY_ID[n.base];
+    if (!s) return;
+    const label = n.name ? `${s.id}：${n.name}` : `${s.id}：○○`;
+    items.push({ kind: 'named', skill: s, level: n.level, label, uid: n.uid });
+  });
+  if (items.length === 0) {
+    wrap.innerHTML = '<div class="quick-empty">技能をLv2以上で取得すると、ここから直接ロールできます</div>';
+    return;
+  }
+  wrap.innerHTML = items.map(it => {
+    const dice = skillDice(it.skill, it.level);
+    const usedKey = bestAbilityKey(it.skill.abil);
+    const judg = Math.min(10, Math.max(1, skillJudgment(it.skill, it.level, usedKey)));
+    const badge = it.skill.type === 'ex'
+      ? '<span class="t-badge ex">★</span>'
+      : (it.skill.type === 'base' ? '<span class="t-badge base">＊</span>' : '');
+    const dataAttr = it.kind === 'plain'
+      ? `data-quick-skill="${it.skill.id}"`
+      : `data-quick-named="${it.uid}"`;
+    return `<button class="quick-btn" ${dataAttr}>
+      <span class="quick-name">${badge}${it.label}</span>
+      <span class="quick-meta">${dice}D10 ・ 判<b>${judg}</b></span>
+    </button>`;
+  }).join('');
 }
 
 // ── chara actions ──────────────────────────────────────────────────────
@@ -1498,6 +1540,25 @@ function setupChara() {
   updateDerived();
   bindProfile();
   bindCharaEmotions();
+
+  const quick = document.getElementById('quick-skills');
+  if (quick) {
+    quick.addEventListener('click', e => {
+      const btn = e.target.closest('button.quick-btn');
+      if (!btn) return;
+      if (btn.dataset.quickSkill) {
+        const s = SKILL_BY_ID[btn.dataset.quickSkill];
+        const lv = s.type === 'base' ? 1 : (chara.skills[s.id] || 0);
+        rollSkill(s, lv, s.id);
+      } else if (btn.dataset.quickNamed) {
+        const n = chara.named.find(x => x.uid === parseInt(btn.dataset.quickNamed, 10));
+        if (n) {
+          const s = SKILL_BY_ID[n.base];
+          rollSkill(s, n.level, n.name ? `${s.id}：${n.name}` : s.id);
+        }
+      }
+    });
+  }
 
   document.getElementById('ability-grid').addEventListener('click', e => {
     const btn = e.target.closest('button');

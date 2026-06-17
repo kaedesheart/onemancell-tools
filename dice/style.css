@@ -1161,6 +1161,78 @@ ul { list-style: none; }
   }
 }
 
+/* ── Quick skill roll (判定タブ) ────────────────────────────── */
+.quick-skills-section {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 12px 12px 10px;
+  box-shadow: var(--shadow);
+  margin-top: 14px;
+  margin-bottom: 16px;
+}
+.quick-skills-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.quick-skills-title {
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: var(--accent-dark);
+  letter-spacing: 0.02em;
+}
+.quick-skills-hint {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+.quick-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.quick-empty {
+  width: 100%;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  padding: 10px 4px;
+  text-align: center;
+}
+.quick-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  border: 1.5px solid var(--accent);
+  background: var(--surface);
+  color: var(--accent-dark);
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  min-width: 0;
+}
+.quick-btn:active { transform: scale(0.94); background: var(--accent); color: #fff; }
+.quick-btn:active .t-badge { background: rgba(255,255,255,0.25); color: #fff; }
+.quick-name {
+  font-size: 0.82rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.quick-meta {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.quick-meta b { color: var(--accent-dark); font-size: 0.76rem; font-weight: 800; }
+.quick-btn:active .quick-meta { color: rgba(255,255,255,0.85); }
+.quick-btn:active .quick-meta b { color: #fff; }
+
 /* ── Character sheet ───────────────────────────────────────── */
 .chara-section {
   background: var(--surface);
