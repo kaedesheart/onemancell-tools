@@ -1533,6 +1533,8 @@ function randomizeAbilities(includeLuck) {
 
 // 30ポイントを使い切るまで通常/EX技能をランダム取得する。
 // 名称付き技能も対象。同baseは1つまで（武術を複数取らない）、名称は空欄で取得。
+// 名称付きは「意図して選ぶ」性質が強いので、重み0.3で出現頻度を抑える。
+const NAMED_PICK_WEIGHT = 0.3;
 function randomDistributeSkills() {
   const usable = SKILLS.filter(s => s.type === 'normal' || s.type === 'ex');
   const plain = {};   // id -> level
@@ -1552,10 +1554,18 @@ function randomDistributeSkills() {
       if (cur >= 3) continue;
       const nextLv = cur + 1;
       const addCost = skillCost(s.type, nextLv) - skillCost(s.type, cur);
-      if (addCost <= budget) candidates.push({ s, nextLv, addCost });
+      if (addCost <= budget) {
+        candidates.push({ s, nextLv, addCost, weight: s.named ? NAMED_PICK_WEIGHT : 1 });
+      }
     }
     if (candidates.length === 0) break;
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    const totalWeight = candidates.reduce((a, c) => a + c.weight, 0);
+    let r = Math.random() * totalWeight;
+    let pick = candidates[candidates.length - 1];
+    for (const c of candidates) {
+      if (r < c.weight) { pick = c; break; }
+      r -= c.weight;
+    }
     if (pick.s.named) {
       const inst = named.find(n => n.base === pick.s.id);
       if (inst) inst.level = pick.nextLv;
