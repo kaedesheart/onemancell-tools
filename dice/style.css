@@ -1444,17 +1444,7 @@ ul { list-style: none; }
   width: 68px;
   justify-content: center;
 }
-.skill-row.infinity .skill-lv.fixed,
-.skill-row.base .skill-lv.fixed { color: var(--accent-dark); font-weight: 800; }
-.skill-row.base {
-  background: var(--accent-light);
-  border-radius: var(--radius-sm);
-  padding-left: 8px;
-  padding-right: 8px;
-  margin: 4px 0;
-  border-bottom: none;
-}
-.skill-row.base .skill-name { color: var(--accent-dark); }
+.skill-row.infinity .skill-lv.fixed { color: var(--accent-dark); font-weight: 800; }
 .lv-btn {
   width: 24px;
   height: 24px;
@@ -1519,6 +1509,10 @@ ul { list-style: none; }
   color: var(--text-muted);
   font-size: 0.74rem;
   line-height: 1.55;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .skill-meta {
   font-size: 0.72rem;

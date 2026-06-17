@@ -1329,11 +1329,14 @@ function plainRowHtml(s) {
 
   const canRoll = isBase || lv >= 1;
   const cost = (!isBase && lv >= 1) ? ` ・ ${skillCost(s.type, lv)}pt` : '';
-  const parts = [];
-  if (canRoll) parts.push(`判定値 <b>${judg}</b>${cost}`);
-  if ((!canRoll || isBase) && s.summary) parts.push(`<span class="skill-summary">${s.summary}</span>`);
-  if (hint) parts.push(hint);
-  const meta = parts.join('<br>');
+  let meta;
+  if (isBase) {
+    meta = `判定値 <b>${judg}</b>${hint ? ' ' + hint : ''}`;
+  } else if (canRoll) {
+    meta = `判定値 <b>${judg}</b>${cost}${hint ? ' ' + hint : ''}`;
+  } else {
+    meta = `<span class="skill-summary" title="${escapeAttr(s.summary || '')}">${s.summary || ''}</span>`;
+  }
   const rollBtn = canRoll
     ? `<button class="skill-roll" data-skill-roll="${s.id}">${dice}D10</button>`
     : '<button class="skill-roll" disabled>Lv0</button>';
