@@ -1531,50 +1531,68 @@ function randomizeAbilities(includeLuck) {
   saveChara();
 }
 
-// 30ポイントを使い切るまで通常/EX技能をランダム取得する。
-// 名称付き技能も対象。同baseは1つまで（武術を複数取らない）、名称は空欄で取得。
-// 名称付きは「意図して選ぶ」性質が強いので、重み0.3で出現頻度を抑える。
+// 固定パターン：Lv3×1 + Lv2(normal×2 or EX×1) + Lv1(normal×5 or EX×1+normal×3) = 30点
+// Lv3 は normal 固定。Lv2 / Lv1 はそれぞれ独立に確率 EX_SLOT_PROB でEXを混ぜる。
+// 名称付き技能は重み NAMED_PICK_WEIGHT で出現を抑える。同baseは1つまで、名称は空欄。
 const NAMED_PICK_WEIGHT = 0.3;
+const EX_SLOT_PROB = 0.3;
 function randomDistributeSkills() {
-  const usable = SKILLS.filter(s => s.type === 'normal' || s.type === 'ex');
+  const normals = SKILLS.filter(s => s.type === 'normal');
+  const exes    = SKILLS.filter(s => s.type === 'ex');
   const plain = {};   // id -> level
   const named = [];   // [{ base, level }]
-  let budget = SKILL_TOTAL;
-  let safety = 200;
-  while (budget > 0 && safety-- > 0) {
-    const candidates = [];
-    for (const s of usable) {
-      let cur;
-      if (s.named) {
-        const inst = named.find(n => n.base === s.id);
-        cur = inst ? inst.level : 0;
-      } else {
-        cur = plain[s.id] || 0;
-      }
-      if (cur >= 3) continue;
-      const nextLv = cur + 1;
-      const addCost = skillCost(s.type, nextLv) - skillCost(s.type, cur);
-      if (addCost <= budget) {
-        candidates.push({ s, nextLv, addCost, weight: s.named ? NAMED_PICK_WEIGHT : 1 });
-      }
-    }
-    if (candidates.length === 0) break;
-    const totalWeight = candidates.reduce((a, c) => a + c.weight, 0);
-    let r = Math.random() * totalWeight;
-    let pick = candidates[candidates.length - 1];
-    for (const c of candidates) {
-      if (r < c.weight) { pick = c; break; }
-      r -= c.weight;
-    }
-    if (pick.s.named) {
-      const inst = named.find(n => n.base === pick.s.id);
-      if (inst) inst.level = pick.nextLv;
-      else named.push({ base: pick.s.id, level: pick.nextLv });
-    } else {
-      plain[pick.s.id] = pick.nextLv;
-    }
-    budget -= pick.addCost;
+
+  function isTaken(s) {
+    return s.named
+      ? named.some(n => n.base === s.id)
+      : !!plain[s.id];
   }
+  function commit(s, lv) {
+    if (s.named) named.push({ base: s.id, level: lv });
+    else plain[s.id] = lv;
+  }
+  function pickWeighted(pool) {
+    const cands = pool.filter(s => !isTaken(s));
+    if (cands.length === 0) return null;
+    const weights = cands.map(s => s.named ? NAMED_PICK_WEIGHT : 1);
+    const total = weights.reduce((a, w) => a + w, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < cands.length; i++) {
+      if (r < weights[i]) return cands[i];
+      r -= weights[i];
+    }
+    return cands[cands.length - 1];
+  }
+  function pickN(pool, n, lv) {
+    for (let i = 0; i < n; i++) {
+      const s = pickWeighted(pool);
+      if (!s) return;
+      commit(s, lv);
+    }
+  }
+
+  // Lv3 枠: normal × 1
+  const lv3 = pickWeighted(normals);
+  if (lv3) commit(lv3, 3);
+
+  // Lv2 枠: EX × 1  または  normal × 2
+  if (Math.random() < EX_SLOT_PROB) {
+    const s = pickWeighted(exes);
+    if (s) commit(s, 2);
+    else pickN(normals, 2, 2);
+  } else {
+    pickN(normals, 2, 2);
+  }
+
+  // Lv1 枠: EX × 1 + normal × 3  または  normal × 5
+  if (Math.random() < EX_SLOT_PROB) {
+    const s = pickWeighted(exes);
+    if (s) commit(s, 1);
+    pickN(normals, 3, 1);
+  } else {
+    pickN(normals, 5, 1);
+  }
+
   return { plain, named };
 }
 
