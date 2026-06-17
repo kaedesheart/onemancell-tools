@@ -1297,12 +1297,19 @@ ul { list-style: none; }
   line-height: 1.6;
 }
 
-/* 能力値ランダム配分 */
+/* 能力値・技能ランダム配分 */
 .ability-randomize {
   display: flex;
   gap: 8px;
   margin-bottom: 10px;
 }
+.skill-randomize {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+}
+.skill-randomize .rand-btn { flex: 1; }
 .rand-btn {
   flex: 1;
   border: 1.5px solid var(--accent);

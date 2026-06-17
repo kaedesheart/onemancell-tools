@@ -1504,6 +1504,41 @@ function randomizeAbilities(includeLuck) {
   saveChara();
 }
 
+// 30ポイントを使い切るまで通常/EX技能（名称付き除く）をランダム取得する。
+// 現Lv→次Lvの差分コストでループし、上限Lv3まで段階的に積み上げる。
+function randomDistributeSkills() {
+  const usable = SKILLS.filter(s =>
+    (s.type === 'normal' || s.type === 'ex') && !s.named
+  );
+  const result = {};
+  let budget = SKILL_TOTAL;
+  let safety = 200;
+  while (budget > 0 && safety-- > 0) {
+    const candidates = [];
+    for (const s of usable) {
+      const cur = result[s.id] || 0;
+      if (cur >= 3) continue;
+      const nextLv = cur + 1;
+      const addCost = skillCost(s.type, nextLv) - skillCost(s.type, cur);
+      if (addCost <= budget) candidates.push({ s, nextLv, addCost });
+    }
+    if (candidates.length === 0) break;
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    result[pick.s.id] = pick.nextLv;
+    budget -= pick.addCost;
+  }
+  return result;
+}
+
+function randomizeSkills() {
+  if (!confirm('現在取得している技能（名称付き技能を含む）を全てクリアし、ランダムに振り直します。\nこの操作は元に戻せません。よろしいですか？')) return;
+  chara.skills = {};
+  chara.named = [];
+  Object.assign(chara.skills, randomDistributeSkills());
+  renderSkills();
+  saveChara();
+}
+
 function setSkillLevel(id, delta) {
   const s = SKILL_BY_ID[id];
   if (!s || s.type === 'base' || s.type === 'infinity') return;
@@ -1612,6 +1647,7 @@ function setupChara() {
 
   document.getElementById('rand-all').addEventListener('click', () => randomizeAbilities(true));
   document.getElementById('rand-except-luck').addEventListener('click', () => randomizeAbilities(false));
+  document.getElementById('rand-skills').addEventListener('click', () => randomizeSkills());
 
   const list = document.getElementById('skill-list');
   list.addEventListener('click', e => {
