@@ -1049,61 +1049,61 @@ ABILITIES.forEach(a => { ABILITY_EMOJI[a.key] = a.emoji; });
 // abil: 参照能力の候補（複数なら振る時に最も高い能力を自動採用）
 const SKILLS = [
   // 調査系
-  { id:'調査',       cat:'調査系', type:'base',     abil:['器用'],               formula:'base' },
-  { id:'検索',       cat:'調査系', type:'normal',   abil:['知力'],               formula:'plus' },
-  { id:'洞察',       cat:'調査系', type:'normal',   abil:['知力'],               formula:'plus' },
-  { id:'マッピング', cat:'調査系', type:'normal',   abil:['器用','五感'],        formula:'plus' },
-  { id:'直感',       cat:'調査系', type:'normal',   abil:['精神','運勢'],        formula:'plus' },
-  { id:'鑑定',       cat:'調査系', type:'normal',   abil:['五感','知力'],        formula:'plus' },
+  { id:'調査',       cat:'調査系', type:'base',     abil:['器用'],               formula:'base',      summary:'手がかりを探す、情報を整理する' },
+  { id:'検索',       cat:'調査系', type:'normal',   abil:['知力'],               formula:'plus',      summary:'多くの情報の中から必要な情報を選びとる' },
+  { id:'洞察',       cat:'調査系', type:'normal',   abil:['知力'],               formula:'plus',      summary:'手がかりから真実を察する' },
+  { id:'マッピング', cat:'調査系', type:'normal',   abil:['器用','五感'],        formula:'plus',      summary:'地図や位置を整理して把握する' },
+  { id:'直感',       cat:'調査系', type:'normal',   abil:['精神','運勢'],        formula:'plus',      summary:'感性やひらめきであたりをつける' },
+  { id:'鑑定',       cat:'調査系', type:'normal',   abil:['五感','知力'],        formula:'plus',      summary:'物品がどのようなものか調べる' },
   // 知覚系
-  { id:'知覚',       cat:'知覚系', type:'base',     abil:['五感'],               formula:'base' },
-  { id:'観察眼',     cat:'知覚系', type:'normal',   abil:['五感'],               formula:'plus' },
-  { id:'聞き耳',     cat:'知覚系', type:'normal',   abil:['五感'],               formula:'plus' },
-  { id:'毒見',       cat:'知覚系', type:'normal',   abil:['五感'],               formula:'plus' },
-  { id:'危機察知',   cat:'知覚系', type:'normal',   abil:['五感','運勢'],        formula:'plus' },
-  { id:'霊感',       cat:'知覚系', type:'ex',       abil:['精神','運勢'],        formula:'plus' },
+  { id:'知覚',       cat:'知覚系', type:'base',     abil:['五感'],               formula:'base',      summary:'五感で何かに気づく' },
+  { id:'観察眼',     cat:'知覚系', type:'normal',   abil:['五感'],               formula:'plus',      summary:'[視覚・触覚] 隠されたものを見つけ出す' },
+  { id:'聞き耳',     cat:'知覚系', type:'normal',   abil:['五感'],               formula:'plus',      summary:'[聴覚] 小さな音や声に気づく' },
+  { id:'毒見',       cat:'知覚系', type:'normal',   abil:['五感'],               formula:'plus',      summary:'[味覚・嗅覚] においや味の違和感に気づく' },
+  { id:'危機察知',   cat:'知覚系', type:'normal',   abil:['五感','運勢'],        formula:'plus',      summary:'[五感・第六感] 危険や攻撃をあらかじめ察知する' },
+  { id:'霊感',       cat:'知覚系', type:'ex',       abil:['精神','運勢'],        formula:'plus',      summary:'[第六感] 《怪異》の気配や痕跡を察知する' },
   // 交渉系
-  { id:'交渉',       cat:'交渉系', type:'base',     abil:['魅力'],               formula:'base' },
-  { id:'社交術',     cat:'交渉系', type:'normal',   abil:['社会'],               formula:'plus' },
-  { id:'ディベート', cat:'交渉系', type:'normal',   abil:['知力'],               formula:'plus' },
-  { id:'魅了',       cat:'交渉系', type:'normal',   abil:['魅力'],               formula:'plus' },
-  { id:'心理',       cat:'交渉系', type:'normal',   abil:['精神','知力'],        formula:'plus' },
+  { id:'交渉',       cat:'交渉系', type:'base',     abil:['魅力'],               formula:'base',      summary:'交渉を有利な状況にする' },
+  { id:'社交術',     cat:'交渉系', type:'normal',   abil:['社会'],               formula:'plus',      summary:'礼儀や社会的信用、人づきあいで交渉する' },
+  { id:'ディベート', cat:'交渉系', type:'normal',   abil:['知力'],               formula:'plus',      summary:'知識や理屈で相手を言いくるめる' },
+  { id:'魅了',       cat:'交渉系', type:'normal',   abil:['魅力'],               formula:'plus',      summary:'美貌やカリスマで相手を魅了する' },
+  { id:'心理',       cat:'交渉系', type:'normal',   abil:['精神','知力'],        formula:'plus',      summary:'相手の感情を読み取り、利用する' },
   // 情報系
-  { id:'知識',       cat:'情報系', type:'base',     abil:['知力'],               formula:'base' },
-  { id:'専門知識',   cat:'情報系', type:'normal',   abil:['知力'],               formula:'plus', named:true },
-  { id:'ニュース',   cat:'情報系', type:'base',     abil:['社会'],               formula:'base' },
-  { id:'事情通',     cat:'情報系', type:'normal',   abil:['五感','社会'],        formula:'plus' },
-  { id:'業界',       cat:'情報系', type:'normal',   abil:['社会','魅力'],        formula:'plus', named:true },
+  { id:'知識',       cat:'情報系', type:'base',     abil:['知力'],               formula:'base',      summary:'一般的な知識の有無を判定する' },
+  { id:'専門知識',   cat:'情報系', type:'normal',   abil:['知力'],               formula:'plus', named:true, summary:'専門分野の知識がある' },
+  { id:'ニュース',   cat:'情報系', type:'base',     abil:['社会'],               formula:'base',      summary:'ニュースを知っているかを判定する' },
+  { id:'事情通',     cat:'情報系', type:'normal',   abil:['五感','社会'],        formula:'plus',      summary:'噂話、裏話を知っている' },
+  { id:'業界',       cat:'情報系', type:'normal',   abil:['社会','魅力'],        formula:'plus', named:true, summary:'特定の業界に詳しい' },
   // 運動系
-  { id:'運動',       cat:'運動系', type:'base',     abil:['身体'],               formula:'base' },
-  { id:'スピード',   cat:'運動系', type:'normal',   abil:['身体'],               formula:'plus' },
-  { id:'ストレングス', cat:'運動系', type:'normal', abil:['身体'],               formula:'plus' },
-  { id:'アクロバット', cat:'運動系', type:'normal', abil:['身体','器用'],        formula:'plus' },
-  { id:'ダイブ',     cat:'運動系', type:'normal',   abil:['身体'],               formula:'plus' },
-  { id:'格闘',       cat:'運動系', type:'base',     abil:['身体'],               formula:'base' },
-  { id:'武術',       cat:'運動系', type:'normal',   abil:['身体'],               formula:'plus', named:true },
-  { id:'奥義',       cat:'運動系', type:'ex',       abil:['身体','精神','器用'], formula:'plus', named:true, max1:true },
-  { id:'投擲',       cat:'運動系', type:'base',     abil:['器用'],               formula:'base' },
-  { id:'射撃',       cat:'運動系', type:'ex',       abil:['器用','五感'],        formula:'plus', named:true },
+  { id:'運動',       cat:'運動系', type:'base',     abil:['身体'],               formula:'base',      summary:'身体を動かす' },
+  { id:'スピード',   cat:'運動系', type:'normal',   abil:['身体'],               formula:'plus',      summary:'俊敏に素早く動く' },
+  { id:'ストレングス', cat:'運動系', type:'normal', abil:['身体'],               formula:'plus',      summary:'力が強い' },
+  { id:'アクロバット', cat:'運動系', type:'normal', abil:['身体','器用'],        formula:'plus',      summary:'身軽にバランスよく動く' },
+  { id:'ダイブ',     cat:'運動系', type:'normal',   abil:['身体'],               formula:'plus',      summary:'水中、空中、雪上などでうまく動く' },
+  { id:'格闘',       cat:'運動系', type:'base',     abil:['身体'],               formula:'base',      summary:'近接距離での戦闘を行う' },
+  { id:'武術',       cat:'運動系', type:'normal',   abil:['身体'],               formula:'plus', named:true, summary:'近接戦闘術に習熟している' },
+  { id:'奥義',       cat:'運動系', type:'ex',       abil:['身体','精神','器用'], formula:'plus', named:true, max1:true, summary:'近接戦闘術を極めている' },
+  { id:'投擲',       cat:'運動系', type:'base',     abil:['器用'],               formula:'base',      summary:'ものを狙った場所に投げる' },
+  { id:'射撃',       cat:'運動系', type:'ex',       abil:['器用','五感'],        formula:'plus', named:true, summary:'遠距離攻撃武器の扱いに習熟している' },
   // 生存系
-  { id:'生存',       cat:'生存系', type:'base',     abil:['身体'],               formula:'base' },
-  { id:'耐久',       cat:'生存系', type:'normal',   abil:['身体'],               formula:'plus' },
-  { id:'自我',       cat:'生存系', type:'base',     abil:['精神'],               formula:'base' },
-  { id:'根性',       cat:'生存系', type:'normal',   abil:['精神'],               formula:'plus' },
-  { id:'手当て',     cat:'生存系', type:'base',     abil:['知力'],               formula:'half',      hint:'判定値=知力÷2(切上)' },
-  { id:'医術',       cat:'生存系', type:'normal',   abil:['器用','知力'],        formula:'plus' },
-  { id:'蘇生',       cat:'生存系', type:'ex',       abil:['知力','精神'],        formula:'halfFixed', hint:'判定値=能力÷2(切上)・Lvで判定値不変' },
+  { id:'生存',       cat:'生存系', type:'base',     abil:['身体'],               formula:'base',      summary:'肉体のダメージに耐える生命力を判定する' },
+  { id:'耐久',       cat:'生存系', type:'normal',   abil:['身体'],               formula:'plus',      summary:'肉体的な負荷に耐える' },
+  { id:'自我',       cat:'生存系', type:'base',     abil:['精神'],               formula:'base',      summary:'精神のダメージに耐える精神力を判定する' },
+  { id:'根性',       cat:'生存系', type:'normal',   abil:['精神'],               formula:'plus',      summary:'精神的なタフさをあらわす' },
+  { id:'手当て',     cat:'生存系', type:'base',     abil:['知力'],               formula:'half',      hint:'判定値=知力÷2(切上)', summary:'HPを回復する' },
+  { id:'医術',       cat:'生存系', type:'normal',   abil:['器用','知力'],        formula:'plus',      summary:'医療の専門的知識と技術でHPを回復する' },
+  { id:'蘇生',       cat:'生存系', type:'ex',       abil:['知力','精神'],        formula:'halfFixed', hint:'判定値=能力÷2(切上)・Lvで判定値不変', summary:'他者の【心肺停止】状態を回復する' },
   // 特殊
-  { id:'細工',       cat:'特殊',   type:'base',     abil:['器用'],               formula:'base' },
-  { id:'技巧',       cat:'特殊',   type:'normal',   abil:['器用'],               formula:'plus', named:true },
-  { id:'芸術',       cat:'特殊',   type:'normal',   abil:['器用','精神','五感'], formula:'plus', named:true },
-  { id:'操縦',       cat:'特殊',   type:'normal',   abil:['器用','五感','知力'], formula:'plus', named:true },
-  { id:'暗号',       cat:'特殊',   type:'normal',   abil:['知力'],               formula:'plus' },
-  { id:'電脳',       cat:'特殊',   type:'normal',   abil:['知力'],               formula:'plus' },
-  { id:'隠匿',       cat:'特殊',   type:'normal',   abil:['器用','社会','運勢'], formula:'plus' },
-  { id:'幸運',       cat:'特殊',   type:'base',     abil:['運勢'],               formula:'base' },
-  { id:'強運',       cat:'特殊',   type:'ex',       abil:['運勢'],               formula:'plus' },
-  { id:'∞共鳴',     cat:'特殊',   type:'infinity', abil:[],                     formula:'special' },
+  { id:'細工',       cat:'特殊',   type:'base',     abil:['器用'],               formula:'base',      summary:'手先を使って作業を行う' },
+  { id:'技巧',       cat:'特殊',   type:'normal',   abil:['器用'],               formula:'plus', named:true, summary:'専門的な技術を身につけている' },
+  { id:'芸術',       cat:'特殊',   type:'normal',   abil:['器用','精神','五感'], formula:'plus', named:true, summary:'芸術のセンスがある、造詣が深いことをあらわす' },
+  { id:'操縦',       cat:'特殊',   type:'normal',   abil:['器用','五感','知力'], formula:'plus', named:true, summary:'乗り物や機械を操縦する' },
+  { id:'暗号',       cat:'特殊',   type:'normal',   abil:['知力'],               formula:'plus',      summary:'暗号の作成・解読を行う' },
+  { id:'電脳',       cat:'特殊',   type:'normal',   abil:['知力'],               formula:'plus',      summary:'（専門的な知識で）コンピューターを操る' },
+  { id:'隠匿',       cat:'特殊',   type:'normal',   abil:['器用','社会','運勢'], formula:'plus',      summary:'何かから隠れたり、何かを隠したりする' },
+  { id:'幸運',       cat:'特殊',   type:'base',     abil:['運勢'],               formula:'base',      summary:'偶然により有利な状況を得られる' },
+  { id:'強運',       cat:'特殊',   type:'ex',       abil:['運勢'],               formula:'plus',      summary:'強い天運を持っている' },
+  { id:'∞共鳴',     cat:'特殊',   type:'infinity', abil:[],                     formula:'special',   summary:'怪異から受けている影響の程度を示す' },
 ];
 const SKILL_BY_ID = {};
 SKILLS.forEach(s => { SKILL_BY_ID[s.id] = s; });
@@ -1329,9 +1329,11 @@ function plainRowHtml(s) {
 
   const canRoll = isBase || lv >= 1;
   const cost = (!isBase && lv >= 1) ? ` ・ ${skillCost(s.type, lv)}pt` : '';
-  const meta = canRoll
-    ? `判定値 <b>${judg}</b>${cost}${hint}`
-    : `<span class="muted">未取得・ベース技能で代用</span>${hint}`;
+  const parts = [];
+  if (canRoll) parts.push(`判定値 <b>${judg}</b>${cost}`);
+  if ((!canRoll || isBase) && s.summary) parts.push(`<span class="skill-summary">${s.summary}</span>`);
+  if (hint) parts.push(hint);
+  const meta = parts.join('<br>');
   const rollBtn = canRoll
     ? `<button class="skill-roll" data-skill-roll="${s.id}">${dice}D10</button>`
     : '<button class="skill-roll" disabled>Lv0</button>';
@@ -1674,17 +1676,64 @@ function setupChara() {
   document.getElementById('rand-skills').addEventListener('click', () => randomizeSkills());
 
   const list = document.getElementById('skill-list');
-  list.addEventListener('click', e => {
-    const tag = e.target.closest('.abil-tag.pickable');
-    if (tag) {
-      const key  = tag.dataset.pickKey;
-      const abil = tag.dataset.abil;
-      if (chara.abilPick[key] === abil) delete chara.abilPick[key];
-      else chara.abilPick[key] = abil;
-      saveChara();
-      renderSkills();
-      return;
+  let pickTimer = null;
+  let pickFired = false;
+  let pickCooldownUntil = 0;
+  const cancelPick = () => {
+    if (pickTimer) { clearTimeout(pickTimer); pickTimer = null; }
+  };
+  const triggerPickConfirm = tag => {
+    pickCooldownUntil = Date.now() + 800;
+    pickFired = true;
+    const key  = tag.dataset.pickKey;
+    const abil = tag.dataset.abil;
+    const row = tag.closest('.skill-row');
+    const nameEl = row && row.querySelector('.skill-name');
+    let name = nameEl ? (nameEl.firstChild ? nameEl.firstChild.textContent : '') : '';
+    name = name.replace(/：.*/, '').trim();
+    if (chara.abilPick[key] === abil) {
+      if (confirm(`〈${name}〉の参照能力を自動（最高値）に戻しますか？`)) {
+        delete chara.abilPick[key];
+        saveChara();
+        renderSkills();
+      }
+    } else {
+      if (confirm(`〈${name}〉の参照能力を【${abil}】に固定しますか？`)) {
+        chara.abilPick[key] = abil;
+        saveChara();
+        renderSkills();
+      }
     }
+  };
+  const startPick = tag => {
+    if (pickTimer) return;                           // 既にタイマー動作中
+    if (Date.now() < pickCooldownUntil) return;      // 直近のpick後はクールダウン
+    pickFired = false;
+    pickTimer = setTimeout(() => {
+      pickTimer = null;
+      triggerPickConfirm(tag);
+    }, 500);
+  };
+
+  list.addEventListener('pointerdown', e => {
+    const tag = e.target.closest('.abil-tag.pickable');
+    if (tag) startPick(tag);
+  });
+  list.addEventListener('pointerup', cancelPick);
+  list.addEventListener('pointercancel', cancelPick);
+  list.addEventListener('pointerleave', cancelPick);
+  list.addEventListener('pointermove', e => {
+    if (pickTimer && Math.abs(e.movementX) + Math.abs(e.movementY) > 6) cancelPick();
+  });
+  // 長押し中のテキスト選択メニュー（iOS）を抑止
+  list.addEventListener('contextmenu', e => {
+    if (e.target.closest('.abil-tag.pickable')) e.preventDefault();
+  });
+
+  list.addEventListener('click', e => {
+    // 長押しで pick を発火させた直後の click は捨てる
+    if (pickFired) { pickFired = false; e.preventDefault(); e.stopPropagation(); return; }
+    if (e.target.closest('.abil-tag.pickable')) return; // 短いタップは無視（誤発火防止）
 
     const btn = e.target.closest('button');
     if (!btn) return;

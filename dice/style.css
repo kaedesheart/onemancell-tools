@@ -1445,7 +1445,16 @@ ul { list-style: none; }
   justify-content: center;
 }
 .skill-row.infinity .skill-lv.fixed,
-.skill-row.base .skill-lv.fixed { color: var(--accent); }
+.skill-row.base .skill-lv.fixed { color: var(--accent-dark); font-weight: 800; }
+.skill-row.base {
+  background: var(--accent-light);
+  border-radius: var(--radius-sm);
+  padding-left: 8px;
+  padding-right: 8px;
+  margin: 4px 0;
+  border-bottom: none;
+}
+.skill-row.base .skill-name { color: var(--accent-dark); }
 .lv-btn {
   width: 24px;
   height: 24px;
@@ -1499,8 +1508,18 @@ ul { list-style: none; }
   padding: 1px 5px;
 }
 .abil-tag.used { color: #fff; background: var(--accent); }
-.abil-tag.pickable { cursor: pointer; }
+.abil-tag.pickable {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
 .abil-tag.pickable:active { transform: scale(0.92); }
+.skill-summary {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.55;
+}
 .skill-meta {
   font-size: 0.72rem;
   color: var(--text-muted);
