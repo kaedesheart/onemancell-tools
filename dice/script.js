@@ -1531,19 +1531,24 @@ function randomizeAbilities(includeLuck) {
   saveChara();
 }
 
-// 30ポイントを使い切るまで通常/EX技能（名称付き除く）をランダム取得する。
-// 現Lv→次Lvの差分コストでループし、上限Lv3まで段階的に積み上げる。
+// 30ポイントを使い切るまで通常/EX技能をランダム取得する。
+// 名称付き技能も対象。同baseは1つまで（武術を複数取らない）、名称は空欄で取得。
 function randomDistributeSkills() {
-  const usable = SKILLS.filter(s =>
-    (s.type === 'normal' || s.type === 'ex') && !s.named
-  );
-  const result = {};
+  const usable = SKILLS.filter(s => s.type === 'normal' || s.type === 'ex');
+  const plain = {};   // id -> level
+  const named = [];   // [{ base, level }]
   let budget = SKILL_TOTAL;
   let safety = 200;
   while (budget > 0 && safety-- > 0) {
     const candidates = [];
     for (const s of usable) {
-      const cur = result[s.id] || 0;
+      let cur;
+      if (s.named) {
+        const inst = named.find(n => n.base === s.id);
+        cur = inst ? inst.level : 0;
+      } else {
+        cur = plain[s.id] || 0;
+      }
       if (cur >= 3) continue;
       const nextLv = cur + 1;
       const addCost = skillCost(s.type, nextLv) - skillCost(s.type, cur);
@@ -1551,10 +1556,16 @@ function randomDistributeSkills() {
     }
     if (candidates.length === 0) break;
     const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    result[pick.s.id] = pick.nextLv;
+    if (pick.s.named) {
+      const inst = named.find(n => n.base === pick.s.id);
+      if (inst) inst.level = pick.nextLv;
+      else named.push({ base: pick.s.id, level: pick.nextLv });
+    } else {
+      plain[pick.s.id] = pick.nextLv;
+    }
     budget -= pick.addCost;
   }
-  return result;
+  return { plain, named };
 }
 
 function randomizeSkills() {
@@ -1562,7 +1573,11 @@ function randomizeSkills() {
   chara.skills = {};
   chara.named = [];
   chara.abilPick = {};
-  Object.assign(chara.skills, randomDistributeSkills());
+  const { plain, named } = randomDistributeSkills();
+  Object.assign(chara.skills, plain);
+  named.forEach(n => {
+    chara.named.push({ uid: charaNamedUid++, base: n.base, name: '', level: n.level });
+  });
   renderSkills();
   saveChara();
 }
