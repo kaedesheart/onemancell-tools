@@ -1070,10 +1070,10 @@ const SKILLS = [
   { id:'心理',       cat:'交渉系', type:'normal',   abil:['精神','知力'],        formula:'plus',      summary:'相手の感情を読み取り、利用する' },
   // 情報系
   { id:'知識',       cat:'情報系', type:'base',     abil:['知力'],               formula:'base',      summary:'一般的な知識の有無を判定する' },
-  { id:'専門知識',   cat:'情報系', type:'normal',   abil:['知力'],               formula:'plus', named:true, summary:'専門分野の知識がある' },
+  { id:'専門知識',   cat:'情報系', type:'normal',   abil:['知力'],               formula:'plus', named:true, summary:'専門分野の知識がある', namedExample:'考古学' },
   { id:'ニュース',   cat:'情報系', type:'base',     abil:['社会'],               formula:'base',      summary:'ニュースを知っているかを判定する' },
   { id:'事情通',     cat:'情報系', type:'normal',   abil:['五感','社会'],        formula:'plus',      summary:'噂話、裏話を知っている' },
-  { id:'業界',       cat:'情報系', type:'normal',   abil:['社会','魅力'],        formula:'plus', named:true, summary:'特定の業界に詳しい' },
+  { id:'業界',       cat:'情報系', type:'normal',   abil:['社会','魅力'],        formula:'plus', named:true, summary:'特定の業界に詳しい', namedExample:'IT' },
   // 運動系
   { id:'運動',       cat:'運動系', type:'base',     abil:['身体'],               formula:'base',      summary:'身体を動かす' },
   { id:'スピード',   cat:'運動系', type:'normal',   abil:['身体'],               formula:'plus',      summary:'俊敏に素早く動く' },
@@ -1081,10 +1081,10 @@ const SKILLS = [
   { id:'アクロバット', cat:'運動系', type:'normal', abil:['身体','器用'],        formula:'plus',      summary:'身軽にバランスよく動く' },
   { id:'ダイブ',     cat:'運動系', type:'normal',   abil:['身体'],               formula:'plus',      summary:'水中、空中、雪上などでうまく動く' },
   { id:'格闘',       cat:'運動系', type:'base',     abil:['身体'],               formula:'base',      summary:'近接距離での戦闘を行う' },
-  { id:'武術',       cat:'運動系', type:'normal',   abil:['身体'],               formula:'plus', named:true, summary:'近接戦闘術に習熟している' },
-  { id:'奥義',       cat:'運動系', type:'ex',       abil:['身体','精神','器用'], formula:'plus', named:true, max1:true, summary:'近接戦闘術を極めている' },
+  { id:'武術',       cat:'運動系', type:'normal',   abil:['身体'],               formula:'plus', named:true, summary:'近接戦闘術に習熟している', namedExample:'剣道' },
+  { id:'奥義',       cat:'運動系', type:'ex',       abil:['身体','精神','器用'], formula:'plus', named:true, max1:true, summary:'近接戦闘術を極めている', namedExample:'CQC' },
   { id:'投擲',       cat:'運動系', type:'base',     abil:['器用'],               formula:'base',      summary:'ものを狙った場所に投げる' },
-  { id:'射撃',       cat:'運動系', type:'ex',       abil:['器用','五感'],        formula:'plus', named:true, summary:'遠距離攻撃武器の扱いに習熟している' },
+  { id:'射撃',       cat:'運動系', type:'ex',       abil:['器用','五感'],        formula:'plus', named:true, summary:'遠距離攻撃武器の扱いに習熟している', namedExample:'拳銃' },
   // 生存系
   { id:'生存',       cat:'生存系', type:'base',     abil:['身体'],               formula:'base',      summary:'肉体のダメージに耐える生命力を判定する' },
   { id:'耐久',       cat:'生存系', type:'normal',   abil:['身体'],               formula:'plus',      summary:'肉体的な負荷に耐える' },
@@ -1095,9 +1095,9 @@ const SKILLS = [
   { id:'蘇生',       cat:'生存系', type:'ex',       abil:['知力','精神'],        formula:'halfFixed', hint:'判定値=能力÷2(切上)・Lvで判定値不変', summary:'他者の【心肺停止】状態を回復する' },
   // 特殊
   { id:'細工',       cat:'特殊',   type:'base',     abil:['器用'],               formula:'base',      summary:'手先を使って作業を行う' },
-  { id:'技巧',       cat:'特殊',   type:'normal',   abil:['器用'],               formula:'plus', named:true, summary:'専門的な技術を身につけている' },
-  { id:'芸術',       cat:'特殊',   type:'normal',   abil:['器用','精神','五感'], formula:'plus', named:true, summary:'芸術のセンスがある、造詣が深いことをあらわす' },
-  { id:'操縦',       cat:'特殊',   type:'normal',   abil:['器用','五感','知力'], formula:'plus', named:true, summary:'乗り物や機械を操縦する' },
+  { id:'技巧',       cat:'特殊',   type:'normal',   abil:['器用'],               formula:'plus', named:true, summary:'専門的な技術を身につけている', namedExample:'機械修理' },
+  { id:'芸術',       cat:'特殊',   type:'normal',   abil:['器用','精神','五感'], formula:'plus', named:true, summary:'芸術のセンスがある、造詣が深いことをあらわす', namedExample:'絵画' },
+  { id:'操縦',       cat:'特殊',   type:'normal',   abil:['器用','五感','知力'], formula:'plus', named:true, summary:'乗り物や機械を操縦する', namedExample:'自動車' },
   { id:'暗号',       cat:'特殊',   type:'normal',   abil:['知力'],               formula:'plus',      summary:'暗号の作成・解読を行う' },
   { id:'電脳',       cat:'特殊',   type:'normal',   abil:['知力'],               formula:'plus',      summary:'（専門的な知識で）コンピューターを操る' },
   { id:'隠匿',       cat:'特殊',   type:'normal',   abil:['器用','社会','運勢'], formula:'plus',      summary:'何かから隠れたり、何かを隠したりする' },
@@ -1376,7 +1376,10 @@ function namedGroupHtml(s) {
         <button class="lv-btn" data-named-lv="${n.uid}" data-delta="1" aria-label="レベルを上げる">＋</button>
       </div>
       <div class="skill-main">
-        <input class="named-name" data-named-name="${n.uid}" value="${escapeAttr(n.name)}" placeholder="名称（例：考古学）" autocomplete="off">
+        <div class="named-inst-head">
+          <span class="named-inst-base">${s.id}：</span>
+          <input class="named-name" data-named-name="${n.uid}" value="${escapeAttr(n.name)}" placeholder="例：${s.namedExample || '考古学'}" autocomplete="off">
+        </div>
         <div class="skill-meta">判定値 <b>${judg}</b> ・ ${skillCost(s.type, n.level)}pt<span class="skill-tags inline">${abilTagsHtml(s, usedKey, pickKey)}</span></div>
       </div>
       <button class="named-del" data-named-del="${n.uid}" aria-label="削除">✕</button>

@@ -1570,8 +1570,21 @@ ul { list-style: none; }
   padding: 7px 8px;
   margin-bottom: 4px;
 }
+.named-inst-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.named-inst-base {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--accent-dark);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 .named-name {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 5px 8px;
