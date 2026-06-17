@@ -1549,7 +1549,6 @@ ul { list-style: none; }
 }
 
 /* 名称付き技能 */
-.skill-row.named-head { border-bottom: none; padding-bottom: 2px; }
 .named-add {
   flex-shrink: 0;
   border: 1.5px solid var(--accent);
