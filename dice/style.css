@@ -1489,6 +1489,7 @@ ul { list-style: none; }
 .t-badge.ex   { background: #FBE3F1; color: #C24F97; }
 .t-badge.base { background: var(--accent-light); color: var(--accent-dark); }
 .skill-tags { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.skill-tags.inline { margin-left: 6px; vertical-align: middle; }
 .abil-tag {
   font-size: 0.62rem;
   font-weight: 600;
@@ -1498,6 +1499,8 @@ ul { list-style: none; }
   padding: 1px 5px;
 }
 .abil-tag.used { color: #fff; background: var(--accent); }
+.abil-tag.pickable { cursor: pointer; }
+.abil-tag.pickable:active { transform: scale(0.92); }
 .skill-meta {
   font-size: 0.72rem;
   color: var(--text-muted);

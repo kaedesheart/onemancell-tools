@@ -1130,6 +1130,7 @@ const chara = {
   abilities: { 身体:1, 器用:1, 精神:1, 五感:1, 知力:1, 魅力:1, 社会:1, 運勢:1 },
   skills: {},  // id -> level (normal/ex の非named技能)
   named: [],   // { uid, base, name, level }
+  abilPick: {}, // key("skill:聞き耳" / "named:1") -> 強制参照する能力名
 };
 let charaNamedUid = 1;
 
@@ -1164,6 +1165,11 @@ function loadChara() {
           level: Math.min(3, Math.max(1, n.level || 1)),
         }));
     }
+    if (saved.abilPick && typeof saved.abilPick === 'object') {
+      Object.entries(saved.abilPick).forEach(([key, val]) => {
+        if (typeof val === 'string') chara.abilPick[key] = val;
+      });
+    }
   } catch (_) {}
 }
 
@@ -1174,6 +1180,7 @@ function saveChara() {
       abilities: chara.abilities,
       skills: chara.skills,
       named: chara.named.map(n => ({ base: n.base, name: n.name, level: n.level })),
+      abilPick: chara.abilPick,
     }));
   } catch (_) {}
 }
@@ -1205,6 +1212,14 @@ function bestAbilityKey(abil) {
   let best = abil[0], bestV = -Infinity;
   abil.forEach(k => { const v = abilityVal(k); if (v > bestV) { bestV = v; best = k; } });
   return best;
+}
+
+// pickKey ("skill:聞き耳" / "named:1") が設定されていればそれを優先、
+// 無ければ最も高い能力を自動採用する。
+function effectiveAbilityKey(skill, pickKey) {
+  const pick = pickKey && chara.abilPick && chara.abilPick[pickKey];
+  if (pick && skill.abil.includes(pick)) return pick;
+  return bestAbilityKey(skill.abil);
 }
 
 function skillDice(skill, level) {
@@ -1279,21 +1294,26 @@ function renderAbilities() {
   }).join('');
 }
 
-function abilTagsHtml(skill, usedKey) {
-  return skill.abil.map(k =>
-    `<span class="abil-tag${k === usedKey ? ' used' : ''}">${k}</span>`
-  ).join('');
+function abilTagsHtml(skill, usedKey, pickKey) {
+  const interactive = pickKey && skill.abil.length >= 2;
+  return skill.abil.map(k => {
+    const used = k === usedKey ? ' used' : '';
+    const cls = `abil-tag${used}${interactive ? ' pickable' : ''}`;
+    const data = interactive ? ` data-pick-key="${pickKey}" data-abil="${k}"` : '';
+    return `<span class="${cls}"${data}>${k}</span>`;
+  }).join('');
 }
 
 function plainRowHtml(s) {
   const isBase = s.type === 'base';
   const lv = isBase ? 1 : (chara.skills[s.id] || 0);
-  const usedKey = bestAbilityKey(s.abil);
+  const pickKey = `skill:${s.id}`;
+  const usedKey = effectiveAbilityKey(s, pickKey);
   const dice = skillDice(s, lv);
   const judg = Math.min(10, Math.max(1, skillJudgment(s, lv, usedKey)));
   const badge = s.type === 'ex'
-    ? '<span class="t-badge ex">★</span>'
-    : (isBase ? '<span class="t-badge base">＊</span>' : '');
+    ? '<span class="t-badge ex">★EX</span>'
+    : (isBase ? '<span class="t-badge base">＊ベース</span>' : '');
   const hint = s.hint ? `<span class="f-note">${s.hint}</span>` : '';
 
   let lvCol;
@@ -1319,7 +1339,7 @@ function plainRowHtml(s) {
   return `<div class="skill-row${isBase ? ' base' : ''}">
     ${lvCol}
     <div class="skill-main">
-      <div class="skill-name">${s.id}${badge}<span class="skill-tags">${abilTagsHtml(s, usedKey)}</span></div>
+      <div class="skill-name">${s.id}${badge}<span class="skill-tags">${abilTagsHtml(s, usedKey, pickKey)}</span></div>
       <div class="skill-meta">${meta}</div>
     </div>
     ${rollBtn}
@@ -1327,20 +1347,21 @@ function plainRowHtml(s) {
 }
 
 function namedGroupHtml(s) {
-  const badge = s.type === 'ex' ? '<span class="t-badge ex">★</span>' : '';
+  const badge = s.type === 'ex' ? '<span class="t-badge ex">★EX</span>' : '';
   const insts = chara.named.filter(n => n.base === s.id);
   const blockAdd = s.max1 && insts.length >= 1;
 
   let html = `<div class="skill-row named-head">
     <div class="skill-main">
-      <div class="skill-name">${s.id}：○○${badge}<span class="skill-tags">${abilTagsHtml(s, null)}</span></div>
+      <div class="skill-name">${s.id}：○○${badge}<span class="skill-tags">${abilTagsHtml(s, null, null)}</span></div>
       <div class="skill-meta"><span class="muted">名称を付けて取得${s.max1 ? '（1つまで）' : '（複数可）'}</span></div>
     </div>
     <button class="named-add" data-named-add="${s.id}"${blockAdd ? ' disabled' : ''}>＋追加</button>
   </div>`;
 
   insts.forEach(n => {
-    const usedKey = bestAbilityKey(s.abil);
+    const pickKey = `named:${n.uid}`;
+    const usedKey = effectiveAbilityKey(s, pickKey);
     const dice = skillDice(s, n.level);
     const judg = Math.min(10, Math.max(1, skillJudgment(s, n.level, usedKey)));
     html += `<div class="skill-row named-inst">
@@ -1351,7 +1372,7 @@ function namedGroupHtml(s) {
       </div>
       <div class="skill-main">
         <input class="named-name" data-named-name="${n.uid}" value="${escapeAttr(n.name)}" placeholder="名称（例：考古学）" autocomplete="off">
-        <div class="skill-meta">判定値 <b>${judg}</b> ・ ${skillCost(s.type, n.level)}pt</div>
+        <div class="skill-meta">判定値 <b>${judg}</b> ・ ${skillCost(s.type, n.level)}pt<span class="skill-tags inline">${abilTagsHtml(s, usedKey, pickKey)}</span></div>
       </div>
       <button class="named-del" data-named-del="${n.uid}" aria-label="削除">✕</button>
       <button class="skill-roll" data-named-roll="${n.uid}">${dice}D10</button>
@@ -1390,7 +1411,8 @@ function renderSkills() {
 
 function quickItemHtml(it) {
   const dice = skillDice(it.skill, it.level);
-  const usedKey = bestAbilityKey(it.skill.abil);
+  const pickKey = it.kind === 'plain' ? `skill:${it.skill.id}` : `named:${it.uid}`;
+  const usedKey = effectiveAbilityKey(it.skill, pickKey);
   const judg = Math.min(10, Math.max(1, skillJudgment(it.skill, it.level, usedKey)));
   const badge = it.skill.type === 'ex'
     ? '<span class="t-badge ex">★</span>'
@@ -1442,10 +1464,10 @@ function renderQuickSkills() {
 }
 
 // ── chara actions ──────────────────────────────────────────────────────
-function rollSkill(skill, level, displayName) {
+function rollSkill(skill, level, displayName, pickKey) {
   if (!skill || skill.type === 'infinity') return;
   const dice = skillDice(skill, level);
-  const usedKey = bestAbilityKey(skill.abil);
+  const usedKey = effectiveAbilityKey(skill, pickKey);
   const judgment = Math.min(10, Math.max(1, skillJudgment(skill, level, usedKey)));
   state.diceCount = dice;
   state.targetValue = judgment;
@@ -1534,6 +1556,7 @@ function randomizeSkills() {
   if (!confirm('現在取得している技能（名称付き技能を含む）を全てクリアし、ランダムに振り直します。\nこの操作は元に戻せません。よろしいですか？')) return;
   chara.skills = {};
   chara.named = [];
+  chara.abilPick = {};
   Object.assign(chara.skills, randomDistributeSkills());
   renderSkills();
   saveChara();
@@ -1568,6 +1591,7 @@ function setNamedLevel(uid, delta) {
 
 function delNamed(uid) {
   chara.named = chara.named.filter(x => x.uid !== uid);
+  delete chara.abilPick[`named:${uid}`];
   saveChara();
   renderSkills();
 }
@@ -1627,12 +1651,12 @@ function setupChara() {
       if (btn.dataset.quickSkill) {
         const s = SKILL_BY_ID[btn.dataset.quickSkill];
         const lv = s.type === 'base' ? 1 : (chara.skills[s.id] || 0);
-        rollSkill(s, lv, s.id);
+        rollSkill(s, lv, s.id, `skill:${s.id}`);
       } else if (btn.dataset.quickNamed) {
         const n = chara.named.find(x => x.uid === parseInt(btn.dataset.quickNamed, 10));
         if (n) {
           const s = SKILL_BY_ID[n.base];
-          rollSkill(s, n.level, n.name ? `${s.id}：${n.name}` : s.id);
+          rollSkill(s, n.level, n.name ? `${s.id}：${n.name}` : s.id, `named:${n.uid}`);
         }
       }
     });
@@ -1651,16 +1675,32 @@ function setupChara() {
 
   const list = document.getElementById('skill-list');
   list.addEventListener('click', e => {
+    const tag = e.target.closest('.abil-tag.pickable');
+    if (tag) {
+      const key  = tag.dataset.pickKey;
+      const abil = tag.dataset.abil;
+      if (chara.abilPick[key] === abil) delete chara.abilPick[key];
+      else chara.abilPick[key] = abil;
+      saveChara();
+      renderSkills();
+      return;
+    }
+
     const btn = e.target.closest('button');
     if (!btn) return;
     if (btn.dataset.skillLv)   { setSkillLevel(btn.dataset.skillLv, parseInt(btn.dataset.delta, 10)); return; }
-    if (btn.dataset.skillRoll) { const s = SKILL_BY_ID[btn.dataset.skillRoll]; rollSkill(s, chara.skills[s.id] || 0, s.id); return; }
+    if (btn.dataset.skillRoll) {
+      const s = SKILL_BY_ID[btn.dataset.skillRoll];
+      const lv = s.type === 'base' ? 1 : (chara.skills[s.id] || 0);
+      rollSkill(s, lv, s.id, `skill:${s.id}`);
+      return;
+    }
     if (btn.dataset.namedAdd)  { addNamed(btn.dataset.namedAdd); return; }
     if (btn.dataset.namedDel)  { delNamed(parseInt(btn.dataset.namedDel, 10)); return; }
     if (btn.dataset.namedLv)   { setNamedLevel(parseInt(btn.dataset.namedLv, 10), parseInt(btn.dataset.delta, 10)); return; }
     if (btn.dataset.namedRoll) {
       const n = chara.named.find(x => x.uid === parseInt(btn.dataset.namedRoll, 10));
-      if (n) { const s = SKILL_BY_ID[n.base]; rollSkill(s, n.level, n.name ? `${s.id}：${n.name}` : s.id); }
+      if (n) { const s = SKILL_BY_ID[n.base]; rollSkill(s, n.level, n.name ? `${s.id}：${n.name}` : s.id, `named:${n.uid}`); }
       return;
     }
   });
