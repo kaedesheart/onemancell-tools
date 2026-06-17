@@ -1473,7 +1473,6 @@ function rollLuck() {
   if (el) el.textContent = v;
   renderSkills();
   saveChara();
-  addHistory(`運勢決定 1D6 → ${v}`);
 }
 
 // 7能力に合計25点を、各1〜6の範囲でランダム配分する
@@ -1503,9 +1502,6 @@ function randomizeAbilities(includeLuck) {
   applyHpMpToStatus();
   renderSkills();
   saveChara();
-  const a = chara.abilities;
-  const luckText = includeLuck ? `運${a['運勢']} ` : '';
-  addHistory(`能力値ランダム (${luckText}身${a['身体']} 器${a['器用']} 精${a['精神']} 五${a['五感']} 知${a['知力']} 魅${a['魅力']} 社${a['社会']})`);
 }
 
 function setSkillLevel(id, delta) {
