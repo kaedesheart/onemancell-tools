@@ -511,6 +511,18 @@ function setupSettings() {
     soundBtn.setAttribute('aria-pressed', String(state.soundOn));
     saveState();
   });
+
+  const feedbackBtn = document.getElementById('feedback-btn');
+  if (feedbackBtn) {
+    feedbackBtn.addEventListener('click', () => {
+      const params = new URLSearchParams({
+        text: 'エモクロアダイスツール使ってみた感想:\n',
+        hashtags: 'エモクロアダイスツール',
+        url: 'https://tools.onemancell.com/dice/',
+      });
+      window.open('https://twitter.com/intent/tweet?' + params.toString(), '_blank', 'noopener');
+    });
+  }
 }
 
 function syncUIToState() {

@@ -1029,6 +1029,16 @@ ul { list-style: none; }
   background: rgba(224, 92, 92, 0.1);
   color: var(--die-error);
 }
+.feedback-btn {
+  border-color: #2A1810;
+  background: #fff;
+  color: #2A1810;
+}
+.feedback-btn:active {
+  background: #2A1810;
+  color: #fff;
+  border-color: #2A1810;
+}
 .install-btn-danger:active {
   background: var(--die-error);
   color: white;
