@@ -515,11 +515,10 @@ function setupSettings() {
   const feedbackBtn = document.getElementById('feedback-btn');
   if (feedbackBtn) {
     feedbackBtn.addEventListener('click', () => {
-      const params = new URLSearchParams({
-        hashtags: 'エモクロアダイスツール',
-        url: 'https://tools.onemancell.com/dice/',
-      });
-      window.open('https://twitter.com/intent/tweet?' + params.toString(), '_blank', 'noopener');
+      // 先頭の空行でカーソルを冒頭に置きつつ、URL と #タグ を改行で並べる。
+      // hashtags/url パラメータを使うと自動連結で同行に並んでしまうため、全部 text に入れる。
+      const text = '\nhttps://tools.onemancell.com/dice/\n#エモクロアダイスツール';
+      window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text), '_blank', 'noopener');
     });
   }
 }
