@@ -515,9 +515,7 @@ function setupSettings() {
   const feedbackBtn = document.getElementById('feedback-btn');
   if (feedbackBtn) {
     feedbackBtn.addEventListener('click', () => {
-      // 先頭に空行を入れることで、Xの投稿画面でカーソルが本文冒頭に位置する
       const params = new URLSearchParams({
-        text: '\n\n',
         hashtags: 'エモクロアダイスツール',
         url: 'https://tools.onemancell.com/dice/',
       });
