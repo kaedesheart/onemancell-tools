@@ -1,94 +1,143 @@
-// ===== Entry point =====
-import { state, startNewRun } from './state.js';
-import { drawHand, DIE_DEFS } from './dice.js';
-import { SQUARE_TYPES } from './board.js';
-import { setupCanvas, draw, animatePlayerTo, setPlayerVisualIndex } from './render.js';
 import {
-  setupUi, showGameScreen, showTitleScreen,
-  updateHud, renderHand, showToast,
-  showResult, hideResult, animateRoll,
-} from './ui.js';
-
-setupUi({
-  onStart: () => {
-    startNewRun();
-    showGameScreen();
-    setupCanvas();
-    setPlayerVisualIndex(0);
-    updateHud();
-    renderHand(handleToggleSelect, handleRoll);
-    requestAnimationFrame(loop);
-  },
-  onResultBtn: () => {
-    hideResult();
-    showTitleScreen();
-    state.screen = 'title';
-  },
-});
-
-function loop() {
-  draw();
-  if (state.screen !== 'title') requestAnimationFrame(loop);
+  newRun,
+  restoreRun,
+  roll,
+  candidates,
+  commitMove,
+  takeOffer,
+  service,
+  heal,
+  leaveEvent,
+  nextChapter,
+} from "./state.js";
+import { titleView, gameView, dialogContent } from "./ui.js";
+import { escape } from "./render.js";
+const app = document.getElementById("app");
+const SAVE_KEY = "sugorogue-run-v1";
+let warning = "",
+  saved = null,
+  state = null,
+  view = null;
+try {
+  const raw = localStorage.getItem(SAVE_KEY);
+  saved = restoreRun(raw);
+  if (raw && !saved)
+    warning = "保存データを読み込めませんでした。新しい旅を始められます。";
+} catch {
+  warning = "このブラウザでは途中保存を使えません。";
 }
-
-function handleToggleSelect(handIndex) {
-  if (state.busy) return;
-  const idx = state.selected.indexOf(handIndex);
-  if (idx >= 0) state.selected.splice(idx, 1);
-  else state.selected.push(handIndex);
-  renderHand(handleToggleSelect, handleRoll);
+function save() {
+  if (!state) return;
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    saved = state;
+  } catch {
+    warning = "途中保存ができませんでした。この画面を開いたまま遊べます。";
+  }
 }
-
-function handleRoll() {
-  if (state.busy || state.selected.length === 0) return;
-  state.busy = true;
-
-  // sort indexes ascending so removal order is consistent
-  const indexes = [...state.selected].sort((a, b) => a - b);
-  const defs = indexes.map(i => DIE_DEFS[state.hand[i]]);
-
-  animateRoll(indexes, defs, (results, sum) => {
-    // 振ったサイコロを捨て札へ移動（後ろから消すことで index ずれ防止）
-    for (let i = indexes.length - 1; i >= 0; i--) {
-      const id = state.hand.splice(indexes[i], 1)[0];
-      state.discard.push(id);
+function render({ follow = false } = {}) {
+  const active = document.activeElement;
+  const focusKey = active?.dataset?.action ? { ...active.dataset } : null;
+  const scroll = document.getElementById("map-scroll")?.scrollLeft || 0;
+  app.innerHTML = state ? gameView(state, warning) : titleView(saved, warning);
+  const dialog =
+    view || (state && ["event", "chapter", "won", "lost"].includes(state.phase))
+      ? dialogContent(state, view)
+      : null;
+  if (dialog) {
+    const el = document.createElement("dialog");
+    el.className = "game-dialog";
+    el.setAttribute("aria-labelledby", "dialog-title");
+    el.innerHTML = `<div class="dialog-inner"><span class="eyebrow">SUGOROGUE</span><h2 id="dialog-title">${escape(dialog.title)}</h2>${dialog.content}</div>`;
+    el.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      if (view) {
+        view = null;
+        render();
+      }
+    });
+    app.appendChild(el);
+    el.showModal();
+  }
+  const map = document.getElementById("map-scroll");
+  if (map) {
+    map.scrollLeft = scroll;
+    if (follow) {
+      const marker =
+        map.querySelector(
+          state.phase === "choose" ? ".target-marker" : ".player-marker",
+        ) || map.querySelector(".player-marker");
+      if (marker) map.scrollLeft = marker.offsetLeft - map.clientWidth * 0.45;
     }
-    state.selected = [];
-
-    showToast(`合計 ${sum} 進む！`);
-
-    const total = state.board.length;
-    const target = (state.position + sum) % total;
-    const crossings = Math.floor((state.position + sum) / total);
-
-    setTimeout(() => {
-      animatePlayerTo(target, () => {
-        state.position = target;
-        state.lap += crossings;
-        state.board[target].flash = 1;
-        applySquareEffect(target);
-        updateHud();
-        if (state.hp <= 0) return endRun('fail', '力尽きた…', `${state.lap}周進みました。コイン: ${state.coins}`);
-        if (state.lap >= state.targetLaps) return endRun('clear', 'クリア！', `${state.targetLaps}周達成！コイン: ${state.coins}`);
-        drawHand(state);
-        state.busy = false;
-        updateHud();
-        renderHand(handleToggleSelect, handleRoll);
-      });
-    }, 200);
-  });
+  }
+  if (focusKey) {
+    const elements = app.querySelectorAll("[data-action]");
+    const next = [...elements].find((el) =>
+      Object.entries(focusKey).every(([key, val]) => el.dataset[key] === val),
+    );
+    if (next && !next.disabled && (!dialog || next.closest("dialog")))
+      next.focus({ preventScroll: true });
+  }
 }
-
-function applySquareEffect(idx) {
-  const sq = state.board[idx];
-  const def = SQUARE_TYPES[sq.type];
-  if (!def.effect) return;
-  const result = def.effect(state);
-  if (result && result.text) showToast(result.text, result.type);
-}
-
-function endRun(kind, title, text) {
-  state.screen = kind === 'clear' ? 'win' : 'gameover';
-  state.busy = true;
-  setTimeout(() => showResult(kind, title, text, 'タイトルへ'), 700);
-}
+app.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-action]");
+  if (!button || button.disabled) return;
+  const action = button.dataset.action,
+    id = Number(button.dataset.id),
+    index = Number(button.dataset.index);
+  let follow = false;
+  if (action === "help" || action === "deck") view = action;
+  else if (action === "close" || action === "event-back") view = null;
+  else if (action === "start") {
+    if (saved && !["won", "lost"].includes(saved.phase)) view = "restart";
+    else {
+      state = newRun();
+      view = null;
+      follow = true;
+    }
+  } else if (action === "restart") {
+    state = newRun();
+    view = null;
+    follow = true;
+  } else if (action === "resume") {
+    state = saved;
+    view = null;
+    follow = true;
+  } else if (action === "title") {
+    save();
+    state = null;
+    view = null;
+  } else if (state) {
+    if (action === "roll") {
+      roll(state);
+      follow = true;
+    } else if (action === "candidate") {
+      const c = candidates(state)[index];
+      if (c) {
+        state.roll.dice.forEach((d, i) => {
+          d.choice = c.choices[i];
+        });
+        follow = true;
+      }
+    } else if (action === "move") {
+      commitMove(state);
+      view = null;
+      follow = true;
+    } else if (action === "offer") takeOffer(state, index);
+    else if (action === "heal") heal(state);
+    else if (action === "leave") {
+      leaveEvent(state);
+      view = null;
+    } else if (action === "upgrade" || action === "remove") view = action;
+    else if (action === "service") {
+      if (service(state, id, button.dataset.mode)) view = null;
+    } else if (action === "next") {
+      nextChapter(state);
+      view = null;
+      follow = true;
+    }
+  }
+  save();
+  render({ follow });
+});
+render();
