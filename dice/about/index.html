@@ -5,119 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>エモクロアダイスツール 使い方マニュアル - ワンマンセル ツールズ</title>
   <meta name="description" content="エモクロアTRPGの判定・ステータス管理をブラウザで完結。使い方・機能・よくある質問を解説します。">
-  <link rel="icon" href="../icons/favicon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'M PLUS Rounded 1c', sans-serif; background: #FFF9F6; color: #333; min-height: 100vh; }
-
-    .topbar {
-      background: #FF6B1A;
-      color: #fff;
-      padding: 12px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-    .topbar a { color: #fff; text-decoration: none; font-weight: 700; font-size: .88rem; }
-    .topbar-brand { opacity: .85; font-size: .75rem; }
-
-    .hero {
-      background: linear-gradient(135deg, #FF6B1A 0%, #FFB347 100%);
-      color: #fff;
-      padding: 52px 24px 44px;
-      text-align: center;
-    }
-    .hero-icon { font-size: 3.8rem; margin-bottom: 14px; }
-    .hero-title { font-size: 1.8rem; font-weight: 800; line-height: 1.3; margin-bottom: 10px; }
-    .hero-sub { font-size: .92rem; opacity: .92; line-height: 1.8; max-width: 480px; margin: 0 auto; }
-    .hero-cta {
-      margin-top: 28px;
-      display: inline-block;
-      background: #fff;
-      color: #FF6B1A;
-      border-radius: 50px;
-      padding: 13px 40px;
-      font-size: .95rem;
-      font-weight: 800;
-      text-decoration: none;
-      transition: opacity .15s;
-    }
-    .hero-cta:hover { opacity: .9; }
-
-    .content a { color: #A54100; text-underline-offset: 3px; }
-    h2 { scroll-margin-top: 75px; }
-    h3 { font-size: 15px; margin: 24px 0 8px; }
-    .manual-shot { margin: 24px 0 32px; padding: 20px; background: #fff; border: 1px solid #F0E8E0; border-radius: 20px; }
-    .manual-shot a { display: block; }
-    .manual-shot img { display: block; width: 100%; max-width: 320px; height: auto; margin: auto; border: 1px solid #ddd; border-radius: 12px; }
-    .manual-shot figcaption { margin-top: 16px; font-size: 14px; line-height: 1.9; }
-    .shot-label { display: inline-block; background: #FFF0E3; border-radius: 6px; padding: 1px 8px; font-weight: 700; color: #A54100; }
-    .manual-nav { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 32px; line-height: 1.8; }
-    .content {
-      max-width: 680px;
-      margin: 0 auto;
-      padding: 48px 24px 64px;
-    }
-    h2 {
-      font-size: 17px;
-      font-weight: 700;
-      color: #FF6B1A;
-      margin: 40px 0 12px;
-      padding-bottom: 8px;
-      border-bottom: 2px solid #FFD4B8;
-    }
-    h2:first-child { margin-top: 0; }
-    p { font-size: 14px; line-height: 1.9; color: #444; margin-bottom: 8px; }
-    ol { padding-left: 20px; }
-    ol li { font-size: 14px; line-height: 1.9; color: #444; margin-bottom: 8px; }
-    dl dt { font-weight: 700; color: #333; margin-top: 20px; font-size: 14px; }
-    dl dd {
-      margin-left: 0;
-      padding-left: 12px;
-      border-left: 3px solid #FFD4B8;
-      margin-top: 4px;
-      font-size: 14px;
-      line-height: 1.9;
-      color: #444;
-    }
-
-    .cta-wrap {
-      text-align: center;
-      margin-top: 56px;
-      padding-top: 36px;
-      border-top: 1px solid #F0E8E0;
-    }
-    .cta-wrap p { color: #8A7A70; margin-bottom: 16px; }
-    .cta-btn {
-      display: inline-block;
-      background: #FF6B1A;
-      color: #fff;
-      border-radius: 50px;
-      padding: 14px 52px;
-      font-size: 1rem;
-      font-weight: 800;
-      text-decoration: none;
-      transition: background .15s;
-    }
-    .cta-btn:hover { background: #E85A0D; }
-
-    footer {
-      background: #2A1810;
-      color: rgba(255,255,255,.55);
-      text-align: center;
-      padding: 20px 16px;
-      font-size: .75rem;
-      line-height: 1.8;
-    }
-    footer a { color: rgba(255,255,255,.7); text-decoration: none; }
-  </style>
+  <link rel="icon" href="../icons/favicon.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png?v=2">
+  <meta name="theme-color" content="#5BB8D4">
+  <link rel="stylesheet" href="manual.css?v=2">
 </head>
 <body>
 
@@ -127,13 +18,13 @@
 </nav>
 
 <div class="hero">
-  <div class="hero-icon">🎲</div>
+  <img class="hero-icon" src="../icons/favicon.svg?v=2" alt="" width="72" height="72">
   <h1 class="hero-title">エモクロアダイスツール<br>使い方マニュアル</h1>
   <div class="hero-sub">エモクロアTRPGの判定・ステータス管理をブラウザで完結。セッション中にスマホで開けばリアルタイムに使えます。</div>
   <a class="hero-cta" href="/dice/">今すぐ使う</a>
 </div>
 
-<div class="content">
+<main class="content">
 
   <nav class="manual-nav" aria-label="マニュアルの目次">
     <a href="#quick-start">はじめに</a><a href="#character">キャラ</a><a href="#roll">判定</a><a href="#other-dice">ダイスロール</a><a href="#status">ステータス・メモ</a><a href="#backup">保存・引き継ぎ</a><a href="#home-screen">ホーム画面に追加</a><a href="#faq">よくある質問</a>
@@ -150,7 +41,7 @@
 
   <figure class="manual-shot">
     <a href="images/judgment.png" aria-label="判定タブ：ダイス数・判定値、ロールボタンと判定結果（画像を拡大）"><img src="images/judgment.png" alt="判定タブ：ダイス数・判定値、ロールボタンと判定結果" width="390" height="844" loading="lazy"></a>
-    <figcaption><span class="shot-label">1 判定する</span> 上段の「ダイス数」「判定値」を設定し、青い「ダイスを振る」をタップ。ボタンの下に出目と成功数が表示されます。出目は毎回変わります。<br>画像をタップすると拡大できます。画面はスマホ表示の例です。</figcaption>
+    <figcaption><span class="shot-label">1 判定する</span> 赤枠①で「ダイス数」「判定値」を設定し、赤枠②の「ダイスを振る」をタップ。ボタンの下に出目と成功数が表示されます。出目は毎回変わります。<br>画像をタップすると拡大できます。赤い番号と枠は説明用です。画面はスマホ表示の例です。</figcaption>
   </figure>
 
   <h2 id="character">「キャラ」：キャラクターを準備する</h2>
@@ -160,7 +51,7 @@
 
   <figure class="manual-shot">
     <a href="images/character.png" aria-label="キャラタブ：プロフィール入力欄と能力値の設定（画像を拡大）"><img src="images/character.png" alt="キャラタブ：プロフィール入力欄と能力値の設定" width="390" height="844" loading="lazy"></a>
-    <figcaption><span class="shot-label">2 キャラを準備</span> 「キャラ」タブでプロフィールを入力し、その下の能力値を設定します。下へスクロールすると技能・共鳴感情も編集できます。<br>画像をタップすると拡大できます。画面はスマホ表示の例です。</figcaption>
+    <figcaption><span class="shot-label">2 キャラを準備</span> 赤枠①の「キャラ」タブで、赤枠②のプロフィールを入力し、その下の能力値を設定します。下へスクロールすると技能・共鳴感情も編集できます。<br>画像をタップすると拡大できます。赤い番号と枠は説明用です。画面はスマホ表示の例です。</figcaption>
   </figure>
 
   <h2 id="roll">「判定」：技能判定と成功数の見方</h2>
@@ -195,11 +86,11 @@
 
   <figure class="manual-shot">
     <a href="images/backup.png" aria-label="設定画面：データセーブを開いた状態とコピー・ダウンロードボタン（画像を拡大）"><img src="images/backup.png" alt="設定画面：データセーブを開いた状態とコピー・ダウンロードボタン" width="390" height="844" loading="lazy"></a>
-    <figcaption><span class="shot-label">3 バックアップ</span> 右上の ⚙ →「データセーブ」の「セーブ」でコードを表示。「コピー」または「ダウンロード」で保管します。画像は未入力のデータを使っています。<br>画像をタップすると拡大できます。画面はスマホ表示の例です。</figcaption>
+    <figcaption><span class="shot-label">3 バックアップ</span> 右上の ⚙ → 赤枠①の「セーブ」でコードを表示。赤枠②の「コピー」または「ダウンロード」で保管します。画像は未入力のデータを使っています。<br>画像をタップすると拡大できます。赤い番号と枠は説明用です。画面はスマホ表示の例です。</figcaption>
   </figure>
 
   <h2 id="home-screen">スマホのホーム画面に追加する</h2>
-  <p>ツール上部の「ホーム画面に追加」、または ⚙ →「ホーム画面に追加」から案内を開けます。対応ブラウザではインストール確認が表示されます。追加すると、専用のダイスアイコンから起動できます。</p>
+  <p>スマホ・タブレットで右上の ⚙（設定）→「ホーム画面に追加」をタップすると案内が開きます。パソコンではこの項目は表示しません。対応ブラウザではインストール確認が表示されます。追加すると、専用のダイスアイコンから起動できます。</p>
   <h3>iPhone・iPad（Safari）</h3>
   <ol>
     <li>Safari でツールのページを開き、共有ボタン（□↑）をタップします。共有はメニュー内にある場合もあります。</li>
@@ -217,8 +108,8 @@
 
 
   <figure class="manual-shot">
-    <a href="images/home-screen.png" aria-label="iPhone向けのホーム画面追加ガイドとバックアップの注意書き（画像を拡大）"><img src="images/home-screen.png" alt="iPhone向けのホーム画面追加ガイドとバックアップの注意書き" width="390" height="844" loading="lazy"></a>
-    <figcaption><span class="shot-label">4 ホーム画面に追加</span> ツール上部の「ホーム画面に追加」で端末に合った手順が開きます。これはツール内の iPhone 向け案内画面です。共有メニューの操作は Safari 側で行います。<br>画像をタップすると拡大できます。画面はスマホ表示の例です。</figcaption>
+    <a href="images/home-screen.png" aria-label="設定内のホーム画面に追加ボタン（画像を拡大）"><img src="images/home-screen.png" alt="設定内のホーム画面に追加ボタン" width="390" height="844" loading="lazy"></a>
+    <figcaption><span class="shot-label">4 ホーム画面に追加</span> スマホ・タブレットの ⚙（設定）→「ホーム画面に追加」で端末に合った手順が開きます。画像の赤枠は設定内の入口です。タップすると端末に合った案内が開きます。<br>画像をタップすると拡大できます。赤い番号と枠は説明用です。画面はスマホ表示の例です。</figcaption>
   </figure>
 
   <h2 id="faq">よくある質問</h2>
@@ -230,7 +121,7 @@
     <dt>Q. 再読み込みするとデータが消えます。</dt>
     <dd>A. プライベートブラウズや保存を制限する設定では、データが保持されない場合があります。通常のブラウザで開き、データセーブも併用してください。ダイス数・判定値が初期値に戻るのは仕様です。</dd>
     <dt>Q. ホーム画面への追加ボタンが表示されません。</dt>
-    <dd>A. ホーム画面からアプリとして起動中は追加案内を隠しています。ブラウザ側の追加項目が見つからない場合は、Safari／Chrome の通常のタブで開き直してください。</dd>
+    <dd>A. パソコン、またはホーム画面からアプリとして起動中は追加案内を隠しています。ブラウザ側の追加項目が見つからない場合は、Safari／Chrome の通常のタブで開き直してください。</dd>
   </dl>
 
   <div class="cta-wrap">
@@ -238,7 +129,7 @@
     <a class="cta-btn" href="/dice/">🎲 エモクロアダイスツールを使う</a>
   </div>
 
-</div>
+</main>
 
 <footer>
   <p><a href="/">ワンマンセル ツールズ</a> &nbsp;|&nbsp; <a href="/privacy/">プライバシーポリシー</a> &nbsp;|&nbsp; <a href="/about/">お問い合わせ</a></p>

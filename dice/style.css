@@ -1654,15 +1654,11 @@ ul { list-style: none; }
   line-height: 1.7;
 }
 
-/* Help is available without opening settings. */
-.help-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 20px; padding: 10px 16px; font-size: .8rem; }
-.help-nav a, .help-nav button { color: var(--accent-dark); text-underline-offset: 3px; }
-.help-nav button { background: none; border: 0; font: inherit; text-decoration: underline; cursor: pointer; }
-.help-nav [hidden], .setting-row[hidden] { display: none; }
+.setting-row[hidden] { display: none; }
 a.install-btn { text-decoration: none; }
 .ios-guide-sheet { max-height: 90dvh; overflow-y: auto; }
 #install-guide-intro { margin-bottom: 20px; line-height: 1.7; }
 .ios-guide-note { margin-bottom: 12px; }
-.help-nav a:focus-visible, .help-nav button:focus-visible, .ios-guide-sheet a:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 4px; }
+.ios-guide-sheet a:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 4px; }
 .settings-sheet { max-height: 90dvh; overflow-y: auto; }
 .settings-sheet .settings-header { position: sticky; top: 0; background: var(--surface); z-index: 1; }

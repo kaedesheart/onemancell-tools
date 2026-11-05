@@ -938,7 +938,6 @@ window.addEventListener('beforeinstallprompt', e => {
 
 function hideInstallActions() {
   document.getElementById('install-row').hidden = true;
-  document.getElementById('install-shortcut').hidden = true;
 }
 
 window.addEventListener('appinstalled', () => {
@@ -948,7 +947,6 @@ window.addEventListener('appinstalled', () => {
 
 function setupInstallButton() {
   const installBtn = document.getElementById('install-btn');
-  const shortcut = document.getElementById('install-shortcut');
   const guide = document.getElementById('ios-guide-overlay');
   const closeBtn = document.getElementById('ios-guide-close');
   const standalone = window.matchMedia('(display-mode: standalone)');
@@ -957,7 +955,8 @@ function setupInstallButton() {
   const isAndroid = /android/i.test(navigator.userAgent);
   let returnFocus;
 
-  if (standalone.matches || navigator.standalone === true) hideInstallActions();
+  if ((!isIos && !isAndroid) || standalone.matches || navigator.standalone === true) return;
+  document.getElementById('install-row').hidden = false;
   standalone.addEventListener('change', e => { if (e.matches) hideInstallActions(); });
 
   function closeGuide() {
@@ -1003,7 +1002,6 @@ function setupInstallButton() {
     }
   }
   installBtn.addEventListener('click', install);
-  shortcut.addEventListener('click', install);
   closeBtn.addEventListener('click', closeGuide);
   guide.addEventListener('click', e => { if (e.target === guide) closeGuide(); });
   guide.addEventListener('keydown', e => {
