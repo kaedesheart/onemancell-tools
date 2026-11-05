@@ -2,13 +2,17 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="エモクロア">
+  <meta name="theme-color" content="#5BB8D4">
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" sizes="180x180">
   <link rel="manifest" href="manifest.json">
   <title>エモクロアダイスツール</title>
-  <link rel="stylesheet" href="style.css?v=2026-06-17s">
+  <link rel="stylesheet" href="style.css?v=2026-11-05">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
@@ -34,6 +38,11 @@
         <button id="settings-btn" class="icon-btn" aria-label="設定を開く">⚙</button>
       </div>
     </header>
+
+    <nav class="help-nav" aria-label="使い方とアプリの追加">
+      <a href="about/">使い方マニュアル</a>
+      <button id="install-shortcut" type="button">ホーム画面に追加</button>
+    </nav>
 
     <section class="history-section" aria-label="ロール履歴">
       <ul id="history-list" class="history-list"></ul>
@@ -386,6 +395,10 @@
       </div>
       <div class="settings-body">
         <div class="setting-row">
+          <span class="setting-label">使い方</span>
+          <a class="install-btn" href="about/">マニュアルを読む</a>
+        </div>
+        <div class="setting-row">
           <span class="setting-label">モード</span>
           <div class="mode-toggle">
             <button class="mode-btn active" data-mode="lively">にぎやか</button>
@@ -450,24 +463,23 @@
   </div>
 
   <!-- iOS ホーム画面追加ガイド -->
-  <div id="ios-guide-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="ホーム画面への追加手順">
+  <div id="ios-guide-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="install-guide-title">
     <div class="ios-guide-sheet">
       <div class="settings-header">
-        <h2 class="settings-title">ホーム画面への追加</h2>
+        <h2 id="install-guide-title" class="settings-title">ホーム画面への追加</h2>
         <button id="ios-guide-close" class="icon-btn" aria-label="閉じる">✕</button>
       </div>
       <div class="ios-guide-body">
-        <ol class="ios-guide-steps">
-          <li>Safariの画面下部にある<strong>共有ボタン（□↑）</strong>をタップ</li>
-          <li>メニューをスクロールして<strong>「ホーム画面に追加」</strong>をタップ</li>
-          <li><strong>「追加」</strong>をタップして完了</li>
-        </ol>
-        <p class="ios-guide-note">ホーム画面から起動するとアプリのように使え、データも保持されやすくなります。</p>
+        <p id="install-guide-intro">いつものブラウザから追加すると、専用アイコンで素早く開けます。</p>
+        <ol id="install-guide-steps" class="ios-guide-steps"></ol>
+        <p class="ios-guide-note">項目名や場所は OS・ブラウザのバージョンにより異なります。アプリ内ブラウザで項目が見つからない場合は、Safari または Chrome でこのページを開き直してください。</p>
+        <p class="ios-guide-note">データは端末・ブラウザごとに保存されます。追加前に設定の「データセーブ」でバックアップを取り、必要に応じて追加後に「データロード」してください。オフライン動作は保証していません。</p>
+        <a href="about/#home-screen">詳しい追加方法を見る</a>
       </div>
     </div>
   </div>
 
-  <script src="script.js?v=2026-06-17s"></script>
+  <script src="script.js?v=2026-11-05"></script>
 
 </body>
 </html>

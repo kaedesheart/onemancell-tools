@@ -936,50 +936,84 @@ window.addEventListener('beforeinstallprompt', e => {
   deferredInstallPrompt = e;
 });
 
+function hideInstallActions() {
+  document.getElementById('install-row').hidden = true;
+  document.getElementById('install-shortcut').hidden = true;
+}
+
 window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null;
-  const row = document.getElementById('install-row');
-  if (row) row.style.display = 'none';
+  hideInstallActions();
 });
 
 function setupInstallButton() {
-  const installRow = document.getElementById('install-row');
   const installBtn = document.getElementById('install-btn');
-  const guideOverlay = document.getElementById('ios-guide-overlay');
+  const shortcut = document.getElementById('install-shortcut');
+  const guide = document.getElementById('ios-guide-overlay');
+  const closeBtn = document.getElementById('ios-guide-close');
+  const standalone = window.matchMedia('(display-mode: standalone)');
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /android/i.test(navigator.userAgent);
+  let returnFocus;
 
-  const isIos    = /iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase());
-  const isMobile = isIos || /android/i.test(navigator.userAgent.toLowerCase());
+  if (standalone.matches || navigator.standalone === true) hideInstallActions();
+  standalone.addEventListener('change', e => { if (e.matches) hideInstallActions(); });
 
-  if (!isMobile) {
-    installRow.style.display = 'none';
-    return;
+  function closeGuide() {
+    guide.classList.add('hidden');
+    if (returnFocus && !returnFocus.hidden) returnFocus.focus();
   }
 
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-    || window.navigator.standalone === true;
-
-  if (isStandalone) {
-    installRow.style.display = 'none';
-    return;
+  function showGuide(trigger) {
+    const steps = isIos ? [
+      'Safari でこのページを開き、共有ボタン（□↑）をタップします。メニュー内にある場合もあります。',
+      '共有メニューの「ホーム画面に追加」を選びます。見つからない場合はメニューをスクロールしてください。',
+      '「Web アプリとして開く」が表示されたらオンにし、「追加」をタップします。',
+    ] : isAndroid ? [
+      'Chrome でこのページを開き、メニュー（⋮）をタップします。',
+      '「ホーム画面に追加」または「アプリをインストール」を選びます。',
+      '画面の案内に従って「追加」または「インストール」をタップします。',
+    ] : [
+      'Chrome または Edge のアドレスバーのインストールアイコン、またはブラウザのメニューを開きます。',
+      '「インストール」などの項目があれば選び、画面の案内に従います。',
+      '対応していないブラウザでは、ブックマークに保存してご利用ください。',
+    ];
+    document.getElementById('install-guide-steps').replaceChildren(...steps.map(text => {
+      const li = document.createElement('li'); li.textContent = text; return li;
+    }));
+    returnFocus = trigger;
+    guide.classList.remove('hidden');
+    closeBtn.focus();
   }
 
-  installBtn.addEventListener('click', async () => {
-    if (deferredInstallPrompt) {
-      await deferredInstallPrompt.prompt();
+  async function install(e) {
+    const trigger = e.currentTarget;
+    const prompt = deferredInstallPrompt;
+    if (prompt) {
       deferredInstallPrompt = null;
-    } else if (isIos) {
-      guideOverlay.classList.remove('hidden');
+      try {
+        await prompt.prompt();
+        await prompt.userChoice;
+      } catch (_) {
+        showGuide(trigger);
+      }
     } else {
-      installBtn.textContent = 'ブラウザのメニューから追加できます';
-      installBtn.disabled = true;
+      showGuide(trigger);
     }
-  });
-
-  document.getElementById('ios-guide-close').addEventListener('click', () => {
-    guideOverlay.classList.add('hidden');
-  });
-  guideOverlay.addEventListener('click', e => {
-    if (e.target === guideOverlay) guideOverlay.classList.add('hidden');
+  }
+  installBtn.addEventListener('click', install);
+  shortcut.addEventListener('click', install);
+  closeBtn.addEventListener('click', closeGuide);
+  guide.addEventListener('click', e => { if (e.target === guide) closeGuide(); });
+  guide.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); closeGuide(); }
+    if (e.key === 'Tab') {
+      const items = guide.querySelectorAll('button, a[href]');
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
   });
 }
 
