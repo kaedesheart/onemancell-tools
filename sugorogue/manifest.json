@@ -1,11 +1,10 @@
 {
   "name": "スゴローグ",
   "short_name": "Sugorogue",
-  "description": "サイコロを引いて、進め、強くなれ。すごろく × ローグライクのデッキ構築ゲーム。",
+  "description": "全部振って、止まりたい場所を選ぶ。D20からD20,000へ育つすごろくローグライト。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#FAF7F0",
   "theme_color": "#FAF7F0",
   "lang": "ja"

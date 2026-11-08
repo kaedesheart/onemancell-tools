@@ -1,109 +1,137 @@
-// ===== Dice definitions =====
-// 各サイコロは ID で参照され、sides 配列から出目をランダム抽選する。
-
-function range(a, b) {
-  const arr = [];
-  for (let i = a; i <= b; i++) arr.push(i);
-  return arr;
-}
-
-export const DIE_DEFS = {
-  d4: {
-    id: 'd4',
-    name: 'd4',
-    label: '1〜4',
-    sides: [1, 2, 3, 4],
-    color: '#6CC79E',
-    desc: '小さめ、堅実',
+// Pure definitions shared by the game, candidate solver, UI and tests.
+export const DICE = {
+  shift6: {
+    name: "±D6",
+    kind: "shift",
+    sides: 6,
+    detail: "出た目を、足すか引くか。",
+    color: "teal",
+    price: 20,
+    upgrade: "shift10",
   },
-  d6: {
-    id: 'd6',
-    name: 'd6',
-    label: '1〜6',
-    sides: [1, 2, 3, 4, 5, 6],
-    color: '#1FB3A5',
-    desc: '基本のサイコロ',
+  shift10: {
+    name: "±D10",
+    kind: "shift",
+    sides: 10,
+    detail: "広い範囲から着地を探す。",
+    color: "teal",
+    price: 25,
   },
-  d8: {
-    id: 'd8',
-    name: 'd8',
-    label: '1〜8',
-    sides: [1, 2, 3, 4, 5, 6, 7, 8],
-    color: '#5BA0E5',
-    desc: '範囲広め',
-  },
-  d12: {
-    id: 'd12',
-    name: 'd12',
-    label: '1〜12',
-    sides: range(1, 12),
-    color: '#9B6FE0',
-    desc: '一周ぶん狙える',
-  },
-  d20: {
-    id: 'd20',
-    name: 'd20',
-    label: '1〜20',
-    sides: range(1, 20),
-    color: '#FF6B6B',
-    desc: '博打、出目最大',
+  fixed1: {
+    name: "固定 ±1",
+    kind: "fixed",
+    value: 1,
+    detail: "最後の1マスを合わせる。",
+    color: "gold",
+    price: 20,
+    upgrade: "fine",
   },
   fixed3: {
-    id: 'fixed3',
-    name: '確定',
-    label: 'いつも3',
-    sides: [3],
-    color: '#F7C94B',
-    desc: '必ず3',
+    name: "固定 ±3",
+    kind: "fixed",
+    value: 3,
+    detail: "必ず3。足しても、引いても。",
+    color: "gold",
+    price: 20,
+    upgrade: "fine",
+  },
+  fine: {
+    name: "微調整",
+    kind: "fine",
+    detail: "−2〜＋2から自由に選ぶ。",
+    color: "gold",
+    price: 40,
+  },
+  boost: {
+    name: "ブースト ×2",
+    kind: "boost",
+    value: 2,
+    detail: "移動ダイスの出目を2倍に。",
+    color: "coral",
+    price: 30,
+  },
+  guard: {
+    name: "ガード D6",
+    kind: "guard",
+    sides: 6,
+    bonus: 0,
+    detail: "出た目の分、着地ダメージを軽減。",
+    color: "blue",
+    price: 20,
+    upgrade: "guardPlus",
+  },
+  guardPlus: {
+    name: "ガード D6+2",
+    kind: "guard",
+    sides: 6,
+    bonus: 2,
+    detail: "出た目＋2のダメージを軽減。",
+    color: "blue",
+    price: 30,
+  },
+  curse: {
+    name: "呪い −D6",
+    kind: "curse",
+    sides: 6,
+    detail: "必ず出目の分だけ後退補正。無視できない。",
+    color: "coral",
+    price: 0,
+  },
+  purge: {
+    name: "浄化",
+    kind: "purge",
+    detail: "一緒に振った呪い1枚を無効にし、デッキから取り除く。",
+    color: "blue",
+    price: 30,
   },
 };
-
-export const STARTER_DECK = [
-  'd6', 'd6', 'd6', 'd6',
-  'd4', 'd4',
-  'd8', 'd8',
-  'd20',
-  'fixed3',
+export const STARTER = [
+  "shift6",
+  "shift6",
+  "shift6",
+  "fixed1",
+  "fixed1",
+  "fixed3",
+  "guard",
+  "guard",
 ];
-
-// ===== Deck operations =====
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+export function definition(card) {
+  const base = DICE[card.type];
+  const scale = card.scale || 1;
+  if (base.kind === "shift")
+    return {
+      ...base,
+      sides: base.sides * scale,
+      name: `±D${(base.sides * scale).toLocaleString("ja-JP")}`,
+    };
+  if (base.kind === "curse")
+    return {
+      ...base,
+      sides: base.sides * scale,
+      name: `呪い −D${(base.sides * scale).toLocaleString("ja-JP")}`,
+    };
+  return { ...base };
+}
+export function options(card, value, dice = []) {
+  const d = definition(card);
+  if (d.kind === "curse") return [-value];
+  if (d.kind === "purge")
+    return [
+      -1,
+      ...dice
+        .filter((r) => definition(r.card).kind === "curse")
+        .map((r) => r.card.id),
+    ];
+  if (d.kind === "shift" || d.kind === "fixed") return [-value, 0, value];
+  if (d.kind === "fine") return [-2, -1, 0, 1, 2];
+  if (d.kind === "boost") return [0, d.value];
+  return [0, value];
+}
+export function shuffle(items, random) {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
   }
-  return arr;
-}
-
-export function reshuffleIfNeeded(state) {
-  if (state.deck.length > 0) return;
-  state.deck = shuffle([...state.discard]);
-  state.discard = [];
-}
-
-export function drawOne(state) {
-  reshuffleIfNeeded(state);
-  if (state.deck.length === 0) return null;
-  return state.deck.shift();
-}
-
-export function drawHand(state) {
-  while (state.hand.length < state.handLimit) {
-    const c = drawOne(state);
-    if (!c) break;
-    state.hand.push(c);
-  }
-}
-
-// 手札の handIndex 番目をプレイ → 捨て札に積む。プレイした die def を返す。
-export function playFromHand(state, handIndex) {
-  if (handIndex < 0 || handIndex >= state.hand.length) return null;
-  const id = state.hand.splice(handIndex, 1)[0];
-  state.discard.push(id);
-  return DIE_DEFS[id];
-}
-
-// ロール: ランダムに sides から1つ選ぶ
-export function rollDie(def) {
-  return def.sides[Math.floor(Math.random() * def.sides.length)];
+  return result;
 }
