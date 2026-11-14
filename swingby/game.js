@@ -1,3 +1,6 @@
+// YouTube Playables ビルドでは、このファイルより前に次の1行を足す（Web版には入れない）:
+// <script src="https://www.youtube.com/game_api/v1"></script>
+
 // ===== Canvas / DPR =====
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
@@ -343,24 +346,91 @@ function drawStardust() {
 // ===== Audio (WebAudio で効果音を生成) =====
 const audioState = { ctx: null };
 const MUTE_KEY = 'omc-swingby-mute';
-let audioMuted = localStorage.getItem(MUTE_KEY) === '1';
+let audioMuted = false;
+let ytAudioOn = true; // YouTube側の音声許可。SDKが無いときは常に許可
+const progress = { best: null, mute: false };
+let cloudReady = false;
+let progressDirty = false;
+
+function ytApi() {
+  try { return window.ytgame || null; } catch (e) { return null; }
+}
+function muteLabel() {
+  const btn = document.getElementById('mute-btn');
+  if (btn) btn.textContent = audioMuted ? '🔇 サウンド OFF' : '🔊 サウンド ON';
+}
+function writeProgress() {
+  try {
+    const yt = ytApi();
+    if (yt && yt.game && typeof yt.game.saveData === 'function') {
+      if (!cloudReady) return; // loadData 完了前の save は SDK に拒否される
+      const p = yt.game.saveData(JSON.stringify({ best: progress.best, mute: !!progress.mute }));
+      if (p && typeof p.then === 'function') p.then(() => {}, () => {});
+      return;
+    }
+    if (progress.best != null) localStorage.setItem(BEST_KEY, String(progress.best));
+    localStorage.setItem(MUTE_KEY, progress.mute ? '1' : '0');
+  } catch (e) {}
+}
+function applyCloud(data) {
+  if (!data || typeof data !== 'object') return;
+  const n = Number(data.best);
+  if (Number.isFinite(n) && n > 0) progress.best = n;
+  if ('mute' in data) progress.mute = !!data.mute;
+}
+function applyProgress() {
+  audioMuted = !!progress.mute;
+  try { muteLabel(); refreshBestDisplay(); syncAudioOut(); } catch (e) {}
+}
+// ベストとミュートをまとめて読む。YouTube は非同期なので、届くまで既定値で起動する。
+function loadProgress() {
+  const yt = ytApi();
+  if (yt && yt.game && typeof yt.game.loadData === 'function') {
+    let pending;
+    try { pending = yt.game.loadData(); } catch (e) { pending = Promise.reject(e); }
+    Promise.resolve(pending).then(raw => {
+      let data = null;
+      try { if (raw) data = JSON.parse(raw); } catch (e) {}
+      if (!progressDirty) applyCloud(data);
+      else if (data) {
+        const n = Number(data.best);
+        if (Number.isFinite(n) && n > 0 && (progress.best == null || n < progress.best)) progress.best = n;
+      }
+    }, () => {}).then(() => {
+      cloudReady = true;
+      applyProgress();
+      if (progressDirty) writeProgress();
+    });
+    return;
+  }
+  try {
+    const v = localStorage.getItem(BEST_KEY);
+    const n = v ? parseInt(v, 10) : NaN;
+    progress.best = Number.isFinite(n) && n > 0 ? n : null;
+    progress.mute = localStorage.getItem(MUTE_KEY) === '1';
+  } catch (e) {}
+  cloudReady = true;
+  applyProgress();
+}
 
 function initAudio() {
-  if (audioState.ctx || audioMuted) return;
+  if (audioState.ctx || audioMuted || !ytAudioOn || simPaused) return;
   try {
     audioState.ctx = new (window.AudioContext || window.webkitAudioContext)();
   } catch (e) { /* 非対応環境は黙ってスキップ */ }
 }
 
 function setMuted(m) {
-  audioMuted = m;
-  localStorage.setItem(MUTE_KEY, m ? '1' : '0');
-  const btn = document.getElementById('mute-btn');
-  if (btn) btn.textContent = m ? '🔇 サウンド OFF' : '🔊 サウンド ON';
+  audioMuted = !!m;
+  progress.mute = audioMuted;
+  progressDirty = true;
+  writeProgress();
+  muteLabel();
+  try { syncAudioOut(); } catch (e) {}
 }
 
 function audioBeep({ type = 'sine', freq, freqEnd, dur = 0.2, gain = 0.12, attack = 0.005, delay = 0 }) {
-  if (audioMuted) return;
+  if (audioMuted || !ytAudioOn || simPaused) return;
   initAudio();
   const ctx = audioState.ctx;
   if (!ctx) return;
@@ -766,12 +836,15 @@ let demoFireTimer = null;
 // 観るだけモード用: 連鎖setTimeoutをID管理してexit時に全キャンセル
 let watchTimers = [];
 function watchSetTimeout(fn, ms) {
-  const id = setTimeout(() => {
-    watchTimers = watchTimers.filter(t => t !== id);
-    if (state.watchMode && state.running) fn();
-  }, ms);
-  watchTimers.push(id);
-  return id;
+  const arm = (delay) => {
+    const id = setTimeout(() => {
+      watchTimers = watchTimers.filter(t => t !== id);
+      if (simPaused) { arm(200); return; }
+      if (state.watchMode && state.running) fn();
+    }, delay);
+    watchTimers.push(id);
+  };
+  arm(ms);
 }
 function clearWatchTimers() {
   for (const id of watchTimers) clearTimeout(id);
@@ -849,10 +922,14 @@ function applyDemo(dt) {
     // 観るだけモードはじっくりタメてから発射、通常モードはサクッと
     const fireDelay = state.watchMode ? 800 : 220;
     if (demoFireTimer) clearTimeout(demoFireTimer);
-    demoFireTimer = setTimeout(() => {
-      demoFireTimer = null;
-      fire();
-    }, fireDelay);
+    const armFire = (delay) => {
+      demoFireTimer = setTimeout(() => {
+        if (simPaused) { armFire(200); return; }
+        demoFireTimer = null;
+        fire();
+      }, delay);
+    };
+    armFire(fireDelay);
   }
 }
 
@@ -874,12 +951,13 @@ function updateHUD() {
 }
 
 function getBestRecord() {
-  const v = localStorage.getItem(BEST_KEY);
-  const n = v ? parseInt(v, 10) : NaN;
+  const n = progress.best;
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 function saveBestRecord(n) {
-  localStorage.setItem(BEST_KEY, String(n));
+  progress.best = n;
+  progressDirty = true;
+  writeProgress();
 }
 
 function bulletInFlight() { return state.bullets.length > 0; }
@@ -902,7 +980,7 @@ function gravityAt(x, y) {
 }
 
 function fire() {
-  if (!state.running || state.lockInput || bulletInFlight()) return;
+  if (simPaused || !state.running || state.lockInput || bulletInFlight()) return;
   const p = state.player;
   const nx = Math.cos(p.angle);
   const ny = Math.sin(p.angle);
@@ -959,6 +1037,10 @@ function endShotFailed() {
   showResult('miss', 'もう一度', '惑星に当たった or 外れた');
 }
 
+function later(ms, fn) {
+  const tick = () => { if (simPaused) setTimeout(tick, 200); else fn(); };
+  return setTimeout(tick, ms);
+}
 function endShotCleared() {
   state.bullets = [];
   state.lockInput = true;
@@ -987,20 +1069,20 @@ function endShotCleared() {
     spawnCelebration(willBeNewBest);
     playAllClear();
     showResult('clear', 'ALL CLEAR!', '', 1300);
-    setTimeout(() => {
+    later(1400, () => {
       hideResult();
       showEndScreen();
-    }, 1400);
+    });
   } else {
     playClear();
     showResult('clear', 'STAGE CLEAR', '次のステージへ', 1300);
-    setTimeout(() => {
+    later(1500, () => {
       state.stageNum++;
       applyStage(generateSolvableStage());
       state.lockInput = false;
       hideResult();
       updateFireBtnState();
-    }, 1500);
+    });
   }
 }
 
@@ -1497,7 +1579,62 @@ function render(time) {
 const FIXED_DT = 1 / 60;
 let last = 0;
 let physicsAccum = 0;
+let simPaused = false, holdHidden = false, holdYt = false, rafId = 0, ytFramed = false;
+
+function syncAudioOut() {
+  const c = audioState.ctx;
+  if (!c) return;
+  try {
+    if (audioMuted || !ytAudioOn || simPaused) {
+      if (c.state === 'running') c.suspend();
+    } else if (c.state === 'suspended') c.resume();
+  } catch (e) {}
+}
+function setPaused(next) {
+  if (next === simPaused) return;
+  simPaused = next;
+  last = 0; // 復帰フレームの dt を 0 にして、隠れている間の時間を飛ばさない
+  physicsAccum = 0;
+  try { syncAudioOut(); } catch (e) {}
+  if (simPaused) {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+  } else if (!rafId) rafId = requestAnimationFrame(loop);
+}
+function syncHold() { try { setPaused(holdHidden || holdYt); } catch (e) {} }
+function signalYtReady() {
+  if (ytFramed) return;
+  ytFramed = true;
+  const yt = ytApi();
+  if (!yt || !yt.game || typeof yt.game.firstFrameReady !== 'function') return;
+  try {
+    const p = yt.game.firstFrameReady();
+    const go = () => { try { yt.game.gameReady(); } catch (e) {} };
+    if (p && typeof p.then === 'function') p.then(go, go);
+    else go();
+  } catch (e) {}
+}
+function hookYt() {
+  const yt = ytApi();
+  if (!yt || !yt.system) return;
+  try {
+    const v = yt.system.isAudioEnabled();
+    const take = b => { ytAudioOn = !!b; try { syncAudioOut(); } catch (e) {} };
+    if (v && typeof v.then === 'function') v.then(take, () => {});
+    else take(v);
+  } catch (e) {}
+  try { yt.system.onAudioEnabledChange(b => { ytAudioOn = !!b; try { syncAudioOut(); } catch (e) {} }); } catch (e) {}
+  try { yt.system.onPause(() => { holdYt = true; syncHold(); }); } catch (e) {}
+  try { yt.system.onResume(() => { holdYt = false; syncHold(); }); } catch (e) {}
+}
+try {
+  document.addEventListener('visibilitychange', () => {
+    try { holdHidden = !!document.hidden; syncHold(); } catch (e) {}
+  });
+} catch (e) {}
+
 function loop(ts) {
+  rafId = 0;
+  if (simPaused) return;
   const frameDt = last === 0 ? 0 : Math.min(0.1, (ts - last) / 1000);
   last = ts;
   // 時間演出: ヒットストップ中は世界停止、捕獲/クリア時はスロー(物理は固定stepのまま=軌道は不変)
@@ -1528,9 +1665,11 @@ function loop(ts) {
   if (state.running) spawnThrustParticles(state.player, frameDt);
   if (state.running && !bulletInFlight()) stepPregen(); // 次ステージの先行生成(1試行/フレーム)
   render(ts / 1000);
-  requestAnimationFrame(loop);
+  signalYtReady();
+  rafId = requestAnimationFrame(loop);
 }
-requestAnimationFrame(loop);
+rafId = requestAnimationFrame(loop);
+try { if (document.hidden) { holdHidden = true; syncHold(); } } catch (e) {}
 
 // ===== Result overlay =====
 const resultOverlay = document.getElementById('result-overlay');
@@ -1726,8 +1865,8 @@ overlayStartBtn.addEventListener('click', startGame);
 document.getElementById('watch-btn').addEventListener('click', startWatchMode);
 document.getElementById('exit-btn').addEventListener('click', exitToTitle);
 document.getElementById('mute-btn').addEventListener('click', () => setMuted(!audioMuted));
-setMuted(audioMuted); // ラベル初期化
-refreshBestDisplay();
+hookYt();
+loadProgress();
 
 document.getElementById('retry-btn').addEventListener('click', () => {
   if (!state.running || state.lockInput || demo.active || !state.currentDef) return;
