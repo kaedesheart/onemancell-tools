@@ -1,6 +1,66 @@
 // YouTube Playables ビルドでは、このファイルより前に次の1行を足す（Web版には入れない）:
 // <script src="https://www.youtube.com/game_api/v1"></script>
 
+// ===== Copy =====
+const I18N = {
+  ja: {
+    docTitle: 'スイングバイ - ワンマンセル ツールズ', appTitle: 'スイングバイ',
+    retry: 'やり直す', demo: 'お手本', toTitle: 'タイトルへ',
+    moveL: '左へ移動', moveR: '右へ移動', rotL: '左回転', rotR: '右回転', fire: 'FIRE',
+    stage: 'STAGE', shots: 'SHOTS',
+    titleMain: 'SWINGBY', titleSub: 'スイングバイ',
+    blurb: '全6ステージを、合計何発でクリアできるか挑戦！<br>1発で2つの的を壊したらクリア。',
+    bestPre: 'ベスト: ', bestPost: ' 発',
+    start: 'スタート', watch: '🎬 観るだけモード',
+    soundOn: '🔊 サウンド ON', soundOff: '🔇 サウンド OFF',
+    vibOn: '📳 振動 ON', vibOff: '📳 振動 OFF',
+    hint: '↺やり直す自由・👁お手本を一度でも使うと記録なし',
+    noLine: '解が見つかりません', missTitle: 'もう一度', missSub: '惑星に当たった or 外れた',
+    stageClear: 'STAGE CLEAR', next: '次のステージへ', cleared: 'CLEAR', allClear: 'ALL CLEAR!',
+    unranked: '記録なし', gameClear: 'GAME <span class="accent">CLEAR</span>',
+    endDemo: '合計 <strong style="color:#FFD178">{n}</strong> 発でクリア<br><span style="color:#7A86A0;font-size:.8em;">(お手本使用のため記録対象外)</span>',
+    endShots: '合計 <strong style="color:#FFD178;font-size:1.3em;">{n}</strong> 発でクリア！',
+    newBest: '<br><span style="color:#FFD178;font-weight:800;">🏆 新記録！</span>',
+    endBest: '<br><span style="color:#7A86A0;font-size:.8em;">ベスト: {n} 発</span>',
+    againAsk: 'もう一度プレイしますか？', again: 'もう一度',
+  },
+  en: {
+    docTitle: 'Swingby', appTitle: 'Swingby',
+    retry: 'Retry', demo: 'Show me', toTitle: 'Title',
+    moveL: 'Move left', moveR: 'Move right', rotL: 'Turn left', rotR: 'Turn right', fire: 'FIRE',
+    stage: 'STAGE', shots: 'SHOTS',
+    titleMain: 'SWINGBY', titleSub: 'FLYBY',
+    blurb: 'Clear 6 stages in the fewest shots.<br>One shot, both targets.',
+    bestPre: 'Best: ', bestPost: '',
+    start: 'Start', watch: '🎬 Just watch',
+    soundOn: '🔊 Sound on', soundOff: '🔇 Sound off',
+    vibOn: '📳 Vibrate on', vibOff: '📳 Vibrate off',
+    hint: '↺ Retry anytime · 👁 Demo voids the record',
+    noLine: 'No path found', missTitle: 'Try again', missSub: 'Hit a planet, or missed',
+    stageClear: 'STAGE CLEAR', next: 'Next stage', cleared: 'CLEAR', allClear: 'ALL CLEAR!',
+    unranked: 'Unranked', gameClear: 'GAME <span class="accent">CLEAR</span>',
+    endDemo: 'Total shots: <strong style="color:#FFD178">{n}</strong><br><span style="color:#7A86A0;font-size:.8em;">Demo used — not ranked</span>',
+    endShots: 'Total shots: <strong style="color:#FFD178;font-size:1.3em;">{n}</strong>',
+    newBest: '<br><span style="color:#FFD178;font-weight:800;">🏆 New best!</span>',
+    endBest: '<br><span style="color:#7A86A0;font-size:.8em;">Best: {n}</span>',
+    againAsk: 'Play again?', again: 'Again',
+  },
+};
+let lang = 'en';
+function t(key, vars) {
+  let s = (I18N[lang] && I18N[lang][key] != null) ? I18N[lang][key] : (I18N.en[key] != null ? I18N.en[key] : key);
+  if (vars) for (const k in vars) s = s.split('{' + k + '}').join(String(vars[k]));
+  return s;
+}
+function pickLang(tag) { return /^ja/i.test(String(tag || '')) ? 'ja' : 'en'; }
+function queryLang() {
+  try {
+    const q = new URLSearchParams(location.search).get('lang');
+    if (q === 'ja' || q === 'en') return q;
+  } catch (e) {}
+  return null;
+}
+
 // ===== Canvas / DPR =====
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
@@ -8,11 +68,14 @@ let DPR = Math.min(window.devicePixelRatio || 1, 2);
 let W = 0, H = 0;
 
 function resize() {
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
-  W = window.innerWidth;
-  H = window.innerHeight;
-  canvas.width = W * DPR;
-  canvas.height = H * DPR;
+  DPR = Math.min(window.devicePixelRatio || 1, 2) || 1;
+  const iw = window.innerWidth || 0;
+  const ih = window.innerHeight || 0;
+  if (iw < 2 || ih < 2) return; // 起動時 0px や一瞬の潰れでは描画を捨てない
+  W = iw;
+  H = ih;
+  canvas.width = Math.max(1, Math.floor(W * DPR));
+  canvas.height = Math.max(1, Math.floor(H * DPR));
   canvas.style.width = W + 'px';
   canvas.style.height = H + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -355,9 +418,20 @@ let progressDirty = false;
 function ytApi() {
   try { return window.ytgame || null; } catch (e) { return null; }
 }
+function inPlayables() {
+  try { return !!(window.ytgame && window.ytgame.IN_PLAYABLES_ENV); } catch (e) { return false; }
+}
+function soundBlocked() {
+  if (simPaused || !ytAudioOn) return true;
+  return !inPlayables() && audioMuted;
+}
 function muteLabel() {
   const btn = document.getElementById('mute-btn');
-  if (btn) btn.textContent = audioMuted ? '🔇 サウンド OFF' : '🔊 サウンド ON';
+  if (btn) btn.textContent = audioMuted ? t('soundOff') : t('soundOn');
+}
+function hapticLabel() {
+  const btn = document.getElementById('haptic-btn');
+  if (btn) btn.textContent = FEEL.haptics ? t('vibOn') : t('vibOff');
 }
 function writeProgress() {
   try {
@@ -414,13 +488,15 @@ function loadProgress() {
 }
 
 function initAudio() {
-  if (audioState.ctx || audioMuted || !ytAudioOn || simPaused) return;
+  if (audioState.ctx || soundBlocked()) return;
   try {
     audioState.ctx = new (window.AudioContext || window.webkitAudioContext)();
   } catch (e) { /* 非対応環境は黙ってスキップ */ }
 }
 
 function setMuted(m) {
+  if (inPlayables()) return; // Playables の全体ミュートは YouTube 側
+  if (!m && !ytAudioOn) return; // YouTube が消音中はゲーム内から解除しない
   audioMuted = !!m;
   progress.mute = audioMuted;
   progressDirty = true;
@@ -430,7 +506,7 @@ function setMuted(m) {
 }
 
 function audioBeep({ type = 'sine', freq, freqEnd, dur = 0.2, gain = 0.12, attack = 0.005, delay = 0 }) {
-  if (audioMuted || !ytAudioOn || simPaused) return;
+  if (soundBlocked()) return;
   initAudio();
   const ctx = audioState.ctx;
   if (!ctx) return;
@@ -468,8 +544,8 @@ function playAllClear() {
   [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((f, i) =>
     audioBeep({ type: 'triangle', freq: f, dur: 0.65, gain: 0.13, delay: i * 0.10 }));
 }
-// 初回ユーザー操作で AudioContext を起動
-document.addEventListener('pointerdown', () => initAudio(), { once: true });
+// Web は操作まで待つ。Playables はブラウザが許す範囲で先に開く（後の操作でも resume）。
+document.addEventListener('pointerdown', () => { try { initAudio(); syncAudioOut(); } catch (e) {} });
 
 // 発射演出: マズルフラッシュ強度、反動量、ブースター粒子の発生間隔
 const fx = { muzzle: 0, kickback: 0, thrustTimer: 0 };
@@ -517,11 +593,24 @@ function initTitleBg() {
 initTitleBg();
 
 // ===== Stage =====
+function shipY(ratioY) {
+  const lift = (H - PLAYER_BOTTOM_OFFSET < 48) ? Math.max(8, H * 0.2) : PLAYER_BOTTOM_OFFSET;
+  return Math.max(8, Math.min(ratioY * H, Math.max(8, H - lift)));
+}
+function clampPlayer() {
+  if (W < 2 || H < 2) return;
+  const m = Math.min(28, Math.max(8, W * 0.08));
+  state.player.x = Math.min(W - m, Math.max(m, state.player.x));
+  state.player.y = Math.min(H - 8, Math.max(8, state.player.y));
+}
 function applyStage(ratioDef) {
   state.currentDef = ratioDef;
   state.player.x = ratioDef.player.x * W;
-  state.player.y = Math.min(ratioDef.player.y * H, H - PLAYER_BOTTOM_OFFSET);
+  state.player.y = shipY(ratioDef.player.y);
+  clampPlayer();
   state.player.angle = -Math.PI / 2;
+  state.fitW = W;
+  state.fitH = H;
   state.planets = ratioDef.planets.map(p => ({
     x: p.x * W, y: p.y * H, r: p.r, mass: p.mass, color: p.color,
   }));
@@ -540,7 +629,7 @@ function applyStage(ratioDef) {
 
 function expandRatio(ratioDef) {
   return {
-    player: { x: ratioDef.player.x * W, y: Math.min(ratioDef.player.y * H, H - PLAYER_BOTTOM_OFFSET) },
+    player: { x: ratioDef.player.x * W, y: shipY(ratioDef.player.y) },
     planets: ratioDef.planets.map(p => ({
       x: p.x * W, y: p.y * H, r: p.r, mass: p.mass, color: p.color,
     })),
@@ -870,7 +959,7 @@ function startDemo() {
       }, 500);
       return;
     }
-    showResult('miss', '解が見つかりません', '', 1200);
+    showResult('miss', 'noLine', '', 1200);
     return;
   }
   if (!state.watchMode) {
@@ -1034,7 +1123,7 @@ function endShotFailed() {
     }, 1500);
     return;
   }
-  showResult('miss', 'もう一度', '惑星に当たった or 外れた');
+  showResult('miss', 'missTitle', 'missSub');
 }
 
 function later(ms, fn) {
@@ -1048,7 +1137,7 @@ function endShotCleared() {
   if (state.watchMode) {
     // 観るだけモード: ペースをゆったり、連鎖タイマーは watchSetTimeout で安全に管理
     playClear();
-    showResult('clear', 'CLEAR', '', 1300);
+    showResult('clear', 'cleared', '', 1300);
     watchSetTimeout(() => {
       state.stageNum++;
       applyStage(generateSolvableStage());
@@ -1068,14 +1157,14 @@ function endShotCleared() {
     const willBeNewBest = !state.demoUsed && (prevBest == null || state.totalShots < prevBest);
     spawnCelebration(willBeNewBest);
     playAllClear();
-    showResult('clear', 'ALL CLEAR!', '', 1300);
+    showResult('clear', 'allClear', '', 1300);
     later(1400, () => {
       hideResult();
       showEndScreen();
     });
   } else {
     playClear();
-    showResult('clear', 'STAGE CLEAR', '次のステージへ', 1300);
+    showResult('clear', 'stageClear', 'next', 1300);
     later(1500, () => {
       state.stageNum++;
       applyStage(generateSolvableStage());
@@ -1585,9 +1674,8 @@ function syncAudioOut() {
   const c = audioState.ctx;
   if (!c) return;
   try {
-    if (audioMuted || !ytAudioOn || simPaused) {
-      if (c.state === 'running') c.suspend();
-    } else if (c.state === 'suspended') c.resume();
+    if (soundBlocked()) { if (c.state === 'running') c.suspend(); }
+    else if (c.state === 'suspended') c.resume();
   } catch (e) {}
 }
 function setPaused(next) {
@@ -1618,19 +1706,28 @@ function hookYt() {
   if (!yt || !yt.system) return;
   try {
     const v = yt.system.isAudioEnabled();
-    const take = b => { ytAudioOn = !!b; try { syncAudioOut(); } catch (e) {} };
+    const take = b => { ytAudioOn = !!b; try { if (b) initAudio(); syncAudioOut(); } catch (e) {} };
     if (v && typeof v.then === 'function') v.then(take, () => {});
     else take(v);
   } catch (e) {}
-  try { yt.system.onAudioEnabledChange(b => { ytAudioOn = !!b; try { syncAudioOut(); } catch (e) {} }); } catch (e) {}
-  try { yt.system.onPause(() => { holdYt = true; syncHold(); }); } catch (e) {}
+  try { yt.system.onAudioEnabledChange(b => { ytAudioOn = !!b; try { if (b) initAudio(); syncAudioOut(); } catch (e) {} }); } catch (e) {}
+  try { yt.system.onPause(() => { holdYt = true; syncHold(); try { writeProgress(); } catch (e) {} }); } catch (e) {}
   try { yt.system.onResume(() => { holdYt = false; syncHold(); }); } catch (e) {}
+  if (inPlayables()) {
+    const mute = document.getElementById('mute-btn');
+    if (mute) mute.hidden = true;
+    const vib = document.getElementById('haptic-btn');
+    if (vib) vib.hidden = false;
+    try { initAudio(); syncAudioOut(); } catch (e) {}
+  }
 }
-try {
-  document.addEventListener('visibilitychange', () => {
-    try { holdHidden = !!document.hidden; syncHold(); } catch (e) {}
-  });
-} catch (e) {}
+if (!inPlayables()) {
+  try {
+    document.addEventListener('visibilitychange', () => {
+      try { holdHidden = !!document.hidden; syncHold(); } catch (e) {}
+    });
+  } catch (e) {}
+}
 
 function loop(ts) {
   rafId = 0;
@@ -1669,15 +1766,23 @@ function loop(ts) {
   rafId = requestAnimationFrame(loop);
 }
 rafId = requestAnimationFrame(loop);
-try { if (document.hidden) { holdHidden = true; syncHold(); } } catch (e) {}
+if (!inPlayables()) {
+  try { if (document.hidden) { holdHidden = true; syncHold(); } } catch (e) {}
+}
 
 // ===== Result overlay =====
 const resultOverlay = document.getElementById('result-overlay');
 const resultTitle = document.getElementById('result-title');
 const resultSub = document.getElementById('result-sub');
-function showResult(kind, title, sub, ms) {
-  resultTitle.textContent = title;
-  resultSub.textContent = sub || '';
+let lastResult = null;
+function paintResult() {
+  if (!lastResult) return;
+  resultTitle.textContent = t(lastResult.titleKey);
+  resultSub.textContent = lastResult.subKey ? t(lastResult.subKey) : '';
+}
+function showResult(kind, titleKey, subKey, ms) {
+  lastResult = { kind, titleKey, subKey: subKey || '' };
+  paintResult();
   resultTitle.style.color = kind === 'clear' ? '#FFD178' : '#F08A8A';
   resultOverlay.classList.remove('hidden');
   resultOverlay.classList.add('show');
@@ -1769,6 +1874,8 @@ function setHudForWatch() {
 }
 
 function startGame() {
+  uiMode = 'play';
+  endView = null;
   state.stageNum = 1;
   state.totalShots = 0;
   state.demoUsed = false;
@@ -1788,6 +1895,8 @@ function startGame() {
 }
 
 function startWatchMode() {
+  uiMode = 'play';
+  endView = null;
   clearWatchTimers();
   state.stageNum = 1;
   state.totalShots = 0;
@@ -1808,12 +1917,91 @@ function startWatchMode() {
   watchSetTimeout(() => startDemo(), 2500);
 }
 
-function resetOverlayToTitle() {
-  overlayTitle.innerHTML = '<div class="title-en">SWINGBY</div><div class="title-ja">スイングバイ</div><div class="title-divider"></div>';
-  overlaySub.innerHTML = '全6ステージを、合計何発でクリアできるか挑戦！<br>1発で2つの的を壊したらクリア。';
-  overlayHint.textContent = '↺やり直す自由・👁お手本を一度でも使うと記録なし';
-  overlayStartBtn.textContent = 'スタート';
+let uiMode = 'title';
+let endView = null;
+function renderTitle() {
+  overlayTitle.innerHTML = '<div class="title-en">' + t('titleMain') + '</div><div class="title-ja">' + t('titleSub') + '</div><div class="title-divider"></div>';
+  overlaySub.innerHTML = t('blurb');
+  overlayHint.textContent = t('hint');
+  overlayStartBtn.textContent = t('start');
+  const watch = document.getElementById('watch-btn');
+  if (watch) watch.textContent = t('watch');
   refreshBestDisplay();
+}
+function renderEnd() {
+  if (!endView) return;
+  const v = endView;
+  overlayTitle.innerHTML = v.demoUsed
+    ? '<div class="title-en">' + t('cleared') + '</div><div class="title-ja" style="color:rgba(122,134,160,.7);">' + t('unranked') + '</div>'
+    : '<div class="title-en">' + t('gameClear') + '</div>';
+  let sub = v.demoUsed ? t('endDemo', { n: v.shots }) : t('endShots', { n: v.shots });
+  if (!v.demoUsed) {
+    if (v.isNewBest) sub += t('newBest');
+    else if (v.prevBest != null) sub += t('endBest', { n: v.prevBest });
+  }
+  overlaySub.innerHTML = sub;
+  overlayBest.style.display = 'none';
+  overlayHint.textContent = t('againAsk');
+  overlayStartBtn.textContent = t('again');
+}
+function applyI18n() {
+  document.documentElement.lang = lang;
+  document.documentElement.classList.remove('i18n-wait');
+  document.title = t('docTitle');
+  const meta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (meta) meta.setAttribute('content', t('appTitle'));
+  const aria = (id, key) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const s = t(key);
+    el.setAttribute('aria-label', s);
+    if (el.hasAttribute('title')) el.title = s;
+  };
+  aria('retry-btn', 'retry');
+  aria('demo-btn', 'demo');
+  aria('exit-btn', 'toTitle');
+  const move = { left: 'moveL', right: 'moveR', rotL: 'rotL', rotR: 'rotR' };
+  document.querySelectorAll('[data-input]').forEach(btn => {
+    const key = move[btn.dataset.input];
+    if (key) btn.setAttribute('aria-label', t(key));
+  });
+  const fireEl = document.getElementById('fire-btn');
+  if (fireEl) fireEl.textContent = t('fire');
+  const stageLabel = document.getElementById('stage-label');
+  if (stageLabel) stageLabel.textContent = t('stage');
+  const shotsLabel = document.getElementById('shots-label');
+  if (shotsLabel) shotsLabel.textContent = t('shots');
+  const pre = document.getElementById('best-pre');
+  if (pre) pre.textContent = t('bestPre');
+  const post = document.getElementById('best-post');
+  if (post) post.textContent = t('bestPost');
+  try { muteLabel(); hapticLabel(); } catch (e) {}
+  if (uiMode === 'end') renderEnd();
+  else if (uiMode !== 'play') renderTitle();
+  if (lastResult && resultOverlay.classList.contains('show')) paintResult();
+}
+function bootLang() {
+  const forced = queryLang();
+  if (forced) { lang = forced; applyI18n(); return; }
+  if (inPlayables()) {
+    lang = 'en'; // SDK の返答まで英語。navigator.language は Playables では読まない
+    applyI18n();
+    let pending = null;
+    try { pending = ytApi().system.getLanguage(); } catch (e) {}
+    const take = tag => { const next = pickLang(tag); if (next !== lang) { lang = next; applyI18n(); } };
+    if (pending && typeof pending.then === 'function') pending.then(take, () => {});
+    else if (pending != null) take(pending);
+    return;
+  }
+  let tag = 'en';
+  try { tag = navigator.language || 'en'; } catch (e) {}
+  lang = pickLang(tag);
+  applyI18n();
+}
+function resetOverlayToTitle() {
+  uiMode = 'title';
+  endView = null;
+  renderTitle();
 }
 
 function exitToTitle() {
@@ -1843,21 +2031,9 @@ function showEndScreen() {
       isNewBest = true;
     }
   }
-  overlayTitle.innerHTML = state.demoUsed
-    ? '<div class="title-en">CLEAR</div><div class="title-ja" style="color:rgba(122,134,160,.7);">記録なし</div>'
-    : '<div class="title-en">GAME <span class="accent">CLEAR</span></div>';
-  let subHtml = '';
-  if (state.demoUsed) {
-    subHtml = `合計 <strong style="color:#FFD178">${shots}</strong> 発でクリア<br><span style="color:#7A86A0;font-size:.8em;">(お手本使用のため記録対象外)</span>`;
-  } else {
-    subHtml = `合計 <strong style="color:#FFD178;font-size:1.3em;">${shots}</strong> 発でクリア！`;
-    if (isNewBest) subHtml += '<br><span style="color:#FFD178;font-weight:800;">🏆 新記録！</span>';
-    else if (prevBest != null) subHtml += `<br><span style="color:#7A86A0;font-size:.8em;">ベスト: ${prevBest} 発</span>`;
-  }
-  overlaySub.innerHTML = subHtml;
-  overlayBest.style.display = 'none';
-  overlayHint.textContent = 'もう一度プレイしますか？';
-  overlayStartBtn.textContent = 'もう一度';
+  uiMode = 'end';
+  endView = { demoUsed: state.demoUsed, shots, isNewBest, prevBest: isNewBest ? null : prevBest };
+  renderEnd();
   overlay.classList.remove('hidden');
 }
 
@@ -1865,6 +2041,11 @@ overlayStartBtn.addEventListener('click', startGame);
 document.getElementById('watch-btn').addEventListener('click', startWatchMode);
 document.getElementById('exit-btn').addEventListener('click', exitToTitle);
 document.getElementById('mute-btn').addEventListener('click', () => setMuted(!audioMuted));
+document.getElementById('haptic-btn').addEventListener('click', () => {
+  FEEL.haptics = !FEEL.haptics;
+  hapticLabel();
+});
+bootLang();
 hookYt();
 loadProgress();
 
@@ -1876,7 +2057,19 @@ document.getElementById('retry-btn').addEventListener('click', () => {
 
 document.getElementById('demo-btn').addEventListener('click', startDemo);
 
+function refitStage() {
+  const sx = state.fitW ? W / state.fitW : 0;
+  const sy = state.fitH ? H / state.fitH : 0;
+  if (!(sx > 0) || !(sy > 0)) { applyStage(state.currentDef); return; }
+  state.player.x *= sx; state.player.y *= sy;
+  for (const p of state.planets) { p.x *= sx; p.y *= sy; }
+  for (const t of state.targets) { t.x *= sx; t.y *= sy; }
+  for (const b of state.bullets) { b.x *= sx; b.y *= sy; }
+  clampPlayer();
+  state.fitW = W; state.fitH = H;
+}
 window.addEventListener('resize', () => {
-  if (state.running && state.currentDef) applyStage(state.currentDef);
+  if (W < 2 || H < 2) return;
+  if (state.running && state.currentDef) refitStage();
   else initTitleBg();
 });

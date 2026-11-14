@@ -15,7 +15,8 @@ html, body {
   -webkit-user-select: none;
 }
 html { overflow: hidden; }
-body { overflow-y: auto; }
+html.i18n-wait body { visibility: hidden; }
+body { overflow: hidden; }
 
 #stage {
   position: fixed;
@@ -185,9 +186,9 @@ button.badge:active {
 
 .title-en {
   font-family: var(--font-display);
-  font-size: clamp(3rem, 10vw, 5rem);
+  font-size: clamp(1.55rem, 8vw, 4.4rem);
   font-weight: 900;
-  letter-spacing: .12em;
+  letter-spacing: .08em;
   color: #FFFFFF;
   text-shadow:
     0 0 16px rgba(124,200,232,.95),
@@ -212,6 +213,7 @@ button.badge:active {
   margin-top: 8px;
   font-weight: 500;
 }
+html[lang="en"] .title-ja { letter-spacing: .28em; }
 
 .title-divider {
   width: 150px;
@@ -272,7 +274,24 @@ button.badge:active {
   color: rgba(122,134,160,.65);
   margin-top: 16px;
   letter-spacing: .02em;
+  max-width: min(320px, 92vw);
+  text-align: center;
+  padding: 0 12px;
+  line-height: 1.45;
 }
+#mute-btn, #haptic-btn {
+  margin-top: 14px;
+  background: transparent;
+  border: none;
+  color: rgba(122,134,160,.85);
+  font-family: inherit;
+  font-size: .78rem;
+  cursor: pointer;
+  letter-spacing: .04em;
+  padding: 4px 10px;
+}
+#haptic-btn { margin-top: 0; }
+#mute-btn[hidden], #haptic-btn[hidden] { display: none; }
 
 /* ===== Result overlay ===== */
 #result-overlay {
@@ -473,4 +492,34 @@ button.badge:active {
   cursor: not-allowed;
   animation: none;
   box-shadow: 0 0 6px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.15);
+}
+
+@media (max-width: 240px) {
+  .hud { padding: 6px; gap: 4px; }
+  .badge { padding: 4px 7px; }
+  .icon-btn { width: 30px; height: 30px; }
+  .controls { gap: 2px; padding: 0 2px; bottom: 8px; }
+  .ctrl-btn { width: 30px; height: 30px; }
+  .ctrl-btn svg { width: 16px; height: 16px; }
+  .fire-btn { width: 40px; height: 40px; font-size: .62rem; }
+  .title-en { font-size: 1.7rem; letter-spacing: .06em; }
+}
+@media (max-height: 420px) {
+  #overlay { justify-content: flex-start; padding: 8px 0 6px; overflow: hidden; }
+  .title-en { font-size: 1.45rem; }
+  .title-ja { margin-top: 2px; font-size: .68rem; }
+  .title-divider { margin: 6px auto; width: 100px; }
+  #overlay .sub { font-size: .72rem; line-height: 1.25; }
+  #overlay .start-btn { margin-top: 6px; padding: 6px 20px; font-size: .85rem; }
+  #watch-btn { margin-top: 4px; padding: 4px 12px; font-size: .75rem; }
+  .hint, #mute-btn, #haptic-btn { margin-top: 2px; }
+  .controls { bottom: 4px; }
+  .fire-btn { width: 48px; height: 48px; }
+  .ctrl-btn { width: 36px; height: 36px; }
+}
+@media (max-height: 220px) {
+  .title-ja, .title-divider, .hint { display: none; }
+  #overlay .sub { font-size: .68rem; line-height: 1.2; }
+  #overlay .start-btn { margin-top: 4px; padding: 4px 16px; }
+  #watch-btn, #mute-btn, #haptic-btn { margin-top: 2px; padding: 2px 8px; }
 }
