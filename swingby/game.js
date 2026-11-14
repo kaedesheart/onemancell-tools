@@ -1874,6 +1874,7 @@ function setHudForWatch() {
 }
 
 function startGame() {
+  pre.n = 0; pre.def = pre.it = null;
   uiMode = 'play';
   endView = null;
   state.stageNum = 1;
@@ -1895,6 +1896,7 @@ function startGame() {
 }
 
 function startWatchMode() {
+  pre.n = 0; pre.def = pre.it = null;
   uiMode = 'play';
   endView = null;
   clearWatchTimers();
@@ -2005,6 +2007,7 @@ function resetOverlayToTitle() {
 }
 
 function exitToTitle() {
+  pre.n = 0; pre.def = pre.it = null;
   clearWatchTimers();
   state.running = false;
   state.watchMode = false;
