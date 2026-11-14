@@ -48,6 +48,22 @@ const MOVE_SPEED = 230;
 const ROT_SPEED  = 1.6;
 const PLAYER_BOTTOM_OFFSET = 130;
 
+// ===== Game feel (Phase1) — 演出の ON/OFF・強さはここに集約 =====
+const FEEL = {
+  shake: true,        // 画面揺れ（OFFで反動・揺れを全停止）
+  haptics: true,      // 対応端末の軽い振動
+  hitstop: 0.06,      // 的ヒット時の停止(秒)
+  finalHitstop: 0.12, // 2つ目(クリア)の停止(秒)
+  pullAccel: 2600,    // 1惑星からの引力(px/s²)がこれを超えたら「捕獲」演出
+  bendRate: 5,        // 軌跡が最大輝度になる旋回速度(rad/s)
+  trailMax: 420,      // 軌跡リングバッファ(1step=1点, 7秒分)
+  maxParticles: 320,  // パーティクル上限(プール)
+};
+// 時間演出: stop=ヒットストップ残り秒, pull=捕獲スロー, slow=クリア余韻スロー
+const tfx = { stop: 0, pull: 0, slow: 0 };
+function timeScale() { return Math.min(1 - 0.45 * tfx.pull, 1 - 0.7 * tfx.slow); }
+function haptic(ms) { if (FEEL.haptics && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} }
+
 function makeStars(n) {
   const stars = [];
   for (let i = 0; i < n; i++) {
@@ -83,22 +99,47 @@ function makeNebulae(n) {
 }
 
 // ===== Particles & Camera shake =====
+// 固定長プール(リング): 上限超過時は最古を上書き → GC・splice なし
 const particles = [];
+for (let i = 0; i < FEEL.maxParticles; i++) particles.push({ x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, color: '#fff', size: 1, spark: false, drag: 0.94 });
+let pHead = 0;
+function addParticle(x, y, vx, vy, life, color, size, spark, drag) {
+  const p = particles[pHead];
+  pHead = (pHead + 1) % particles.length;
+  p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = p.maxLife = life;
+  p.color = color; p.size = size; p.spark = !!spark; p.drag = drag || 0.94;
+}
+const rings = []; // 衝撃波/捕獲リング {x,y,r0,r1,life,max,color,w}
+function addRing(x, y, r0, r1, life, color, w) {
+  if (rings.length >= 12) rings.shift();
+  rings.push({ x, y, r0, r1, life, max: life, color, w });
+}
+const flashes = []; // 命中/クリアの発光 {x,y,r,life,max}
+function clearParticles() {
+  for (const p of particles) p.life = 0;
+  rings.length = 0; flashes.length = 0;
+}
 function spawnHitParticles(x, y, color = '#FFE7A5', count = 28) {
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 90 + Math.random() * 220;
-    const life = 0.55 + Math.random() * 0.55;
-    particles.push({
-      x, y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      life,
-      maxLife: life,
-      color,
-      size: 1.6 + Math.random() * 2.2,
-    });
+    addParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed,
+      0.55 + Math.random() * 0.55, color, 1.6 + Math.random() * 2.2, i % 2 === 0);
   }
+}
+// 的ヒット: 放射状スパーク + 衝撃波 + 発光
+function spawnHitBurst(x, y, final) {
+  const n = final ? 44 : 30;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + Math.random() * 0.25;
+    const sp = (final ? 300 : 220) + Math.random() * 240;
+    addParticle(x, y, Math.cos(a) * sp, Math.sin(a) * sp, 0.3 + Math.random() * 0.4,
+      i % 3 ? '#FFE7A5' : '#FFFFFF', 1.4 + Math.random() * 1.4, true, 0.9);
+  }
+  spawnHitParticles(x, y, '#FFD178', final ? 16 : 10);
+  addRing(x, y, 6, final ? 95 : 60, final ? 0.6 : 0.42, '#FFE7A5', 4);
+  if (final) addRing(x, y, 4, 160, 0.95, '#7CC8E8', 2);
+  flashes.push({ x, y, r: final ? 120 : 55, life: final ? 0.5 : 0.18, max: final ? 0.5 : 0.18 });
 }
 
 // 全クリア時の祝福パーティクル
@@ -110,43 +151,112 @@ function spawnCelebration(major) {
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 110 + Math.random() * (major ? 320 : 240);
-    const life = 1.4 + Math.random() * 1.6;
-    particles.push({
-      x: cx + (Math.random() - 0.5) * 60,
-      y: cy + (Math.random() - 0.5) * 60,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 70, // 軽く上向きバイアス
-      life,
-      maxLife: life,
-      color: palette[Math.floor(Math.random() * palette.length)],
-      size: 2 + Math.random() * 3,
-    });
+    addParticle(cx + (Math.random() - 0.5) * 60, cy + (Math.random() - 0.5) * 60,
+      Math.cos(angle) * speed, Math.sin(angle) * speed - 70, // 軽く上向きバイアス
+      1.4 + Math.random() * 1.6, palette[Math.floor(Math.random() * palette.length)], 2 + Math.random() * 3);
   }
   triggerShake(major ? 12 : 6);
 }
 function updateParticles(dt) {
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
+  for (const p of particles) {
+    if (p.life <= 0) continue;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
-    p.vx *= 0.94;
-    p.vy *= 0.94;
+    const d = Math.pow(p.drag, dt * 60); // フレームレート非依存の減衰
+    p.vx *= d;
+    p.vy *= d;
     p.life -= dt;
-    if (p.life <= 0) particles.splice(i, 1);
   }
+  for (let i = rings.length - 1; i >= 0; i--) if ((rings[i].life -= dt) <= 0) rings.splice(i, 1);
+  for (let i = flashes.length - 1; i >= 0; i--) if ((flashes[i].life -= dt) <= 0) flashes.splice(i, 1);
 }
 function drawParticles() {
   ctx.save();
+  ctx.lineCap = 'round';
   for (const p of particles) {
-    const t = Math.max(0, p.life / p.maxLife);
+    if (p.life <= 0) continue;
+    const t = p.life / p.maxLife;
     ctx.globalAlpha = t;
-    ctx.fillStyle = p.color;
+    if (p.spark) { // 速度方向に伸びる火花
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = p.size * t + 0.4;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - p.vx * 0.04, p.y - p.vy * 0.04);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * (0.5 + 0.5 * t), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalCompositeOperation = 'lighter';
+  for (const r of rings) {
+    const t = r.life / r.max;
+    ctx.globalAlpha = t;
+    ctx.strokeStyle = r.color;
+    ctx.lineWidth = r.w * t + 0.5;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * (0.5 + 0.5 * t), 0, Math.PI * 2);
+    ctx.arc(r.x, r.y, Math.max(0, r.r0 + (r.r1 - r.r0) * (1 - t * t * t)), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  for (const f of flashes) {
+    const t = f.life / f.max, rr = f.r * (1.2 - 0.2 * t);
+    const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, rr);
+    g.addColorStop(0, `rgba(255,255,255,${0.9 * t})`);
+    g.addColorStop(0.35, `rgba(255,231,165,${0.45 * t})`);
+    g.addColorStop(1, 'rgba(255,209,120,0)');
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, rr, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
 }
+
+// ===== 弾の軌跡(リングバッファ) — 曲がり具合 k(0..1) で色・太さを変える =====
+const TRAIL_RGB = ['255,196,104', '255,224,150', '190,236,255', '130,220,255', '235,250,255'];
+function makeTrail() { return { buf: new Float32Array(FEEL.trailMax * 3), n: 0, head: 0 }; }
+function trailPush(tr, x, y, k) {
+  const i = tr.head * 3;
+  tr.buf[i] = x; tr.buf[i + 1] = y; tr.buf[i + 2] = k;
+  tr.head = (tr.head + 1) % FEEL.trailMax;
+  if (tr.n < FEEL.trailMax) tr.n++;
+}
+// alphaMul: 全体の濃さ / boost: 太さ倍率(クリア余韻) / 同じ見た目の連続区間はまとめて1パスで描画
+function drawTrail(tr, alphaMul, boost) {
+  if (!tr || tr.n < 2) return;
+  const N = FEEL.trailMax, b = tr.buf, start = (tr.head - tr.n + N) % N;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineJoin = 'round'; // cap は butt: 区間の継ぎ目が加算で光の粒にならないように
+  for (let pass = 0; pass < 2; pass++) {
+    let key = -1;
+    for (let j = 1; j < tr.n; j++) {
+      const i0 = ((start + j - 1) % N) * 3, i1 = ((start + j) % N) * 3;
+      const kq = Math.min(4, (b[i1 + 2] * 4 + 0.5) | 0);
+      const aq = Math.min(4, (j / tr.n * 4 + 0.5) | 0); // 新しいほど濃い
+      const nk = kq * 5 + aq;
+      if (nk !== key) {
+        if (key >= 0) ctx.stroke();
+        key = nk;
+        const age = 0.25 + 0.75 * aq / 4; // 古い部分も薄く残して全体の軌道を見せる
+        const a = (pass ? 0.45 + 0.13 * kq : 0.08 + 0.07 * kq) * age * alphaMul;
+        ctx.strokeStyle = `rgba(${TRAIL_RGB[kq]},${Math.min(1, a)})`;
+        ctx.lineWidth = (pass ? 1.2 + 0.6 * kq : 4 + 3 * kq) * boost;
+        ctx.beginPath();
+        ctx.moveTo(b[i0], b[i0 + 1]);
+      }
+      ctx.lineTo(b[i1], b[i1 + 1]);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+// 弾が消えた後に残す軌跡(ミス時は次の発射まで薄く残し、狙い直しの手がかりにする)
+let ghost = null; // {tr, life, max, clear}
 
 const shake = { magnitude: 0, x: 0, y: 0 };
 
@@ -268,11 +378,17 @@ function audioBeep({ type = 'sine', freq, freqEnd, dur = 0.2, gain = 0.12, attac
   osc.stop(now + dur + 0.02);
 }
 
-function playFire()  { audioBeep({ type: 'sawtooth', freq: 660, freqEnd: 80,  dur: 0.16, gain: 0.10 }); }
-function playHit()   {
-  audioBeep({ type: 'sine', freq: 987.77,  dur: 0.45, gain: 0.10 });
-  audioBeep({ type: 'sine', freq: 1318.51, dur: 0.45, gain: 0.08 });
+function playFire()  {
+  audioBeep({ type: 'sawtooth', freq: 660, freqEnd: 80,  dur: 0.16, gain: 0.10 });
+  audioBeep({ type: 'sine', freq: 130, freqEnd: 45, dur: 0.14, gain: 0.14 }); // 低音の「ドン」
 }
+function playHit(final) { // 2つ目は完全4度上 → 「決まった」感
+  const k = final ? 1.335 : 1;
+  audioBeep({ type: 'square', freq: 2400 * k, freqEnd: 500, dur: 0.05, gain: 0.035 });
+  audioBeep({ type: 'sine', freq: 987.77 * k,  dur: 0.45, gain: 0.10 });
+  audioBeep({ type: 'sine', freq: 1318.51 * k, dur: 0.45, gain: 0.08 });
+}
+function playPull()  { audioBeep({ type: 'sine', freq: 150, freqEnd: 460, dur: 0.24, gain: 0.07 }); }
 function playMiss()  { audioBeep({ type: 'sine', freq: 160, freqEnd: 45, dur: 0.28, gain: 0.13 }); }
 function playClear() {
   [659.25, 783.99, 987.77].forEach((f, i) =>
@@ -297,25 +413,24 @@ function spawnThrustParticles(p, dt) {
   const speed = 50 + Math.random() * 60;
   const spread = (Math.random() - 0.5) * 0.6;
   const dir = p.angle + Math.PI + spread;
-  particles.push({
-    x: tailX + (Math.random() - 0.5) * 3,
-    y: tailY + (Math.random() - 0.5) * 3,
-    vx: Math.cos(dir) * speed,
-    vy: Math.sin(dir) * speed,
-    life: 0.32 + Math.random() * 0.18,
-    maxLife: 0.5,
-    color: Math.random() < 0.7 ? '#7CC8E8' : '#A6DCEF',
-    size: 1.0 + Math.random() * 0.8,
-  });
+  addParticle(tailX + (Math.random() - 0.5) * 3, tailY + (Math.random() - 0.5) * 3,
+    Math.cos(dir) * speed, Math.sin(dir) * speed, 0.32 + Math.random() * 0.18,
+    Math.random() < 0.7 ? '#7CC8E8' : '#A6DCEF', 1.0 + Math.random() * 0.8);
 }
 function triggerShake(amount) {
+  if (!FEEL.shake) return;
   shake.magnitude = Math.max(shake.magnitude, amount);
 }
+// 方向付きの押し戻し(発射の反動): ランダム揺れとは別にバネで戻る
+const kick = { x: 0, y: 0 };
+function triggerKick(dx, dy) { if (FEEL.shake) { kick.x += dx; kick.y += dy; } }
 function updateShake(dt) {
   shake.magnitude *= Math.pow(0.0001, dt);
   if (shake.magnitude < 0.05) shake.magnitude = 0;
-  shake.x = (Math.random() - 0.5) * shake.magnitude;
-  shake.y = (Math.random() - 0.5) * shake.magnitude;
+  const kd = Math.pow(0.002, dt);
+  kick.x *= kd; kick.y *= kd;
+  shake.x = (Math.random() - 0.5) * shake.magnitude + kick.x;
+  shake.y = (Math.random() - 0.5) * shake.magnitude + kick.y;
 }
 
 // タイトル画面用の背景（state・makeStars定義後に呼ぶ）
@@ -327,7 +442,7 @@ function initTitleBg() {
     { x: W * 0.88, y: H * 0.68, r: 30, mass: 1800, color: '#C99BFF' },
     { x: W * 0.72, y: H * 0.10, r: 20, mass: 1200, color: '#FFB270' },
   ];
-  particles.length = 0;
+  clearParticles();
 }
 initTitleBg();
 
@@ -346,8 +461,10 @@ function applyStage(ratioDef) {
   state.bullets = [];
   state.stars = makeStars(120);
   state.nebulae = makeNebulae(3);
-  particles.length = 0;
+  clearParticles();
+  ghost = null;
   shake.magnitude = 0;
+  pregenStage(state.stageNum + 1);
   updateHUD();
 }
 
@@ -366,7 +483,19 @@ const PALETTE = ['#7CC8E8', '#FFB270', '#C99BFF', '#9FE6A0', '#FF9CAB'];
 const rnd = (a, b) => a + Math.random() * (b - a);
 const choice = arr => arr[Math.floor(Math.random() * arr.length)];
 
-function randomRatioStage() {
+// ===== [Phase2] ステージ難易度ティア =====
+// 0: ST1-2 ほぼ直線でクリア可 / 1: ST3-4 スイングバイが気持ちいい(直接も可) / 2: ST5-6 スイングバイ必須
+// massK=惑星質量係数(元は r*60), bend=「理想軌道」の旋回量(rad), rate=最低クリア率(画面比に依存するので下限のみ),
+// win=同じ位置で連続して当たる角度数の範囲(=狙いの許容幅、1≒3°), straight/gentle/assist=クリア解のうち 直線(旋回<20°)/回り込まない(<46°)/スイングバイ(>46°) の割合
+const TIERS = [
+  { massK: 8,  bend: [0, 0.15],  rate: 0.0008, win: [3, 99], straightMin: 0.5 },
+  { massK: 30, bend: [0.8, 1.6], rate: 0.0008, win: [2, 5],  gentleMin: 0.1, assistMin: 0.3 },
+  { massK: 60, bend: [1.3, 2.8], rate: 0.0005, win: [2, 3],  straightMax: 0, assistMin: 0.7 },
+];
+const STRAIGHT_TURN = 0.35, ASSIST_TURN = 0.8;
+function stageTier(n) { return [0, 0, 1, 1, 2, 2][(n - 1) % 6]; }
+
+function randomRatioStage(massK = 60) {
   const player = { x: rnd(0.25, 0.75), y: 0.85 };
   const playerPx = { x: player.x * W, y: player.y * H };
 
@@ -376,7 +505,7 @@ function randomRatioStage() {
     const cand = {
       x: rnd(0.15, 0.85),
       y: rnd(0.18, 0.62),
-      r, mass: r * 60,
+      r, mass: r * massK,
       color: choice(PALETTE),
     };
     let ok = true;
@@ -415,8 +544,9 @@ function randomRatioStage() {
   return { player, planets, targets };
 }
 
-// 弾道シミュレーション。勝利時はステップ数も返す（飛行時間=トリックショット度）
-function simulateAndMeasure(absDef, px, py, angle) {
+// 弾道シミュレーション。勝利時はステップ数と累積旋回量 turn(rad) も返す
+// trace を渡すと毎stepの [x, y, turn] を積む(的なしで呼ぶと画面外/衝突まで飛ぶ)
+function simulateAndMeasure(absDef, px, py, angle, trace) {
   const winMask = (1 << absDef.targets.length) - 1;
   const playerR = 14;
   const dt = 1 / 60;
@@ -426,7 +556,7 @@ function simulateAndMeasure(absDef, px, py, angle) {
   let y = py + ny * (playerR + 6);
   let vx = nx * BULLET_SPEED;
   let vy = ny * BULLET_SPEED;
-  let hitMask = 0;
+  let hitMask = 0, turn = 0;
   for (let s = 0; s < maxSteps; s++) {
     let ax = 0, ay = 0;
     for (const p of absDef.planets) {
@@ -437,6 +567,7 @@ function simulateAndMeasure(absDef, px, py, angle) {
       const a = G * p.mass * inv3;
       ax += a * dx; ay += a * dy;
     }
+    turn += Math.abs(vx * ay - vy * ax) / (vx * vx + vy * vy) * dt;
     vx += ax * dt; vy += ay * dt;
     x  += vx * dt; y  += vy * dt;
     if (x < -60 || x > W + 60 || y < -60 || y > H + 60) return { hits: false };
@@ -444,6 +575,7 @@ function simulateAndMeasure(absDef, px, py, angle) {
       const dx = x - p.x, dy = y - p.y;
       if (dx * dx + dy * dy < p.r * p.r) return { hits: false };
     }
+    if (trace) trace.push(x, y, turn);
     for (let i = 0; i < absDef.targets.length; i++) {
       if (hitMask & (1 << i)) continue;
       const t = absDef.targets[i];
@@ -451,27 +583,84 @@ function simulateAndMeasure(absDef, px, py, angle) {
       const rr = TARGET_R + 4;
       if (dx * dx + dy * dy < rr * rr) hitMask |= (1 << i);
     }
-    if (hitMask === winMask) return { hits: true, steps: s + 1 };
+    if (winMask && hitMask === winMask) return { hits: true, steps: s + 1, turn };
   }
   return { hits: false };
 }
 
-// 横20分割 × 30度刻み(12方向) で全探索、2解以上で「程よい難度」と判定
-function isSolvable(absDef) {
-  const STEPS_X = 20, STEPS_ANGLE = 12, REQUIRED = 2;
-  const py = absDef.player.y;
-  let count = 0;
-  for (let xi = 0; xi < STEPS_X; xi++) {
-    const px = 40 + ((W - 80) * xi) / (STEPS_X - 1);
-    for (let ai = 0; ai < STEPS_ANGLE; ai++) {
-      const angle = (ai * 2 * Math.PI) / STEPS_ANGLE;
-      if (simulateAndMeasure(absDef, px, py, angle).hits) {
-        count++;
-        if (count >= REQUIRED) return true;
-      }
+// 解空間の全探索。操作は1step毎に 移動3.83px / 回転1.53° 刻みなので、実際に到達できる格子上で調べる
+// (横は3刻み以上・角度2刻みに間引き)。難易度指標と解リスト(お手本用)を返す
+function classifyStage(absDef) {
+  const st1 = MOVE_SPEED / 60, MX = st1 * Math.max(3, Math.round((W - 80) / 40 / st1)); // 横は最大約40列
+  const RA = ROT_SPEED / 60 * 2, py = absDef.player.y, sols = [];
+  const NA = Math.floor(2 * Math.PI / RA);
+  let st = 0, ge = 0, as = 0, total = 0, win = 0;
+  for (let px = 40 + (absDef.player.x - 40) % MX; px <= W - 40; px += MX) {
+    for (let ai = 0, run = 0; ai < NA; ai++, total++) {
+      const angle = -Math.PI / 2 + ai * RA;
+      const r = simulateAndMeasure(absDef, px, py, angle);
+      if (!r.hits) { run = 0; continue; }
+      win = Math.max(win, ++run);
+      sols.push({ px, angle, turn: r.turn, steps: r.steps });
+      if (r.turn < STRAIGHT_TURN) st++;
+      if (r.turn > ASSIST_TURN) as++; else ge++;
     }
   }
-  return false;
+  const n = sols.length || 1;
+  return { rate: sols.length / total, win, straight: st / n, gentle: ge / n, assist: as / n, sols };
+}
+function fitsTier(c, T) {
+  return c.sols.length >= 3 && c.rate >= T.rate && c.win >= T.win[0] && c.win <= T.win[1]
+    && (T.straightMin == null || c.straight >= T.straightMin)
+    && (T.straightMax == null || c.straight <= T.straightMax)
+    && (T.gentleMin == null || c.gentle >= T.gentleMin)
+    && (T.assistMin == null || c.assist >= T.assistMin);
+}
+
+// 「理想軌道」から逆算して的を置く: 発射点と角度を決めて飛ばし、軌跡上に的を2つ配置
+function buildTierStage(tier) {
+  const T = TIERS[tier];
+  const def = randomRatioStage(T.massK);
+  if (!def) return null;
+  const abs = expandRatio(def);
+  const tr = [];
+  // 直線型: 画面上部の適当な点を狙う / スイングバイ型: 惑星の脇(半径の3〜7倍)を狙う
+  // tier0=直線型のみ, tier1=半々(両方の解が残る盤面だけ採用), tier2=スイングバイ型のみ
+  const swing = tier === 2 || (tier === 1 && Math.random() < 0.5);
+  const lx = rnd(60, W - 60), ly = abs.player.y, pl = choice(abs.planets);
+  let ax = rnd(0.2, 0.8) * W, ay = rnd(0.08, 0.5) * H;
+  if (swing) {
+    const d = Math.hypot(pl.x - lx, pl.y - ly), off = pl.r * rnd(3, 7) * (Math.random() < 0.5 ? 1 : -1);
+    ax = pl.x - (pl.y - ly) / d * off; ay = pl.y + (pl.x - lx) / d * off;
+  }
+  simulateAndMeasure({ planets: abs.planets, targets: [] }, lx, ly, Math.atan2(ay - ly, ax - lx), tr);
+  const n = tr.length / 3, turnAt = i => tr[i * 3 + 2];
+  if (n < 30) return null;
+  let i1, i2;
+  if (!swing) { // 旋回が小さい区間の中で2点
+    let lim = 0;
+    while (lim < n - 1 && turnAt(lim) < (tier ? 0.6 : T.bend[1])) lim++;
+    i2 = Math.floor(lim * rnd(0.6, 0.95));
+    i1 = Math.floor(i2 * rnd(0.35, 0.6));
+  } else { // 2つ目は曲がった後、1つ目は曲がり始め(tier1)/曲がる途中(tier2)
+    const want = rnd(T.bend[0], T.bend[1]);
+    i2 = 0;
+    while (i2 < n - 1 && turnAt(i2) < want) i2++;
+    const f = tier === 1 ? 0.1 : want * rnd(0.3, 0.6);
+    i1 = 0;
+    while (i1 < i2 && turnAt(i1) < f) i1++;
+    if (tier === 1) i1 = Math.floor(i1 * rnd(0.5, 1));
+  }
+  if (i1 < 12 || i2 - i1 < 12) return null;
+  const pts = [i1, i2].map(i => ({ x: tr[i * 3], y: tr[i * 3 + 1] }));
+  for (const q of pts) {
+    if (q.x < W * 0.08 || q.x > W * 0.92 || q.y < H * 0.07 || q.y > H * 0.7) return null;
+    if (Math.hypot(q.x - abs.player.x, q.y - abs.player.y) < 110) return null;
+    for (const p of abs.planets) if (Math.hypot(q.x - p.x, q.y - p.y) < p.r + 30) return null;
+  }
+  if (Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) < 90) return null;
+  def.targets = pts.map(q => ({ x: q.x / W, y: q.y / H }));
+  return def;
 }
 
 function easyFallback() {
@@ -488,51 +677,61 @@ function easyFallback() {
   };
 }
 
-function generateSolvableStage() {
-  for (let attempt = 0; attempt < 50; attempt++) {
-    const ratioDef = randomRatioStage();
-    if (!ratioDef) continue;
-    if (isSolvable(expandRatio(ratioDef))) return ratioDef;
+// ステージ番号のティアに合う盤面だけを採用(構築型を主に、3回に1回は従来のランダム配置も試す)
+// generator にして1試行ずつ進められるようにし、次ステージを操作中の空きフレームで先に作っておく
+function* stageSearch(n) {
+  const tier = stageTier(n), T = TIERS[tier];
+  for (let attempt = 0; attempt < 60; attempt++) {
+    let def = null; // 構築は軽い(1回の弾道計算)ので、判定(重い)の前に成功するまで繰り返す
+    for (let k = 0; !def && k < 200; k++) def = attempt % 3 === 2 ? randomRatioStage(T.massK) : buildTierStage(tier);
+    if (def) {
+      const c = classifyStage(expandRatio(def));
+      if (fitsTier(c, T)) {
+        def.tier = tier; def.sols = c.sols; def.solW = W; def.solH = H;
+        return def;
+      }
+    }
+    yield;
   }
   return easyFallback();
 }
+const pre = { n: 0, it: null, def: null };
+function runAll(it) { let r; while (!(r = it.next()).done); return r.value; }
+function generateSolvableStage() {
+  const n = state.stageNum;
+  if (pre.n === n && (pre.def || pre.it)) {
+    const d = pre.def || runAll(pre.it);
+    pre.def = pre.it = null;
+    return d;
+  }
+  return runAll(stageSearch(n));
+}
+function pregenStage(n) { if (pre.n !== n) { pre.n = n; pre.def = null; pre.it = stageSearch(n); } }
+function stepPregen() { if (pre.it) { const r = pre.it.next(); if (r.done) { pre.def = r.value; pre.it = null; } } }
 
-// 現在位置に最も近い解を探す（通常お手本用）
+// 解リスト(生成時のものを再利用、画面サイズが変わっていたら再探索)
+function stageSolutions(absDef) {
+  const d = state.currentDef;
+  if (d && d.sols && d.solW === W && d.solH === H) return d.sols;
+  const sols = classifyStage(absDef).sols;
+  if (d) { d.sols = sols; d.solW = W; d.solH = H; }
+  return sols;
+}
+// 現在位置に最も近い解（通常お手本用）
 function findNearestSolution(absDef, currentPx) {
-  const STEPS_X = 20, STEPS_ANGLE = 12;
-  const py = absDef.player.y;
   let best = null, bestDist = Infinity;
-  for (let xi = 0; xi < STEPS_X; xi++) {
-    const px = 40 + ((W - 80) * xi) / (STEPS_X - 1);
-    for (let ai = 0; ai < STEPS_ANGLE; ai++) {
-      const angle = (ai * 2 * Math.PI) / STEPS_ANGLE;
-      if (simulateAndMeasure(absDef, px, py, angle).hits) {
-        const dist = Math.abs(px - currentPx);
-        if (dist < bestDist) {
-          best = { px, angle };
-          bestDist = dist;
-        }
-      }
-    }
+  for (const s of stageSolutions(absDef)) {
+    const d = Math.abs(s.px - currentPx);
+    if (d < bestDist) { best = s; bestDist = d; }
   }
   return best;
 }
-
-// 飛行時間が最も長い解を探す（観るだけモード用：トリックショット重視）
+// 「理想軌道」= 観るだけモード用: 旋回量が最大(=最もスイングバイらしい)解。ティア0は最も素直な解
 function findLongestSolution(absDef) {
-  const STEPS_X = 20, STEPS_ANGLE = 12;
-  const py = absDef.player.y;
-  let best = null, bestSteps = 0;
-  for (let xi = 0; xi < STEPS_X; xi++) {
-    const px = 40 + ((W - 80) * xi) / (STEPS_X - 1);
-    for (let ai = 0; ai < STEPS_ANGLE; ai++) {
-      const angle = (ai * 2 * Math.PI) / STEPS_ANGLE;
-      const r = simulateAndMeasure(absDef, px, py, angle);
-      if (r.hits && r.steps > bestSteps) {
-        best = { px, angle };
-        bestSteps = r.steps;
-      }
-    }
+  const tier = state.currentDef && state.currentDef.tier;
+  let best = null;
+  for (const s of stageSolutions(absDef)) {
+    if (!best || (tier === 0 ? s.turn < best.turn : s.turn > best.turn)) best = s;
   }
   return best;
 }
@@ -690,12 +889,19 @@ function fire() {
     vx: nx * BULLET_SPEED,
     vy: ny * BULLET_SPEED,
     life: BULLET_LIFE,
-    trail: [],
+    trail: makeTrail(),
+    k: 0,          // 現在の曲がり具合(0..1)
+    capT: null,    // 捕獲中の惑星
+    capMask: 0,    // このショットで捕獲演出済みの惑星(1回ずつ)
   });
-  // 発射演出
+  ghost = null;
+  // 発射演出: 機体の反動 + 画面を発射と逆方向へ押す + マズルの衝撃リング
   fx.muzzle = 1;
   fx.kickback = 1;
-  triggerShake(4);
+  triggerShake(3);
+  triggerKick(-nx * 5, -ny * 5);
+  addRing(p.x + nx * (p.r + 8), p.y + ny * (p.r + 8), 4, 24, 0.22, '#FFE7A5', 2.5);
+  haptic(10);
   // マズルから前方に金色の閃光
   const muzzleX = p.x + nx * (p.r + 8);
   const muzzleY = p.y + ny * (p.r + 8);
@@ -703,16 +909,8 @@ function fire() {
     const spread = (Math.random() - 0.5) * 0.7;
     const ang = p.angle + spread;
     const sp = 80 + Math.random() * 90;
-    particles.push({
-      x: muzzleX,
-      y: muzzleY,
-      vx: Math.cos(ang) * sp,
-      vy: Math.sin(ang) * sp,
-      life: 0.18 + Math.random() * 0.12,
-      maxLife: 0.3,
-      color: '#FFE7A5',
-      size: 1.4 + Math.random() * 1.2,
-    });
+    addParticle(muzzleX, muzzleY, Math.cos(ang) * sp, Math.sin(ang) * sp,
+      0.18 + Math.random() * 0.12, '#FFE7A5', 1.4 + Math.random() * 1.2, true);
   }
   state.totalShots++;
   playFire();
@@ -772,14 +970,14 @@ function endShotCleared() {
     }, 1400);
   } else {
     playClear();
-    showResult('clear', 'STAGE CLEAR', '次のステージへ', 1100);
+    showResult('clear', 'STAGE CLEAR', '次のステージへ', 1300);
     setTimeout(() => {
       state.stageNum++;
       applyStage(generateSolvableStage());
       state.lockInput = false;
       hideResult();
       updateFireBtnState();
-    }, 1200);
+    }, 1500);
   }
 }
 
@@ -795,8 +993,11 @@ function updateBullets(dt) {
     b.x  += b.vx * dt;
     b.y  += b.vy * dt;
     b.life -= dt;
-    b.trail.push({ x: b.x, y: b.y });
-    if (b.trail.length > 28) b.trail.shift();
+    // 旋回速度 ω=|v×a|/|v|² → 引力で「曲がっている」所ほど k が大きい
+    const w = Math.abs(b.vx * g.ay - b.vy * g.ax) / (b.vx * b.vx + b.vy * b.vy + 1e-6);
+    b.k = Math.min(1, w / FEEL.bendRate);
+    trailPush(b.trail, b.x, b.y, b.k);
+    updateCapture(b);
 
     for (const t of state.targets) {
       if (t.hit) continue;
@@ -804,10 +1005,13 @@ function updateBullets(dt) {
       const rr = t.r + 4;
       if (dx * dx + dy * dy < rr * rr) {
         t.hit = true;
-        spawnHitParticles(t.x, t.y, '#FFE7A5', 28);
-        triggerShake(8);
-        playHit();
-        if (allCleared()) { immediateClear = true; break; }
+        const fin = allCleared();
+        spawnHitBurst(t.x, t.y, fin);
+        triggerShake(fin ? 10 : 7);
+        tfx.stop = Math.max(tfx.stop, fin ? FEEL.finalHitstop : FEEL.hitstop);
+        playHit(fin);
+        haptic(fin ? 30 : 15);
+        if (fin) { startAfterglow(b, t); immediateClear = true; break; }
       }
     }
   }
@@ -835,6 +1039,7 @@ function updateBullets(dt) {
         spawnHitParticles(b.x, b.y, hitPlanet.color, 18);
         triggerShake(5);
       }
+      if (!allCleared()) ghost = { tr: b.trail, life: Infinity, max: 1, clear: false };
       state.bullets.splice(i, 1);
     }
   }
@@ -843,6 +1048,42 @@ function updateBullets(dt) {
     if (allCleared()) endShotCleared();
     else endShotFailed();
     updateFireBtnState();
+  }
+}
+
+// 「ぐいっと」捕獲: 1惑星の引力が閾値を超えた瞬間に収縮リング+短いスロー+音
+function updateCapture(b) {
+  let best = null, bestA = 0, bi = 0;
+  state.planets.forEach((p, i) => {
+    const r = Math.max(Math.hypot(p.x - b.x, p.y - b.y), p.r * 0.6);
+    const a = G * p.mass / (r * r);
+    if (a > bestA) { bestA = a; best = p; bi = i; }
+  });
+  if (!best) return;
+  const lv = bestA / FEEL.pullAccel;
+  if (lv > 1) {
+    best.pull = Math.min(1, Math.max(best.pull || 0, lv - 0.6));
+    if (b.capT !== best) {
+      b.capT = best;
+      if (!(b.capMask & (1 << bi))) {
+        b.capMask |= 1 << bi;
+        tfx.pull = 1;
+        addRing(best.x, best.y, best.r * 3.4, best.r * 1.05, 0.5, best.color, 3);
+        playPull();
+        haptic(6);
+      }
+    }
+  } else if (lv < 0.7) b.capT = null;
+}
+// クリア余韻: スロー + 軌跡を光らせて残す + 軌跡から光の粒が立ち上る
+function startAfterglow(b, t) {
+  tfx.slow = 1;
+  ghost = { tr: b.trail, life: 1.6, max: 1.6, clear: true };
+  const tr = b.trail, N = FEEL.trailMax;
+  for (let j = 0; j < 18; j++) {
+    const i = ((tr.head - 1 - Math.floor(j * tr.n / 18) + N * 2) % N) * 3;
+    addParticle(tr.buf[i], tr.buf[i + 1], (Math.random() - 0.5) * 30, -30 - Math.random() * 40,
+      0.9 + Math.random() * 0.8, j % 2 ? '#FFE7A5' : '#7CC8E8', 1.2 + Math.random() * 1.4, false, 0.985);
   }
 }
 
@@ -869,7 +1110,7 @@ function predictPath() {
       if (ddx * ddx + ddy * ddy < pl.r * pl.r) { hit = true; break; }
     }
     if (hit) break;
-    if (i % 2 === 0) path.push({ x, y });
+    if (i % 2 === 0) path.push({ x, y, k: Math.min(1, Math.abs(vx * g.ay - vy * g.ax) / (vx * vx + vy * vy) / FEEL.bendRate) });
   }
   return path;
 }
@@ -914,6 +1155,19 @@ function drawPlanet(p, time) {
   ctx.beginPath();
   ctx.arc(p.x, p.y, p.r * 4, 0, Math.PI * 2);
   ctx.fill();
+  // 捕獲中: 外から惑星へ吸い込まれる脈動リング
+  if (p.pull > 0.01) {
+    for (let k = 0; k < 2; k++) {
+      const ph = 1 - (((time || 0) * 2.2 + k * 0.5) % 1);
+      ctx.globalAlpha = p.pull * (1 - ph) * 0.9;
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = 1.5 + 2 * p.pull;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * (1.15 + 2.2 * ph), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
   // 大気のリング（薄い縁取り）
   ctx.strokeStyle = p.color + '55';
   ctx.lineWidth = 1.2;
@@ -961,7 +1215,7 @@ function drawPlanet(p, time) {
 function drawPlayer(p) {
   ctx.save();
   // 反動: 後ろ向きに数pxオフセット（物理は不変、表示のみ）
-  const kickOffset = -fx.kickback * 6;
+  const kickOffset = -fx.kickback * 9;
   ctx.translate(p.x + Math.cos(p.angle) * kickOffset, p.y + Math.sin(p.angle) * kickOffset);
   ctx.rotate(p.angle);
 
@@ -1039,8 +1293,10 @@ function drawAimLine(path, time) {
     const baseAlpha = distantFade * 0.32;
     const alpha = Math.min(1, baseAlpha + wave * 0.45);
     ctx.globalAlpha = alpha;
-    const color = t < 0.3 ? 'rgba(255,255,255,1)' : 'rgba(255,209,120,1)';
-    const r = 1.4 + distantFade * 1.0 + wave * 1.8;
+    // 引力で曲がる区間は水色で示す(実際の軌跡と同じ色言語)
+    const kk = path[i].k;
+    const color = t < 0.3 ? 'rgba(255,255,255,1)' : (kk > 0.3 ? 'rgba(150,225,255,1)' : 'rgba(255,209,120,1)');
+    const r = 1.4 + distantFade * 1.0 + wave * 1.8 + kk * 1.2;
     // 柔らかいハロー(霧効果)
     const grad = ctx.createRadialGradient(path[i].x, path[i].y, 0, path[i].x, path[i].y, r * 2.6);
     grad.addColorStop(0, color);
@@ -1135,36 +1391,33 @@ function drawTarget(t, time) {
 }
 
 function drawBullet(b) {
+  drawTrail(b.trail, 1, 1);
   ctx.save();
-  // プラズマトレイル: 軌跡の各点にグローと白い核を描く
-  for (let i = 0; i < b.trail.length; i++) {
-    const t = i / b.trail.length;
-    const tp = b.trail[i];
-    // グロー
-    ctx.globalAlpha = t * 0.5;
-    const tg = ctx.createRadialGradient(tp.x, tp.y, 0, tp.x, tp.y, 6 + t * 6);
-    tg.addColorStop(0, 'rgba(255,231,165,0.9)');
-    tg.addColorStop(1, 'rgba(255,209,120,0)');
-    ctx.fillStyle = tg;
+  // 捕獲中は惑星との間に引力の糸
+  if (b.capT) {
+    const p = b.capT;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.25 + 0.5 * (p.pull || 0);
+    ctx.strokeStyle = p.color;
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([3, 5]);
     ctx.beginPath();
-    ctx.arc(tp.x, tp.y, 6 + t * 6, 0, Math.PI * 2);
-    ctx.fill();
-    // コア
-    ctx.globalAlpha = t * 0.85;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(tp.x, tp.y, 0.6 + t * 1.4, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(b.x, b.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalCompositeOperation = 'source-over';
   }
   ctx.globalAlpha = 1;
   // 弾本体: 大きめのグロー
-  const halo = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 18);
+  const hr = 18 + 10 * b.k; // 曲がっている最中は弾も膨らむ
+  const halo = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, hr);
   halo.addColorStop(0, 'rgba(255,231,165,0.8)');
-  halo.addColorStop(0.5, 'rgba(255,209,120,0.35)');
+  halo.addColorStop(0.5, b.k > 0.4 ? 'rgba(150,225,255,0.4)' : 'rgba(255,209,120,0.35)');
   halo.addColorStop(1, 'rgba(255,209,120,0)');
   ctx.fillStyle = halo;
   ctx.beginPath();
-  ctx.arc(b.x, b.y, 18, 0, Math.PI * 2);
+  ctx.arc(b.x, b.y, hr, 0, Math.PI * 2);
   ctx.fill();
   // コア
   const core = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 6);
@@ -1193,6 +1446,10 @@ function render(time) {
   for (const p of state.planets) drawPlanet(p, time);
   for (const t of state.targets) drawTarget(t, time);
   if (state.running) {
+    if (ghost) {
+      const gt = ghost.clear ? ghost.life / ghost.max : 1;
+      drawTrail(ghost.tr, ghost.clear ? gt * (1.2 + 0.4 * Math.sin(time * 14)) : 0.35, ghost.clear ? 1 + 0.6 * gt : 1);
+    }
     drawAimLine(predictPath(), time);
     for (const b of state.bullets) drawBullet(b);
     drawPlayer(state.player);
@@ -1209,10 +1466,17 @@ let physicsAccum = 0;
 function loop(ts) {
   const frameDt = last === 0 ? 0 : Math.min(0.1, (ts - last) / 1000);
   last = ts;
+  // 時間演出: ヒットストップ中は世界停止、捕獲/クリア時はスロー(物理は固定stepのまま=軌道は不変)
+  let worldDt = frameDt * timeScale();
+  if (tfx.stop > 0) { tfx.stop -= frameDt; worldDt = 0; }
+  tfx.pull = Math.max(0, tfx.pull - frameDt * 2.5);
+  tfx.slow = Math.max(0, tfx.slow - frameDt * 0.9);
+  if (ghost && ghost.clear && (ghost.life -= frameDt) <= 0) ghost = null;
+  for (const p of state.planets) if (p.pull) p.pull = Math.max(0, p.pull - frameDt * 1.5);
   if (state.running) {
-    physicsAccum += frameDt;
+    physicsAccum += worldDt;
     if (physicsAccum > FIXED_DT * 6) physicsAccum = FIXED_DT * 6;
-    while (physicsAccum >= FIXED_DT) {
+    while (physicsAccum >= FIXED_DT && tfx.stop <= 0) {
       physicsAccum -= FIXED_DT;
       if (demo.active) applyDemo(FIXED_DT);
       else if (!state.lockInput) applyInput(FIXED_DT);
@@ -1220,14 +1484,15 @@ function loop(ts) {
     }
     state.flash = Math.max(0, state.flash - frameDt);
   }
-  // パーティクル・シェイク・発射演出は実時間で更新（タイトルでも動く）
-  updateParticles(frameDt);
+  // パーティクルは世界時間(ヒットストップで止まり、余韻でスロー)。シェイク・発射演出は実時間
+  updateParticles(worldDt);
   updateStardust(frameDt);
   updateShake(frameDt);
   fx.muzzle = Math.max(0, fx.muzzle - frameDt * 6);
   fx.kickback = Math.max(0, fx.kickback - frameDt * 5);
   // ブースター粒子（ゲーム中は常に薄く出す）
   if (state.running) spawnThrustParticles(state.player, frameDt);
+  if (state.running && !bulletInFlight()) stepPregen(); // 次ステージの先行生成(1試行/フレーム)
   render(ts / 1000);
   requestAnimationFrame(loop);
 }
