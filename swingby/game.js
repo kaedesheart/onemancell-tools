@@ -544,6 +544,26 @@ function randomRatioStage(massK = 60) {
   return { player, planets, targets };
 }
 
+// 1stepの移動は直線。端点だけだと引力で加速した弾が円を通り抜けるので、
+// 線分が円に入る最早の t∈[0,1] を返す(外れは -1)。生成・照準・実弾で共用。
+function sweepCircle(x0, y0, x1, y1, cx, cy, r) {
+  const fx = x0 - cx, fy = y0 - cy;
+  const c = fx * fx + fy * fy - r * r;
+  if (c <= 0) return 0;
+  const ex = x1 - cx, ey = y1 - cy;
+  const endIn = ex * ex + ey * ey <= r * r;
+  const dx = x1 - x0, dy = y1 - y0;
+  const a = dx * dx + dy * dy;
+  if (a < 1e-8) return endIn ? 1 : -1;
+  const b = 2 * (fx * dx + fy * dy);
+  const disc = b * b - 4 * a * c;
+  if (disc >= 0) {
+    const t = (-b - Math.sqrt(disc)) / (2 * a);
+    if (t >= 0 && t <= 1) return t;
+  }
+  return endIn ? 1 : -1;
+}
+
 // 弾道シミュレーション。勝利時はステップ数と累積旋回量 turn(rad) も返す
 // trace を渡すと毎stepの [x, y, turn] を積む(的なしで呼ぶと画面外/衝突まで飛ぶ)
 function simulateAndMeasure(absDef, px, py, angle, trace) {
@@ -568,22 +588,25 @@ function simulateAndMeasure(absDef, px, py, angle, trace) {
       ax += a * dx; ay += a * dy;
     }
     turn += Math.abs(vx * ay - vy * ax) / (vx * vx + vy * vy) * dt;
+    const x0 = x, y0 = y;
     vx += ax * dt; vy += ay * dt;
     x  += vx * dt; y  += vy * dt;
-    if (x < -60 || x > W + 60 || y < -60 || y > H + 60) return { hits: false };
+    let planetT = 2;
     for (const p of absDef.planets) {
-      const dx = x - p.x, dy = y - p.y;
-      if (dx * dx + dy * dy < p.r * p.r) return { hits: false };
+      const t = sweepCircle(x0, y0, x, y, p.x, p.y, p.r);
+      if (t >= 0 && t < planetT) planetT = t;
     }
-    if (trace) trace.push(x, y, turn);
+    const rr = TARGET_R + 4;
     for (let i = 0; i < absDef.targets.length; i++) {
       if (hitMask & (1 << i)) continue;
-      const t = absDef.targets[i];
-      const dx = x - t.x, dy = y - t.y;
-      const rr = TARGET_R + 4;
-      if (dx * dx + dy * dy < rr * rr) hitMask |= (1 << i);
+      const tg = absDef.targets[i];
+      const ht = sweepCircle(x0, y0, x, y, tg.x, tg.y, rr);
+      if (ht >= 0 && ht < planetT) hitMask |= (1 << i);
     }
     if (winMask && hitMask === winMask) return { hits: true, steps: s + 1, turn };
+    if (planetT <= 1) return { hits: false };
+    if (x < -60 || x > W + 60 || y < -60 || y > H + 60) return { hits: false };
+    if (trace) trace.push(x, y, turn);
   }
   return { hits: false };
 }
@@ -987,6 +1010,7 @@ function updateBullets(dt) {
 
   for (const b of state.bullets) {
     if (immediateClear) break;
+    const x0 = b.x, y0 = b.y;
     const g = gravityAt(b.x, b.y);
     b.vx += g.ax * dt;
     b.vy += g.ay * dt;
@@ -996,14 +1020,23 @@ function updateBullets(dt) {
     // 旋回速度 ω=|v×a|/|v|² → 引力で「曲がっている」所ほど k が大きい
     const w = Math.abs(b.vx * g.ay - b.vy * g.ax) / (b.vx * b.vx + b.vy * b.vy + 1e-6);
     b.k = Math.min(1, w / FEEL.bendRate);
+    const x1 = b.x, y1 = b.y;
+    let planetT = 2, hitPlanet = null;
+    for (const p of state.planets) {
+      const t = sweepCircle(x0, y0, x1, y1, p.x, p.y, p.r);
+      if (t >= 0 && t < planetT) { planetT = t; hitPlanet = p; }
+    }
+    if (hitPlanet) {
+      b.hitPlanet = hitPlanet;
+      b.x = x0 + (x1 - x0) * planetT;
+      b.y = y0 + (y1 - y0) * planetT;
+    }
     trailPush(b.trail, b.x, b.y, b.k);
-    updateCapture(b);
-
+    if (!hitPlanet) updateCapture(b);
     for (const t of state.targets) {
       if (t.hit) continue;
-      const dx = b.x - t.x, dy = b.y - t.y;
-      const rr = t.r + 4;
-      if (dx * dx + dy * dy < rr * rr) {
+      const ht = sweepCircle(x0, y0, x1, y1, t.x, t.y, t.r + 4);
+      if (ht >= 0 && ht < planetT) {
         t.hit = true;
         const fin = allCleared();
         spawnHitBurst(t.x, t.y, fin);
@@ -1028,11 +1061,7 @@ function updateBullets(dt) {
   for (let i = state.bullets.length - 1; i >= 0; i--) {
     const b = state.bullets[i];
     const offBounds = b.x < -60 || b.x > W + 60 || b.y < -60 || b.y > H + 60;
-    let hitPlanet = null;
-    for (const p of state.planets) {
-      const dx = b.x - p.x, dy = b.y - p.y;
-      if (dx * dx + dy * dy < p.r * p.r) { hitPlanet = p; break; }
-    }
+    const hitPlanet = b.hitPlanet;
     if (b.life <= 0 || offBounds || hitPlanet) {
       if (hitPlanet) {
         // 惑星にめり込んだダスト演出
@@ -1099,18 +1128,23 @@ function predictPath() {
   const sub = 1 / 60;
   for (let i = 0; i < 110; i++) {
     const g = gravityAt(x, y);
+    const x0 = x, y0 = y;
     vx += g.ax * sub;
     vy += g.ay * sub;
     x  += vx * sub;
     y  += vy * sub;
-    if (x < 0 || x > W || y < 0 || y > H) break;
-    let hit = false;
+    let hitT = 2;
     for (const pl of state.planets) {
-      const ddx = x - pl.x, ddy = y - pl.y;
-      if (ddx * ddx + ddy * ddy < pl.r * pl.r) { hit = true; break; }
+      const t = sweepCircle(x0, y0, x, y, pl.x, pl.y, pl.r);
+      if (t >= 0 && t < hitT) hitT = t;
     }
-    if (hit) break;
-    if (i % 2 === 0) path.push({ x, y, k: Math.min(1, Math.abs(vx * g.ay - vy * g.ax) / (vx * vx + vy * vy) / FEEL.bendRate) });
+    const k = Math.min(1, Math.abs(vx * g.ay - vy * g.ax) / (vx * vx + vy * vy) / FEEL.bendRate);
+    if (hitT <= 1) {
+      path.push({ x: x0 + (x - x0) * hitT, y: y0 + (y - y0) * hitT, k });
+      break;
+    }
+    if (x < 0 || x > W || y < 0 || y > H) break;
+    if (i % 2 === 0) path.push({ x, y, k });
   }
   return path;
 }
