@@ -99,16 +99,19 @@ let W = 0, H = 0;
 
 function resize() {
   DPR = Math.min(window.devicePixelRatio || 1, 2) || 1;
-  const iw = window.innerWidth || 0;
-  const ih = window.innerHeight || 0;
+  const frame = document.getElementById('stage-frame');
+  const iw = frame && frame.clientWidth > 2 ? frame.clientWidth : (window.innerWidth || 0);
+  const ih = frame && frame.clientHeight > 2 ? frame.clientHeight : (window.innerHeight || 0);
   if (iw < 2 || ih < 2) return; // 起動時 0px や一瞬の潰れでは描画を捨てない
   W = iw;
   H = ih;
   canvas.width = Math.max(1, Math.floor(W * DPR));
   canvas.height = Math.max(1, Math.floor(H * DPR));
-  canvas.style.width = W + 'px';
-  canvas.style.height = H + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+function screenDx(dx) {
+  const w = canvas.getBoundingClientRect().width;
+  return w > 0 ? dx * (W / w) : dx;
 }
 window.addEventListener('resize', resize);
 resize();
@@ -2097,7 +2100,7 @@ canvas.addEventListener('pointerdown', e => {
 });
 canvas.addEventListener('pointermove', e => {
   if (e.pointerId !== aimDrag.id || aimBlocked()) return;
-  state.player.angle = aimDrag.angle + aimCurve(e.clientX - aimDrag.x);
+  state.player.angle = aimDrag.angle + aimCurve(screenDx(e.clientX - aimDrag.x));
 });
 function endAimDrag(e) { if (e.pointerId === aimDrag.id) aimDrag.id = -1; }
 canvas.addEventListener('pointerup', endAimDrag);
