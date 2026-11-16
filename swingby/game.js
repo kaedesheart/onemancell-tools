@@ -1567,6 +1567,40 @@ function predictPath() {
   return path;
 }
 
+const art = { bg: null, planets: null, ship: null, title: null };
+function artReady(img) { return !!(img && img.ok && img.naturalWidth); }
+function loadArt(key, src) {
+  try {
+    const img = key === 'title' ? byId('title-art') : new Image();
+    if (!img) return;
+    img.onload = () => { img.ok = true; if (key === 'title') syncTitleArt(); };
+    img.onerror = () => { img.ok = false; };
+    img.src = src;
+    art[key] = img;
+    if (img.complete && img.naturalWidth) img.onload();
+  } catch (e) {}
+}
+function planetKind(p) {
+  const d = p.mass / Math.max(1, p.r);
+  if (d >= 74) return (Math.round(p.r) & 1) ? 5 : 2;
+  const c = p.color;
+  if (c === '#C99BFF') return 2;
+  if (c === '#7CC8E8') return 1;
+  if (c === '#FFB270') return d >= 40 ? 0 : 4;
+  if (c === '#9FE6A0') return 3;
+  if (c === '#FF9CAB') return 4;
+  return Math.abs((p.r * 13) | 0) % 6;
+}
+function drawBackdrop() {
+  ctx.fillStyle = '#070B1B';
+  ctx.fillRect(-36, -36, W + 72, H + 72);
+  const img = art.bg;
+  if (!artReady(img)) return;
+  const pad = 28;
+  const scale = Math.max((W + pad * 2) / img.naturalWidth, (H + pad * 2) / img.naturalHeight);
+  const iw = img.naturalWidth * scale, ih = img.naturalHeight * scale;
+  ctx.drawImage(img, (W - iw) / 2, (H - ih) / 2, iw, ih);
+}
 function drawNebulae() {
   if (!state.nebulae) return;
   ctx.save();
@@ -1585,7 +1619,7 @@ function drawStars(time) {
   ctx.save();
   for (const s of state.stars) {
     const flicker = 0.7 + 0.3 * Math.sin(time * s.twinkleSpeed + s.twinklePhase);
-    ctx.globalAlpha = s.a * flicker;
+    ctx.globalAlpha = s.a * flicker * (artReady(art.bg) ? 0.4 : 1);
     ctx.fillStyle = '#E8ECF8';
     dot(s.x * W, s.y * H, s.r);
   }
@@ -1610,6 +1644,13 @@ function drawPlanet(p, time) {
   ctx.strokeStyle = p.color + '55';
   ctx.lineWidth = 1.2;
   circ(p.x, p.y, p.r * 1.16);
+  const sheet = art.planets;
+  if (artReady(sheet)) {
+    const d = p.r * 2.12;
+    ctx.drawImage(sheet, planetKind(p) * 192, 0, 192, 192, p.x - d / 2, p.y - d / 2, d, d);
+    ctx.restore();
+    return;
+  }
   shade(p.x - p.r * 0.4, p.y - p.r * 0.4, p.r * 0.2, p.x, p.y, p.r, [0, '#ffffff', 0.4, p.color, 1, '#1a1a2e']);
   dot(p.x, p.y, p.r);
   ctx.beginPath();
@@ -1643,7 +1684,14 @@ function drawPlayer(p) {
   dot(-p.r * 0.5, 0, p.r * 1.7);
   shade(p.r * 0.2, 0, 0, 0, 0, p.r * 2.4, [0, 'rgba(255,209,120,.22)', 1, 'rgba(255,209,120,0)']);
   dot(0, 0, p.r * 2.4);
-  ctx.fillStyle = '#FFD178';
+  if (artReady(art.ship)) {
+    const s = Math.max(36, p.r * 3.15);
+    ctx.save();
+    ctx.rotate(Math.PI / 2);
+    ctx.drawImage(art.ship, -s / 2, -s / 2, s, s);
+    ctx.restore();
+  } else ctx.fillStyle = '#FFD178';
+  if (!artReady(art.ship)) {
   ctx.strokeStyle = 'rgba(255,255,255,.88)';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
@@ -1654,11 +1702,11 @@ function drawPlayer(p) {
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
-
   ctx.fillStyle = '#7CC8E8';
   dot(0, 0, p.r * 0.27);
   ctx.fillStyle = 'rgba(255,255,255,.55)';
   dot(-p.r * 0.04, -p.r * 0.09, p.r * 0.1);
+  }
   if (fx.muzzle > 0) {
     const m = fx.muzzle;
     shade(p.r * 1.3, 0, 0, p.r * 1.3, 0, p.r * 2.8 * m, [0, `rgba(255,255,255,${0.95 * m})`, 0.4, `rgba(255,231,165,${0.6 * m})`, 1, 'rgba(255,209,120,0)']);
@@ -1783,7 +1831,8 @@ function render(time) {
     ctx.fillStyle = 'rgba(240, 138, 138,' + Math.min(0.12, state.flash * 0.22) + ')';
     ctx.fillRect(-12, -12, W + 24, H + 24);
   }
-  drawNebulae();
+  drawBackdrop();
+  if (!artReady(art.bg)) drawNebulae();
   drawStars(time);
   drawStardust();
   for (const p of state.planets) drawPlanet(p, time);
@@ -2127,6 +2176,13 @@ function startWatchMode() {
 
 let uiMode = 'title';
 let endView = null;
+function syncTitleArt() {
+  const img = byId('title-art');
+  if (!img) return;
+  const on = uiMode !== 'end' && artReady(art.title);
+  img.hidden = !on;
+  overlay.classList.toggle('has-art', on);
+}
 function renderTitle() {
   overlayTitle.innerHTML = '<div class="title-en">' + t('titleMain') + '</div><div class="title-ja">' + t('titleSub') + '</div><div class="title-divider"></div>';
   overlaySub.innerHTML = t('blurb');
@@ -2135,6 +2191,7 @@ function renderTitle() {
   const watch = byId('watch-btn');
   if (watch) watch.textContent = t('watch');
   refreshBestDisplay();
+  syncTitleArt();
 }
 function renderEnd() {
   if (!endView) return;
@@ -2153,6 +2210,7 @@ function renderEnd() {
   overlayBest.style.display = 'none';
   overlayHint.textContent = t('againAsk');
   overlayStartBtn.textContent = t('again');
+  syncTitleArt();
 }
 function applyI18n() {
   document.documentElement.lang = lang;
@@ -2258,6 +2316,10 @@ byId('haptic-btn').addEventListener('click', () => {
   hapticLabel();
 });
 bootLang();
+loadArt('bg', 'assets/bg.webp');
+loadArt('planets', 'assets/planets.webp');
+loadArt('ship', 'assets/ship.webp');
+loadArt('title', 'assets/title.webp');
 hookYt();
 loadProgress();
 

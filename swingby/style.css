@@ -190,6 +190,23 @@ button.badge:active {
   transition: opacity .3s;
 }
 #overlay.hidden { opacity: 0; pointer-events: none; }
+#title-art {
+  display: none;
+  width: 100%;
+  height: 54%;
+  object-fit: cover;
+  object-position: center top;
+  pointer-events: none;
+}
+#overlay.has-art {
+  background: linear-gradient(180deg, rgba(7,11,27,.05) 0%, rgba(7,11,27,.2) 38%, rgba(7,11,27,.94) 62%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  justify-content: flex-end;
+  padding: 0 0 22px;
+}
+#overlay.has-art #title-art { display: block; position: absolute; inset: 0 0 auto 0; }
+#overlay.has-art .title { display: none; }
 
 #overlay .title {
   display: flex;
@@ -531,6 +548,8 @@ html[lang="en"] .title-ja { letter-spacing: .28em; }
 }
 @media (max-height: 420px) {
   #overlay { justify-content: flex-start; padding: 8px 0 6px; overflow: hidden; }
+  #overlay.has-art { padding-bottom: 6px; }
+  #overlay.has-art #title-art { height: 42%; }
   .title-en { font-size: 1.45rem; }
   .title-ja { margin-top: 2px; font-size: .68rem; }
   .title-divider { margin: 6px auto; width: 100px; }
