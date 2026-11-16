@@ -1,7 +1,9 @@
-// YouTube Playables ビルドでは、このファイルより前に次の1行を足す（Web版には入れない）:
-// <script src="https://www.youtube.com/game_api/v1"></script>
+// Playables ではこのファイルの前に https://www.youtube.com/game_api/v1 を足す。Web版には入れない。
+const GOLD = '#FFD178', DIM = '#7A86A0';
+const strong = (s, z) => '<strong style="color:' + GOLD + (z ? ';font-size:' + z + ';' : '') + '">' + s + '</strong>';
+const dim = s => '<br><span style="color:' + DIM + ';font-size:.8em;">' + s + '</span>';
+const shout = s => '<br><span style="color:' + GOLD + ';font-weight:800;">' + s + '</span>';
 
-// ===== Copy =====
 const I18N = {
   ja: {
     docTitle: 'スイングバイ - ワンマンセル ツールズ', appTitle: 'スイングバイ',
@@ -18,17 +20,17 @@ const I18N = {
     noLine: '解が見つかりません', missTitle: 'もう一度', missSub: '惑星に当たった or 外れた',
     stageClear: 'STAGE CLEAR', next: '次のステージへ', cleared: 'CLEAR', allClear: 'ALL CLEAR!',
     unranked: '記録なし', gameClear: 'GAME <span class="accent">CLEAR</span>',
-    endDemo: '合計 <strong style="color:#FFD178">{n}</strong> 発でクリア<br><span style="color:#7A86A0;font-size:.8em;">(お手本使用のため記録対象外)</span>',
-    endShots: '合計 <strong style="color:#FFD178;font-size:1.3em;">{n}</strong> 発でクリア！',
-    newBest: '<br><span style="color:#FFD178;font-weight:800;">🏆 新記録！</span>',
-    bestDelta: '<br><span style="color:#FFD178;font-weight:800;">自己ベスト更新！ {a}→{b}</span>',
-    closeBy: '<br><span style="color:#7A86A0;font-size:.8em;">ベストまであと{n}発</span>',
-    tiedBest: '<br><span style="color:#7A86A0;font-size:.8em;">ベストに並んだ</span>',
+    endDemo: '合計 ' + strong('{n}') + ' 発でクリア' + dim('(お手本使用のため記録対象外)'),
+    endShots: '合計 ' + strong('{n}', '1.3em') + ' 発でクリア！',
+    newBest: shout('🏆 新記録！'),
+    bestDelta: shout('自己ベスト更新！ {a}→{b}'),
+    closeBy: dim('ベストまであと{n}発'),
+    tiedBest: dim('ベストに並んだ'),
     pace: 'ベスト {b} ・ あと{n}発',
     paceOut: 'ベスト更新ならず',
     stageBest: 'このステージのベスト {n}',
     skip: 'タップかSpaceで見送る',
-    endBest: '<br><span style="color:#7A86A0;font-size:.8em;">ベスト: {n} 発</span>',
+    endBest: dim('ベスト: {n} 発'),
     againAsk: 'もう一度プレイしますか？', again: 'もう一度',
   },
   en: {
@@ -46,17 +48,17 @@ const I18N = {
     noLine: 'No path found', missTitle: 'Try again', missSub: 'Hit a planet, or missed',
     stageClear: 'STAGE CLEAR', next: 'Next stage', cleared: 'CLEAR', allClear: 'ALL CLEAR!',
     unranked: 'Unranked', gameClear: 'GAME <span class="accent">CLEAR</span>',
-    endDemo: 'Total shots: <strong style="color:#FFD178">{n}</strong><br><span style="color:#7A86A0;font-size:.8em;">Demo used — not ranked</span>',
-    endShots: 'Total shots: <strong style="color:#FFD178;font-size:1.3em;">{n}</strong>',
-    newBest: '<br><span style="color:#FFD178;font-weight:800;">🏆 New best!</span>',
-    bestDelta: '<br><span style="color:#FFD178;font-weight:800;">New best! {a}→{b}</span>',
-    closeBy: '<br><span style="color:#7A86A0;font-size:.8em;">{n} over best</span>',
-    tiedBest: '<br><span style="color:#7A86A0;font-size:.8em;">Tied the best</span>',
+    endDemo: 'Total shots: ' + strong('{n}') + dim('Demo used — not ranked'),
+    endShots: 'Total shots: ' + strong('{n}', '1.3em'),
+    newBest: shout('🏆 New best!'),
+    bestDelta: shout('New best! {a}→{b}'),
+    closeBy: dim('{n} over best'),
+    tiedBest: dim('Tied the best'),
     pace: 'Best {b} · {n} left',
     paceOut: 'Best stands',
     stageBest: 'Stage best {n}',
     skip: 'Tap or Space to skip',
-    endBest: '<br><span style="color:#7A86A0;font-size:.8em;">Best: {n}</span>',
+    endBest: dim('Best: {n}'),
     againAsk: 'Play again?', again: 'Again',
   },
 };
@@ -75,9 +77,23 @@ function queryLang() {
   return null;
 }
 
-// ===== Canvas / DPR =====
-const canvas = document.getElementById('stage');
+const canvas = byId('stage');
 const ctx = canvas.getContext('2d');
+function byId(id) { return document.getElementById(id); }
+function dot(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
+function circ(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke(); }
+function shade(x0, y0, r0, x1, y1, r1, stops) {
+  const g = ctx.createRadialGradient(x0, y0, r0, x1, y1, r1);
+  for (let i = 0; i < stops.length; i += 2) g.addColorStop(stops[i], stops[i + 1]);
+  ctx.fillStyle = g;
+}
+function marks(n, rad, size, spin) {
+  circ(0, 0, rad);
+  for (let i = 0; i < n; i++) {
+    const a = i * Math.PI * 2 / n + spin;
+    dot(Math.cos(a) * rad, Math.sin(a) * rad, size);
+  }
+}
 let DPR = Math.min(window.devicePixelRatio || 1, 2);
 let W = 0, H = 0;
 
@@ -97,11 +113,9 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// ===== Game settings =====
 const MAX_STAGES = 6;
 const BEST_KEY = 'omc-swingby-best';
 
-// ===== State =====
 const state = {
   running: false,
   stageNum: 1,
@@ -120,7 +134,6 @@ const state = {
   lockInput: false,
 };
 
-// ===== Physics constants =====
 const G = 80000;
 const BULLET_SPEED = 380;
 const BULLET_LIFE = 24;
@@ -131,7 +144,6 @@ const MOVE_SPEED = 230;
 const ROT_SPEED  = 1.6;
 const PLAYER_BOTTOM_OFFSET = 130;
 
-// ===== Game feel (Phase1) — 演出の ON/OFF・強さはここに集約 =====
 const FEEL = {
   shake: true,        // 画面揺れ（OFFで反動・揺れを全停止）
   haptics: true,      // 対応端末の軽い振動
@@ -142,7 +154,6 @@ const FEEL = {
   trailMax: 420,      // 軌跡は直近420点だけ残す(長い飛行でも描画量を固定)
   maxParticles: 320,  // パーティクル上限(プール)
 };
-// 時間演出: stop=ヒットストップ残り秒, pull=捕獲スロー, slow=クリア余韻スロー
 const tfx = { stop: 0, pull: 0, slow: 0 };
 function timeScale() { return Math.min(1 - 0.45 * tfx.pull, 1 - 0.7 * tfx.slow); }
 function haptic(ms) { if (FEEL.haptics && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} }
@@ -181,7 +192,6 @@ function makeNebulae(n) {
   return list;
 }
 
-// ===== Particles & Camera shake =====
 // 固定長プール(リング): 上限超過時は最古を上書き → GC・splice なし
 const particles = [];
 for (let i = 0; i < FEEL.maxParticles; i++) particles.push({ x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, color: '#fff', size: 1, spark: false, drag: 0.94 });
@@ -212,7 +222,6 @@ function spawnHitParticles(x, y, color = '#FFE7A5', count = 28) {
       0.55 + Math.random() * 0.55, color, 1.6 + Math.random() * 2.2, i % 2 === 0);
   }
 }
-// 的: 短い閃光 → 広がる破裂 → 残る煙。白い全面点滅はしない。
 function spawnHitBurst(x, y, final) {
   const n = final ? 20 : 14;
   for (let i = 0; i < n; i++) {
@@ -233,7 +242,6 @@ function spawnHitBurst(x, y, final) {
   flashes.push({ x, y, r: final ? 54 : 32, life: 0.14, max: 0.14 });
 }
 
-// 全クリア時の祝福パーティクル
 function spawnCelebration(major) {
   const palette = ['#FFD178', '#FFE7A5', '#7CC8E8', '#C99BFF', '#9FE6A0', '#FF9CAB'];
   const count = major ? 90 : 55;
@@ -316,7 +324,6 @@ function drawParticles() {
   ctx.restore();
 }
 
-// ===== 弾の軌跡(リングバッファ) — 曲がり具合 k(0..1) で色・太さを変える =====
 const TRAIL_RGB = ['255,196,104', '255,224,150', '190,236,255', '130,220,255', '235,250,255'];
 function makeTrail() { return { buf: new Float32Array(FEEL.trailMax * 3), n: 0, head: 0 }; }
 function trailPush(tr, x, y, k) {
@@ -325,7 +332,6 @@ function trailPush(tr, x, y, k) {
   tr.head = (tr.head + 1) % FEEL.trailMax;
   if (tr.n < FEEL.trailMax) tr.n++;
 }
-// alphaMul: 全体の濃さ / boost: 太さ倍率(クリア余韻) / 同じ見た目の連続区間はまとめて1パスで描画
 function drawTrail(tr, alphaMul, boost) {
   if (!tr || tr.n < 2) return;
   const N = FEEL.trailMax, b = tr.buf, start = (tr.head - tr.n + N) % N;
@@ -359,16 +365,13 @@ function drawTrail(tr, alphaMul, boost) {
   }
   ctx.restore();
 }
-// 弾が消えた後に残す軌跡(ミス時は次の発射まで薄く残し、狙い直しの手がかりにする)
 let ghost = null; // {tr, life, max, clear}
 
 const shake = { magnitude: 0, x: 0, y: 0 };
 
-// ===== タイトル画面の流れ星屑 =====
 const stardust = [];
 let stardustCooldown = 0;
 function spawnStardust() {
-  // 画面端からランダムに登場、対角線方向に流れる
   const fromEdge = Math.floor(Math.random() * 4);
   let x, y, vx, vy;
   switch (fromEdge) {
@@ -387,7 +390,6 @@ function spawnStardust() {
   });
 }
 function updateStardust(dt) {
-  // タイトル中(running=false)のみ生成・更新
   if (!state.running) {
     stardustCooldown -= dt;
     if (stardustCooldown <= 0 && stardust.length < 18) {
@@ -413,7 +415,6 @@ function drawStardust() {
     const t = p.life / p.maxLife;
     let alpha = t < 0.15 ? t / 0.15 : (t > 0.85 ? (1 - t) / 0.15 : 1);
     alpha = Math.max(0, Math.min(1, alpha)) * 0.85;
-    // トレイル(進行方向と反対側に薄く伸ばす)
     const tailX = p.x - p.vx * 0.06;
     const tailY = p.y - p.vy * 0.06;
     const trailGrad = ctx.createLinearGradient(tailX, tailY, p.x, p.y);
@@ -427,24 +428,18 @@ function drawStardust() {
     ctx.moveTo(tailX, tailY);
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
-    // ヘッド(光る点)
     ctx.globalAlpha = alpha;
     const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 5);
     halo.addColorStop(0, p.color);
     halo.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = halo;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * 5, 0, Math.PI * 2);
-    ctx.fill();
+    dot(p.x, p.y, p.size * 5);
     ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * 0.6, 0, Math.PI * 2);
-    ctx.fill();
+    dot(p.x, p.y, p.size * 0.6);
   }
   ctx.restore();
 }
 
-// ===== Audio (WebAudio で効果音を生成) =====
 const audioState = { ctx: null };
 const MUTE_KEY = 'omc-swingby-mute';
 let audioMuted = false;
@@ -476,11 +471,11 @@ function soundBlocked() {
   return !inPlayables() && audioMuted;
 }
 function muteLabel() {
-  const btn = document.getElementById('mute-btn');
+  const btn = byId('mute-btn');
   if (btn) btn.textContent = audioMuted ? t('soundOff') : t('soundOn');
 }
 function hapticLabel() {
-  const btn = document.getElementById('haptic-btn');
+  const btn = byId('haptic-btn');
   if (btn) btn.textContent = FEEL.haptics ? t('vibOn') : t('vibOff');
 }
 function writeProgress() {
@@ -603,10 +598,8 @@ function playAllClear() {
   [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((f, i) =>
     audioBeep({ type: 'triangle', freq: f, dur: 0.65, gain: 0.13, delay: i * 0.10 }));
 }
-// Web は操作まで待つ。Playables はブラウザが許す範囲で先に開く（後の操作でも resume）。
 document.addEventListener('pointerdown', () => { try { initAudio(); syncAudioOut(); } catch (e) {} });
 
-// 発射演出: マズルフラッシュ強度、反動量、ブースター粒子の発生間隔
 const fx = { muzzle: 0, kickback: 0, thrustTimer: 0 };
 function spawnThrustParticles(p, dt) {
   if (!state.running) return;
@@ -626,7 +619,6 @@ function triggerShake(amount) {
   if (!FEEL.shake) return;
   shake.magnitude = Math.min(10, Math.max(shake.magnitude, amount));
 }
-// 方向付きの押し戻し(発射の反動): ランダム揺れとは別にバネで戻る
 const kick = { x: 0, y: 0 };
 function triggerKick(dx, dy) { if (FEEL.shake) { kick.x += dx; kick.y += dy; } }
 function updateShake(dt) {
@@ -651,7 +643,6 @@ function updateShake(dt) {
   kick.y *= Math.pow(0.002, dt);
 }
 
-// タイトル画面用の背景（state・makeStars定義後に呼ぶ）
 function initTitleBg() {
   state.stars = makeStars(150);
   state.nebulae = makeNebulae(3);
@@ -664,7 +655,6 @@ function initTitleBg() {
 }
 initTitleBg();
 
-// ===== Stage =====
 function shipY(ratioY) {
   const lift = (H - PLAYER_BOTTOM_OFFSET < 48) ? Math.max(8, H * 0.2) : PLAYER_BOTTOM_OFFSET;
   return Math.max(8, Math.min(ratioY * H, Math.max(8, H - lift)));
@@ -709,15 +699,10 @@ function expandRatio(ratioDef) {
   };
 }
 
-// ===== Random stage generation =====
 const PALETTE = ['#7CC8E8', '#FFB270', '#C99BFF', '#9FE6A0', '#FF9CAB'];
 const rnd = (a, b) => a + Math.random() * (b - a);
 const choice = arr => arr[Math.floor(Math.random() * arr.length)];
 
-// ===== [Phase2] ステージ難易度ティア =====
-// 0: ST1-2 ほぼ直線でクリア可 / 1: ST3-4 スイングバイが気持ちいい(直接も可) / 2: ST5-6 スイングバイ必須
-// massK=惑星質量係数(元は r*60), bend=「理想軌道」の旋回量(rad), rate=最低クリア率(画面比に依存するので下限のみ),
-// win=同じ位置で連続して当たる角度数の範囲(=狙いの許容幅、1≒3°), straight/gentle/assist=クリア解のうち 直線(旋回<20°)/回り込まない(<46°)/スイングバイ(>46°) の割合
 const TIERS = [
   { massK: 8,  bend: [0, 0.15],  rate: 0.0008, win: [3, 99], straightMin: 0.5 },
   { massK: 30, bend: [0.8, 1.6], rate: 0.0008, win: [2, 5],  gentleMin: 0.1, assistMin: 0.3 },
@@ -775,7 +760,6 @@ function randomRatioStage(massK = 60) {
   return { player, planets, targets };
 }
 
-// 1stepの移動は直線。端点だけだと引力で加速した弾が円を通り抜けるので、
 // 線分が円に入る最早の t∈[0,1] を返す(外れは -1)。生成・照準・実弾で共用。
 function sweepCircle(x0, y0, x1, y1, cx, cy, r) {
   const fx = x0 - cx, fy = y0 - cy;
@@ -816,8 +800,6 @@ function fleeing(x, y, vx, vy, planets) {
   return sp2 > pull * 1.2;
 }
 
-// 弾道シミュレーション。勝利時はステップ数と累積旋回量 turn(rad) も返す
-// trace を渡すと毎stepの [x, y, turn] を積む(的なしで呼ぶと画面外/衝突まで飛ぶ)
 function simulateAndMeasure(absDef, px, py, angle, trace) {
   const winMask = (1 << absDef.targets.length) - 1;
   const playerR = 14;
@@ -830,15 +812,8 @@ function simulateAndMeasure(absDef, px, py, angle, trace) {
   let vy = ny * BULLET_SPEED;
   let hitMask = 0, turn = 0;
   for (let s = 0; s < maxSteps; s++) {
-    let ax = 0, ay = 0;
-    for (const p of absDef.planets) {
-      const dx = p.x - x, dy = p.y - y;
-      const r = Math.hypot(dx, dy);
-      const safeR = Math.max(r, p.r * 0.6);
-      const inv3 = 1 / (safeR * safeR * safeR);
-      const a = G * p.mass * inv3;
-      ax += a * dx; ay += a * dy;
-    }
+    const gAcc = pull(absDef.planets, x, y);
+    const ax = gAcc.ax, ay = gAcc.ay;
     turn += Math.abs(vx * ay - vy * ax) / (vx * vx + vy * vy) * dt;
     const x0 = x, y0 = y;
     vx += ax * dt; vy += ay * dt;
@@ -863,8 +838,6 @@ function simulateAndMeasure(absDef, px, py, angle, trace) {
   return { hits: false };
 }
 
-// 解空間の全探索。操作は1step毎に 移動3.83px / 回転1.53° 刻みなので、実際に到達できる格子上で調べる
-// (横は3刻み以上・角度2刻みに間引き)。難易度指標と解リスト(お手本用)を返す
 function classifyStage(absDef) {
   const st1 = MOVE_SPEED / 60, MX = st1 * Math.max(3, Math.round((W - 80) / 40 / st1)); // 横は最大約40列
   const RA = ROT_SPEED / 60 * 2, py = absDef.player.y, sols = [];
@@ -892,15 +865,12 @@ function fitsTier(c, T) {
     && (T.assistMin == null || c.assist >= T.assistMin);
 }
 
-// 「理想軌道」から逆算して的を置く: 発射点と角度を決めて飛ばし、軌跡上に的を2つ配置
 function buildTierStage(tier) {
   const T = TIERS[tier];
   const def = randomRatioStage(T.massK);
   if (!def) return null;
   const abs = expandRatio(def);
   const tr = [];
-  // 直線型: 画面上部の適当な点を狙う / スイングバイ型: 惑星の脇(半径の3〜7倍)を狙う
-  // tier0=直線型のみ, tier1=半々(両方の解が残る盤面だけ採用), tier2=スイングバイ型のみ
   const swing = tier === 2 || (tier === 1 && Math.random() < 0.5);
   const lx = rnd(60, W - 60), ly = abs.player.y, pl = choice(abs.planets);
   let ax = rnd(0.2, 0.8) * W, ay = rnd(0.08, 0.5) * H;
@@ -952,8 +922,6 @@ function easyFallback() {
   };
 }
 
-// ステージ番号のティアに合う盤面だけを採用(構築型を主に、3回に1回は従来のランダム配置も試す)
-// generator にして1試行ずつ進められるようにし、次ステージを操作中の空きフレームで先に作っておく
 function* stageSearch(n) {
   const tier = stageTier(n), T = TIERS[tier];
   for (let attempt = 0; attempt < 60; attempt++) {
@@ -984,8 +952,6 @@ function generateSolvableStage() {
 function pregenStage(n) { if (pre.n !== n) { pre.n = n; pre.def = null; pre.it = stageSearch(n); } }
 function stepPregen() { if (pre.it) { const r = pre.it.next(); if (r.done) { pre.def = r.value; pre.it = null; } } }
 
-// 観るだけモード専用。通常の pre キャッシュには入れない。
-// 画面内の旋回を主に、ループ・接近・画面外から戻った回数を足す。
 const ACRO_MIN = 4.2;
 const watchQ = { it: null, next: null, live: false, seen: false, lastSig: -1, spins: 0 };
 const watchFx = { fade: 0, dir: 0, hold: false };
@@ -1139,7 +1105,6 @@ function advanceWatch(frameDt) {
   else if (!watchQ.seen && watchQ.next && !watchFx.dir) revealWatch(true);
 }
 
-// 解リスト(生成時のものを再利用、画面サイズが変わっていたら再探索)
 function stageSolutions(absDef) {
   const d = state.currentDef;
   if (d && d.sols && d.solW === W && d.solH === H) return d.sols;
@@ -1147,7 +1112,6 @@ function stageSolutions(absDef) {
   if (d) { d.sols = sols; d.solW = W; d.solH = H; }
   return sols;
 }
-// 現在位置に最も近い解（通常お手本用）
 function findNearestSolution(absDef, currentPx) {
   let best = null, bestDist = Infinity;
   for (const s of stageSolutions(absDef)) {
@@ -1156,7 +1120,6 @@ function findNearestSolution(absDef, currentPx) {
   }
   return best;
 }
-// 「理想軌道」= 観るだけモード用: 旋回量が最大(=最もスイングバイらしい)解。ティア0は最も素直な解
 function findLongestSolution(absDef) {
   const tier = state.currentDef && state.currentDef.tier;
   let best = null;
@@ -1166,11 +1129,9 @@ function findLongestSolution(absDef) {
   return best;
 }
 
-// ===== Demo (お手本プレイ) =====
 const demo = { active: false, targetPx: 0, targetAngle: 0, startTime: 0 };
 let demoFireTimer = null;
 
-// 観るだけモード用: 連鎖setTimeoutをID管理してexit時に全キャンセル
 let watchTimers = [];
 function watchSetTimeout(fn, ms) {
   const arm = (delay) => {
@@ -1193,7 +1154,6 @@ function startDemo() {
   if (!state.running || state.lockInput || demo.active || bulletInFlight()) return;
   if (!state.currentDef) return;
   const absDef = expandRatio(state.currentDef);
-  // 観るだけモードはトリックショット（最長軌道）優先、通常モードは現在位置に近い解
   const sol = state.watchMode && state.currentDef.showcase
     ? state.currentDef.showcase
     : state.watchMode
@@ -1249,11 +1209,9 @@ function applyDemo(dt) {
     // 角度がmod 2πで等価だが値が異なる(例: -π/2 と 3π/2) → 強制スナップ
     p.angle = demo.targetAngle;
   }
-  // 両方 exact 一致したら発射 → シミュレータと完全一致した軌道に
   if (p.x === demo.targetPx && p.angle === demo.targetAngle) {
     demo.active = false;
     state.lockInput = false;
-    // 観るだけモードはじっくりタメてから発射、通常モードはサクッと
     const fireDelay = state.watchMode ? 800 : 220;
     if (demoFireTimer) clearTimeout(demoFireTimer);
     const armFire = (delay) => {
@@ -1284,17 +1242,16 @@ function aimCurve(dx) {
   return s * (fine * 0.00105 + (a - fine) * 0.0052);
 }
 
-// ===== HUD =====
 function updateHUD() {
-  document.getElementById('stage-num').textContent = state.stageNum + '/' + MAX_STAGES;
+  byId('stage-num').textContent = state.stageNum + '/' + MAX_STAGES;
   const shots = state.totalShots;
-  document.getElementById('shots-count').textContent = state.demoUsed ? (shots + ' ✗') : shots;
+  byId('shots-count').textContent = state.demoUsed ? (shots + ' ✗') : shots;
   updatePace();
   if (typeof updateFireBtnState === 'function') updateFireBtnState();
 }
 function updatePace() {
-  const line = document.getElementById('pace');
-  const st = document.getElementById('stage-pace');
+  const line = byId('pace');
+  const st = byId('stage-pace');
   if (!line) return;
   const show = state.running && !state.watchMode && !state.demoUsed;
   const best = getBestRecord();
@@ -1336,21 +1293,18 @@ function noteStageBest() {
 function bulletInFlight() { return state.bullets.length > 0; }
 function allCleared() { return state.targets.length > 0 && state.targets.every(t => t.hit); }
 
-// ===== Physics =====
-function gravityAt(x, y) {
+function pull(planets, x, y) {
   let ax = 0, ay = 0;
-  for (const p of state.planets) {
-    const dx = p.x - x;
-    const dy = p.y - y;
-    const r = Math.hypot(dx, dy);
-    const safeR = Math.max(r, p.r * 0.6);
+  for (const p of planets) {
+    const dx = p.x - x, dy = p.y - y;
+    const safeR = Math.max(Math.hypot(dx, dy), p.r * 0.6);
     const inv3 = 1 / (safeR * safeR * safeR);
     const a = G * p.mass * inv3;
-    ax += a * dx;
-    ay += a * dy;
+    ax += a * dx; ay += a * dy;
   }
   return { ax, ay };
 }
+function gravityAt(x, y) { return pull(state.planets, x, y); }
 
 function fire() {
   if (simPaused || !state.running || state.lockInput || bulletInFlight()) return;
@@ -1369,14 +1323,12 @@ function fire() {
     capMask: 0,    // このショットで捕獲演出済みの惑星(1回ずつ)
   });
   ghost = null;
-  // 発射演出: 機体の反動 + 画面を発射と逆方向へ押す + マズルの衝撃リング
   fx.muzzle = 1;
   fx.kickback = 1;
   triggerShake(3);
   triggerKick(-nx * 5, -ny * 5);
   addRing(p.x + nx * (p.r + 8), p.y + ny * (p.r + 8), 4, 24, 0.22, '#FFE7A5', 2.5);
   haptic(10);
-  // マズルから前方に金色の閃光
   const muzzleX = p.x + nx * (p.r + 8);
   const muzzleY = p.y + ny * (p.r + 8);
   for (let i = 0; i < 8; i++) {
@@ -1415,7 +1367,6 @@ function endShotCleared() {
   state.lockInput = true;
 
   if (state.watchMode) {
-    // 文字は出さない。軌跡の余韻のあと、フェードで次の見世物へ。
     playClear();
     watchSetTimeout(() => { if (state.watchMode) watchFx.dir = 1; }, 1050);
     return;
@@ -1424,7 +1375,6 @@ function endShotCleared() {
   noteStageBest();
   const isLastStage = state.stageNum >= MAX_STAGES;
   if (isLastStage) {
-    // 新記録になりそうかを予測（記録対象外＝デモ使用なら通常パーティクル）
     const prevBest = getBestRecord();
     const willBeNewBest = !state.demoUsed && (prevBest == null || state.totalShots < prevBest);
     spawnCelebration(willBeNewBest);
@@ -1461,7 +1411,6 @@ function updateBullets(dt) {
     b.x  += b.vx * dt;
     b.y  += b.vy * dt;
     b.life -= dt;
-    // 旋回速度 ω=|v×a|/|v|² → 引力で「曲がっている」所ほど k が大きい
     const w = Math.abs(b.vx * g.ay - b.vy * g.ax) / (b.vx * b.vx + b.vy * b.vy + 1e-6);
     b.k = Math.min(1, w / FEEL.bendRate);
     const x1 = b.x, y1 = b.y;
@@ -1531,7 +1480,6 @@ function updateBullets(dt) {
   }
 }
 
-// 「ぐいっと」捕獲: 1惑星の引力が閾値を超えた瞬間に収縮リング+短いスロー+音
 function updateCapture(b) {
   let best = null, bestA = 0, bi = 0;
   state.planets.forEach((p, i) => {
@@ -1557,7 +1505,6 @@ function updateCapture(b) {
     }
   } else if (lv < 0.7) b.capT = null;
 }
-// クリア余韻: スロー + 軌跡を光らせて残す + 軌跡から光の粒が立ち上る
 function startAfterglow(b, t) {
   tfx.slow = 1;
   const glow = state.watchMode ? 2.6 : 1.6;
@@ -1620,7 +1567,6 @@ function predictPath() {
   return path;
 }
 
-// ===== Render =====
 function drawNebulae() {
   if (!state.nebulae) return;
   ctx.save();
@@ -1641,62 +1587,35 @@ function drawStars(time) {
     const flicker = 0.7 + 0.3 * Math.sin(time * s.twinkleSpeed + s.twinklePhase);
     ctx.globalAlpha = s.a * flicker;
     ctx.fillStyle = '#E8ECF8';
-    ctx.beginPath();
-    ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
-    ctx.fill();
+    dot(s.x * W, s.y * H, s.r);
   }
   ctx.restore();
 }
 
 function drawPlanet(p, time) {
   ctx.save();
-  // 個体ごとの位相（一度乱数 → 以後固定）
   if (p._phase === undefined) p._phase = Math.random() * Math.PI * 2;
-  // 重力場リング
-  const grad = ctx.createRadialGradient(p.x, p.y, p.r * 0.8, p.x, p.y, p.r * 4);
-  grad.addColorStop(0, p.color + '55');
-  grad.addColorStop(1, p.color + '00');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, p.r * 4, 0, Math.PI * 2);
-  ctx.fill();
-  // 捕獲中: 外から惑星へ吸い込まれる脈動リング
+  shade(p.x, p.y, p.r * 0.8, p.x, p.y, p.r * 4, [0, p.color + '55', 1, p.color + '00']);
+  dot(p.x, p.y, p.r * 4);
   if (p.pull > 0.01) {
     for (let k = 0; k < 2; k++) {
       const ph = 1 - (((time || 0) * 2.2 + k * 0.5) % 1);
       ctx.globalAlpha = p.pull * (1 - ph) * 0.9;
       ctx.strokeStyle = p.color;
       ctx.lineWidth = 1.5 + 2 * p.pull;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r * (1.15 + 2.2 * ph), 0, Math.PI * 2);
-      ctx.stroke();
+      circ(p.x, p.y, p.r * (1.15 + 2.2 * ph));
     }
     ctx.globalAlpha = 1;
   }
-  // 大気のリング（薄い縁取り）
   ctx.strokeStyle = p.color + '55';
   ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, p.r * 1.16, 0, Math.PI * 2);
-  ctx.stroke();
-  // 本体
-  const body = ctx.createRadialGradient(
-    p.x - p.r * 0.4, p.y - p.r * 0.4, p.r * 0.2,
-    p.x, p.y, p.r
-  );
-  body.addColorStop(0, '#ffffff');
-  body.addColorStop(0.4, p.color);
-  body.addColorStop(1, '#1a1a2e');
-  ctx.fillStyle = body;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-  ctx.fill();
-  // クリッピングしてハイライト＋大気バンドを描画
+  circ(p.x, p.y, p.r * 1.16);
+  shade(p.x - p.r * 0.4, p.y - p.r * 0.4, p.r * 0.2, p.x, p.y, p.r, [0, '#ffffff', 0.4, p.color, 1, '#1a1a2e']);
+  dot(p.x, p.y, p.r);
   ctx.beginPath();
   ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
   ctx.clip();
 
-  // 大気バンド（横方向、ゆっくり揺らぐ）
   const t = (time || 0) * 0.6 + p._phase;
   for (let i = -2; i <= 2; i++) {
     const offset = Math.sin(t + i * 0.7) * p.r * 0.04;
@@ -1706,44 +1625,24 @@ function drawPlanet(p, time) {
     ctx.fillRect(p.x - p.r, y - p.r * 0.05, p.r * 2, p.r * 0.10);
   }
 
-  // 自転を感じさせるハイライト
   const hx = p.x + Math.cos(t) * p.r * 0.32;
   const hy = p.y - p.r * 0.3 + Math.sin(t) * p.r * 0.12;
-  const hl = ctx.createRadialGradient(hx, hy, 0, hx, hy, p.r * 0.45);
-  hl.addColorStop(0, 'rgba(255,255,255,0.65)');
-  hl.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = hl;
+  shade(hx, hy, 0, hx, hy, p.r * 0.45, [0, 'rgba(255,255,255,0.65)', 1, 'rgba(255,255,255,0)']);
   ctx.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
   ctx.restore();
 }
 
 function drawPlayer(p) {
   ctx.save();
-  // 反動: 後ろ向きに数pxオフセット（物理は不変、表示のみ）
   const kickOffset = -fx.kickback * 9;
   ctx.translate(p.x + Math.cos(p.angle) * kickOffset, p.y + Math.sin(p.angle) * kickOffset);
   ctx.rotate(p.angle);
 
-  // スラスター炎(キックバック中は強める)
   const thrustIntensity = 0.5 + fx.kickback * 0.7;
-  const thrGrad = ctx.createRadialGradient(-p.r * 0.5, 0, 0, -p.r * 0.5, 0, p.r * 1.7);
-  thrGrad.addColorStop(0, `rgba(110,175,255,${thrustIntensity})`);
-  thrGrad.addColorStop(1, 'rgba(110,175,255,0)');
-  ctx.fillStyle = thrGrad;
-  ctx.beginPath();
-  ctx.arc(-p.r * 0.5, 0, p.r * 1.7, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 機体アウターグロウ
-  const glowGrad = ctx.createRadialGradient(p.r * 0.2, 0, 0, 0, 0, p.r * 2.4);
-  glowGrad.addColorStop(0, 'rgba(255,209,120,.22)');
-  glowGrad.addColorStop(1, 'rgba(255,209,120,0)');
-  ctx.fillStyle = glowGrad;
-  ctx.beginPath();
-  ctx.arc(0, 0, p.r * 2.4, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 機体本体
+  shade(-p.r * 0.5, 0, 0, -p.r * 0.5, 0, p.r * 1.7, [0, `rgba(110,175,255,${thrustIntensity})`, 1, 'rgba(110,175,255,0)']);
+  dot(-p.r * 0.5, 0, p.r * 1.7);
+  shade(p.r * 0.2, 0, 0, 0, 0, p.r * 2.4, [0, 'rgba(255,209,120,.22)', 1, 'rgba(255,209,120,0)']);
+  dot(0, 0, p.r * 2.4);
   ctx.fillStyle = '#FFD178';
   ctx.strokeStyle = 'rgba(255,255,255,.88)';
   ctx.lineWidth = 1.5;
@@ -1756,28 +1655,14 @@ function drawPlayer(p) {
   ctx.fill();
   ctx.stroke();
 
-  // コックピット
   ctx.fillStyle = '#7CC8E8';
-  ctx.beginPath();
-  ctx.arc(0, 0, p.r * 0.27, 0, Math.PI * 2);
-  ctx.fill();
-  // 光沢ハイライト
+  dot(0, 0, p.r * 0.27);
   ctx.fillStyle = 'rgba(255,255,255,.55)';
-  ctx.beginPath();
-  ctx.arc(-p.r * 0.04, -p.r * 0.09, p.r * 0.1, 0, Math.PI * 2);
-  ctx.fill();
-
-  // マズルフラッシュ(発射直後の閃光)
+  dot(-p.r * 0.04, -p.r * 0.09, p.r * 0.1);
   if (fx.muzzle > 0) {
     const m = fx.muzzle;
-    const flashGrad = ctx.createRadialGradient(p.r * 1.3, 0, 0, p.r * 1.3, 0, p.r * 2.8 * m);
-    flashGrad.addColorStop(0, `rgba(255,255,255,${0.95 * m})`);
-    flashGrad.addColorStop(0.4, `rgba(255,231,165,${0.6 * m})`);
-    flashGrad.addColorStop(1, 'rgba(255,209,120,0)');
-    ctx.fillStyle = flashGrad;
-    ctx.beginPath();
-    ctx.arc(p.r * 1.3, 0, p.r * 2.8 * m, 0, Math.PI * 2);
-    ctx.fill();
+    shade(p.r * 1.3, 0, 0, p.r * 1.3, 0, p.r * 2.8 * m, [0, `rgba(255,255,255,${0.95 * m})`, 0.4, `rgba(255,231,165,${0.6 * m})`, 1, 'rgba(255,209,120,0)']);
+    dot(p.r * 1.3, 0, p.r * 2.8 * m);
   }
 
   ctx.restore();
@@ -1786,7 +1671,6 @@ function drawPlayer(p) {
 function drawAimLine(path, time) {
   if (!path.length || bulletInFlight() || state.watchMode || demo.active) return;
   ctx.save();
-  // 加算合成で柔らかいエネルギー光に。先端へかけて消える。
   ctx.globalCompositeOperation = 'lighter';
   const phase = ((time || 0) * 0.55) % 1;
   for (let i = 0; i < path.length; i++) {
@@ -1797,19 +1681,15 @@ function drawAimLine(path, time) {
     const wave = Math.max(0, 1 - dist * 5);
     const alpha = Math.min(1, 0.08 + 0.85 * fade + wave * 0.25);
     ctx.globalAlpha = alpha;
-    // 引力で曲がる区間は水色で示す(実際の軌跡と同じ色言語)
     const kk = path[i].k;
     const color = t < 0.3 ? 'rgba(255,255,255,1)' : (kk > 0.3 ? 'rgba(150,225,255,1)' : 'rgba(255,209,120,1)');
     const r = 1.3 + fade * 1.1 + wave * 1.4 + kk * 1.0;
-    // 柔らかいハロー(霧効果)
     const grad = ctx.createRadialGradient(path[i].x, path[i].y, 0, path[i].x, path[i].y, r * 2.6);
     grad.addColorStop(0, color);
     grad.addColorStop(0.5, color.replace(',1)', ',0.4)'));
     grad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(path[i].x, path[i].y, r * 2.6, 0, Math.PI * 2);
-    ctx.fill();
+    dot(path[i].x, path[i].y, r * 2.6);
   }
   ctx.restore();
 }
@@ -1820,84 +1700,40 @@ function drawTarget(t, time) {
     ctx.globalAlpha = 0.18;
     ctx.strokeStyle = '#FFD178';
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, t.r * 0.5, 0, Math.PI * 2);
-    ctx.stroke();
+    circ(t.x, t.y, t.r * 0.5);
     ctx.restore();
     return;
   }
   const corePulse = 1 + Math.sin(time * 4) * 0.10;
   const corePulseFast = 1 + Math.sin(time * 7) * 0.12;
 
-  // 外側のグロー
-  const grad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, t.r * 2.6);
-  grad.addColorStop(0, 'rgba(255, 230, 150, 0.55)');
-  grad.addColorStop(1, 'rgba(255, 209, 120, 0)');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.arc(t.x, t.y, t.r * 2.6, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 外リング: ゆっくり時計回り、チェブロン4マーク
+  shade(t.x, t.y, 0, t.x, t.y, t.r * 2.6, [0, 'rgba(255, 230, 150, 0.55)', 1, 'rgba(255, 209, 120, 0)']);
+  dot(t.x, t.y, t.r * 2.6);
   ctx.translate(t.x, t.y);
   ctx.save();
   ctx.rotate(time * 0.7);
   ctx.strokeStyle = 'rgba(255, 231, 165, 0.82)';
   ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(0, 0, t.r * corePulse, 0, Math.PI * 2);
-  ctx.stroke();
-  // チェブロン
   ctx.fillStyle = '#FFE7A5';
-  for (let i = 0; i < 4; i++) {
-    const a = i * Math.PI / 2;
-    const cx = Math.cos(a) * t.r * corePulse;
-    const cy = Math.sin(a) * t.r * corePulse;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 2.2, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  marks(4, t.r * corePulse, 2.2, 0);
   ctx.restore();
-
-  // 内リング: 反対方向、3マーク
   ctx.save();
   ctx.rotate(-time * 1.3);
   ctx.strokeStyle = 'rgba(255, 231, 165, 0.55)';
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(0, 0, t.r * 0.55, 0, Math.PI * 2);
-  ctx.stroke();
   ctx.fillStyle = 'rgba(255, 231, 165, 0.85)';
-  for (let i = 0; i < 3; i++) {
-    const a = i * Math.PI * 2 / 3 + Math.PI / 6;
-    const cx = Math.cos(a) * t.r * 0.55;
-    const cy = Math.sin(a) * t.r * 0.55;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 1.4, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  marks(3, t.r * 0.55, 1.4, Math.PI / 6);
   ctx.restore();
-
-  // コア: 白い点+脈動グロー
-  const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 6 * corePulseFast);
-  coreGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
-  coreGrad.addColorStop(0.6, 'rgba(255,231,165,0.45)');
-  coreGrad.addColorStop(1, 'rgba(255,209,120,0)');
-  ctx.fillStyle = coreGrad;
-  ctx.beginPath();
-  ctx.arc(0, 0, 6 * corePulseFast, 0, Math.PI * 2);
-  ctx.fill();
+  shade(0, 0, 0, 0, 0, 6 * corePulseFast, [0, 'rgba(255,255,255,0.95)', 0.6, 'rgba(255,231,165,0.45)', 1, 'rgba(255,209,120,0)']);
+  dot(0, 0, 6 * corePulseFast);
   ctx.fillStyle = '#FFFFFF';
-  ctx.beginPath();
-  ctx.arc(0, 0, 2.4, 0, Math.PI * 2);
-  ctx.fill();
+  dot(0, 0, 2.4);
   ctx.restore();
 }
 
 function drawBullet(b) {
   drawTrail(b.trail, 1, 1);
   ctx.save();
-  // 捕獲中は惑星との間に引力の糸
   if (b.capT) {
     const p = b.capT;
     ctx.globalCompositeOperation = 'lighter';
@@ -2014,7 +1850,7 @@ function skipShot() {
   endShotFailed();
 }
 function syncSkipHint() {
-  const el = document.getElementById('skip-hint');
+  const el = byId('skip-hint');
   if (!el) return;
   const on = canSkip();
   if (!on) { el.hidden = true; return; }
@@ -2023,7 +1859,6 @@ function syncSkipHint() {
   if (el.textContent !== label) el.textContent = label;
 }
 
-// ===== Game loop =====
 // 物理は固定タイムステップ(1/60秒)で更新 → 軌道が決定論的になる
 const FIXED_DT = 1 / 60;
 let last = 0;
@@ -2074,9 +1909,9 @@ function hookYt() {
   try { yt.system.onPause(() => { holdYt = true; syncHold(); try { writeProgress(); } catch (e) {} }); } catch (e) {}
   try { yt.system.onResume(() => { holdYt = false; syncHold(); }); } catch (e) {}
   if (inPlayables()) {
-    const mute = document.getElementById('mute-btn');
+    const mute = byId('mute-btn');
     if (mute) mute.hidden = true;
-    const vib = document.getElementById('haptic-btn');
+    const vib = byId('haptic-btn');
     if (vib) vib.hidden = false;
     try { initAudio(); syncAudioOut(); } catch (e) {}
   }
@@ -2112,13 +1947,11 @@ function loop(ts) {
     }
     state.flash = Math.max(0, state.flash - frameDt);
   }
-  // パーティクルは世界時間(ヒットストップで止まり、余韻でスロー)。シェイク・発射演出は実時間
   updateParticles(worldDt);
   updateStardust(frameDt);
   updateShake(frameDt);
   fx.muzzle = Math.max(0, fx.muzzle - frameDt * 6);
   fx.kickback = Math.max(0, fx.kickback - frameDt * 5);
-  // ブースター粒子（ゲーム中は常に薄く出す）
   if (state.running) spawnThrustParticles(state.player, frameDt);
   if (state.running && state.watchMode) advanceWatch(frameDt);
   else if (state.running && !bulletInFlight()) stepPregen(); // 次ステージの先行生成(1試行/フレーム)
@@ -2131,10 +1964,9 @@ if (!inPlayables()) {
   try { if (document.hidden) { holdHidden = true; syncHold(); } } catch (e) {}
 }
 
-// ===== Result overlay =====
-const resultOverlay = document.getElementById('result-overlay');
-const resultTitle = document.getElementById('result-title');
-const resultSub = document.getElementById('result-sub');
+const resultOverlay = byId('result-overlay');
+const resultTitle = byId('result-title');
+const resultSub = byId('result-sub');
 let lastResult = null;
 function paintResult() {
   if (!lastResult) return;
@@ -2155,8 +1987,7 @@ function hideResult() {
   resultOverlay.classList.add('hidden');
 }
 
-// ===== Input =====
-const fireBtn = document.getElementById('fire-btn');
+const fireBtn = byId('fire-btn');
 function updateFireBtnState() {
   fireBtn.disabled = !state.running || state.lockInput || bulletInFlight();
 }
@@ -2223,15 +2054,14 @@ function endAimDrag(e) { if (e.pointerId === aimDrag.id) aimDrag.id = -1; }
 canvas.addEventListener('pointerup', endAimDrag);
 canvas.addEventListener('pointercancel', endAimDrag);
 
-// ===== Start / End =====
-const overlay = document.getElementById('overlay');
-const overlaySub = document.getElementById('overlay-sub');
-const overlayHint = document.getElementById('hint-text');
-const overlayBest = document.getElementById('best-display');
-const overlayBestVal = document.getElementById('best-val');
+const overlay = byId('overlay');
+const overlaySub = byId('overlay-sub');
+const overlayHint = byId('hint-text');
+const overlayBest = byId('best-display');
+const overlayBestVal = byId('best-val');
 const overlayTitle = overlay.querySelector('.title');
-const overlayStartBtn = document.getElementById('start-btn');
-const controlsEl = document.getElementById('controls');
+const overlayStartBtn = byId('start-btn');
+const controlsEl = byId('controls');
 
 function refreshBestDisplay() {
   const best = getBestRecord();
@@ -2245,19 +2075,19 @@ function refreshBestDisplay() {
 
 function setHudForPlay() {
   document.querySelector('.hud-right').style.display = '';
-  document.getElementById('retry-btn').style.display = '';
-  document.getElementById('demo-btn').style.display = '';
-  document.getElementById('exit-btn').style.display = 'none';
+  byId('retry-btn').style.display = '';
+  byId('demo-btn').style.display = '';
+  byId('exit-btn').style.display = 'none';
 }
 
 function setHudForWatch() {
   document.querySelector('.hud-right').style.display = 'none';
-  document.getElementById('retry-btn').style.display = 'none';
-  document.getElementById('demo-btn').style.display = 'none';
-  document.getElementById('exit-btn').style.display = '';
+  byId('retry-btn').style.display = 'none';
+  byId('demo-btn').style.display = 'none';
+  byId('exit-btn').style.display = '';
 }
 
-function startGame() {
+function zeroRun(watch) {
   pre.n = 0; pre.def = pre.it = null;
   resetWatchQueue();
   uiMode = 'play';
@@ -2266,12 +2096,15 @@ function startGame() {
   state.totalShots = 0;
   state.stageShots = 0;
   state.demoUsed = false;
-  state.watchMode = false;
-  state.lockInput = false;
+  state.watchMode = !!watch;
   state.flash = 0;
   state.input.left = state.input.right = state.input.rotL = state.input.rotR = false;
   demo.active = false;
   hideResult();
+}
+function startGame() {
+  zeroRun(false);
+  state.lockInput = false;
   applyStage(generateSolvableStage());
   state.running = true;
   overlay.classList.add('hidden');
@@ -2282,21 +2115,9 @@ function startGame() {
 }
 
 function startWatchMode() {
-  pre.n = 0; pre.def = pre.it = null;
-  resetWatchQueue();
-  uiMode = 'play';
-  endView = null;
   clearWatchTimers();
-  state.stageNum = 1;
-  state.totalShots = 0;
-  state.stageShots = 0;
-  state.demoUsed = false; // 観るだけモードでは demoUsed の概念は使わない
-  state.watchMode = true;
+  zeroRun(true);
   state.lockInput = true;
-  state.flash = 0;
-  state.input.left = state.input.right = state.input.rotL = state.input.rotR = false;
-  demo.active = false;
-  hideResult();
   state.running = true;
   overlay.classList.add('hidden');
   controlsEl.style.display = 'none';
@@ -2311,7 +2132,7 @@ function renderTitle() {
   overlaySub.innerHTML = t('blurb');
   overlayHint.textContent = t('hint');
   overlayStartBtn.textContent = t('start');
-  const watch = document.getElementById('watch-btn');
+  const watch = byId('watch-btn');
   if (watch) watch.textContent = t('watch');
   refreshBestDisplay();
 }
@@ -2340,7 +2161,7 @@ function applyI18n() {
   const meta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
   if (meta) meta.setAttribute('content', t('appTitle'));
   const aria = (id, key) => {
-    const el = document.getElementById(id);
+    const el = byId(id);
     if (!el) return;
     const s = t(key);
     el.setAttribute('aria-label', s);
@@ -2354,15 +2175,15 @@ function applyI18n() {
     const key = move[btn.dataset.input];
     if (key) btn.setAttribute('aria-label', t(key));
   });
-  const fireEl = document.getElementById('fire-btn');
+  const fireEl = byId('fire-btn');
   if (fireEl) fireEl.textContent = t('fire');
-  const stageLabel = document.getElementById('stage-label');
+  const stageLabel = byId('stage-label');
   if (stageLabel) stageLabel.textContent = t('stage');
-  const shotsLabel = document.getElementById('shots-label');
+  const shotsLabel = byId('shots-label');
   if (shotsLabel) shotsLabel.textContent = t('shots');
-  const pre = document.getElementById('best-pre');
+  const pre = byId('best-pre');
   if (pre) pre.textContent = t('bestPre');
-  const post = document.getElementById('best-post');
+  const post = byId('best-post');
   if (post) post.textContent = t('bestPost');
   try { muteLabel(); hapticLabel(); updatePace(); } catch (e) {}
   if (uiMode === 'end') renderEnd();
@@ -2429,10 +2250,10 @@ function showEndScreen() {
 }
 
 overlayStartBtn.addEventListener('click', startGame);
-document.getElementById('watch-btn').addEventListener('click', startWatchMode);
-document.getElementById('exit-btn').addEventListener('click', exitToTitle);
-document.getElementById('mute-btn').addEventListener('click', () => setMuted(!audioMuted));
-document.getElementById('haptic-btn').addEventListener('click', () => {
+byId('watch-btn').addEventListener('click', startWatchMode);
+byId('exit-btn').addEventListener('click', exitToTitle);
+byId('mute-btn').addEventListener('click', () => setMuted(!audioMuted));
+byId('haptic-btn').addEventListener('click', () => {
   FEEL.haptics = !FEEL.haptics;
   hapticLabel();
 });
@@ -2440,13 +2261,13 @@ bootLang();
 hookYt();
 loadProgress();
 
-document.getElementById('retry-btn').addEventListener('click', () => {
+byId('retry-btn').addEventListener('click', () => {
   if (!state.running || state.lockInput || demo.active || !state.currentDef) return;
   applyStage(state.currentDef);
   updateFireBtnState();
 });
 
-document.getElementById('demo-btn').addEventListener('click', startDemo);
+byId('demo-btn').addEventListener('click', startDemo);
 
 function refitStage() {
   const sx = state.fitW ? W / state.fitW : 0;
