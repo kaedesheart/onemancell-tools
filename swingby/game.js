@@ -695,7 +695,7 @@ function applyStage(ratioDef) {
   clearParticles();
   ghost = null;
   shake.magnitude = 0;
-  pregenStage(state.stageNum + 1);
+  if (!state.watchMode) pregenStage(state.stageNum + 1);
   updateHUD();
 }
 
@@ -984,6 +984,161 @@ function generateSolvableStage() {
 function pregenStage(n) { if (pre.n !== n) { pre.n = n; pre.def = null; pre.it = stageSearch(n); } }
 function stepPregen() { if (pre.it) { const r = pre.it.next(); if (r.done) { pre.def = r.value; pre.it = null; } } }
 
+// 観るだけモード専用。通常の pre キャッシュには入れない。
+// 画面内の旋回を主に、ループ・接近・画面外から戻った回数を足す。
+const ACRO_MIN = 4.2;
+const watchQ = { it: null, next: null, live: false, seen: false, lastSig: -1, spins: 0 };
+const watchFx = { fade: 0, dir: 0, hold: false };
+function resetWatchQueue() {
+  watchQ.it = watchQ.next = null;
+  watchQ.live = false;
+  watchQ.seen = false;
+  watchQ.lastSig = -1;
+  watchQ.spins = 0;
+  watchFx.fade = 0;
+  watchFx.dir = 0;
+  watchFx.hold = false;
+}
+function scorePath(tr, planets, n) {
+  if (n < 24) return null;
+  let len = 0, onTurn = 0, passes = 0, mask = 0, returns = 0, off = false;
+  const close = [false, false, false];
+  const turn = tr[(n - 1) * 3 + 2];
+  for (let i = 0; i < n; i++) {
+    const x = tr[i * 3], y = tr[i * 3 + 1];
+    const now = x < 0 || y < 0 || x > W || y > H;
+    if (i) {
+      len += Math.hypot(x - tr[(i - 1) * 3], y - tr[(i - 1) * 3 + 1]);
+      if (!now) onTurn += tr[i * 3 + 2] - tr[(i - 1) * 3 + 2];
+    }
+    if (off && !now) returns++;
+    off = now;
+    if (now) { close[0] = close[1] = close[2] = false; continue; }
+    for (let p = 0; p < planets.length; p++) {
+      const pl = planets[p];
+      const near = Math.hypot(x - pl.x, y - pl.y) < pl.r * 2.8;
+      if (near && !close[p]) { passes++; mask |= 1 << p; }
+      close[p] = near;
+    }
+  }
+  let used = 0;
+  for (let p = 0; p < planets.length; p++) if (mask & (1 << p)) used++;
+  const loops = Math.floor(onTurn / (Math.PI * 2));
+  const score = onTurn * 1.15 + turn * 0.22 + loops * 2.2 + passes * 0.7 + used * 1.1 + returns * 1.4 + (len / Math.max(W, H)) * 0.12;
+  return { turn, onTurn, loops, passes, planets: used, returns, score };
+}
+function acrobatic(s) {
+  return s.onTurn >= 2 && s.score >= ACRO_MIN && (s.loops >= 1 || s.onTurn >= 2.6 || s.returns >= 1 || s.planets >= 2 || s.passes >= 2);
+}
+function pickShowcaseTargets(tr, planets, player) {
+  const n = tr.length / 3;
+  if (n < 36) return null;
+  const ok = i => {
+    const x = tr[i * 3], y = tr[i * 3 + 1];
+    if (x < W * 0.07 || x > W * 0.93 || y < H * 0.05 || y > H * 0.74) return false;
+    if (Math.hypot(x - player.x, y - player.y) < 115) return false;
+    for (let p = 0; p < planets.length; p++) {
+      if (Math.hypot(x - planets[p].x, y - planets[p].y) < planets[p].r + 26) return false;
+    }
+    return true;
+  };
+  let i2 = -1;
+  for (let i = n - 1; i >= 24; i--) if (ok(i)) { i2 = i; break; }
+  if (i2 < 0) return null;
+  let i1 = -1;
+  const want = Math.min(0.5, tr[i2 * 3 + 2] * 0.45);
+  for (let i = 14; i < i2 - 12; i++) if (ok(i) && tr[i * 3 + 2] >= want) { i1 = i; break; }
+  if (i1 < 0) for (let i = 14; i < i2 - 12; i++) if (ok(i)) { i1 = i; break; }
+  if (i1 < 0) return null;
+  const a = { x: tr[i1 * 3], y: tr[i1 * 3 + 1] };
+  const b = { x: tr[i2 * 3], y: tr[i2 * 3 + 1] };
+  if (Math.hypot(a.x - b.x, a.y - b.y) < 70) return null;
+  return { pts: [a, b], n: i2 + 1 };
+}
+function buildShowcase() {
+  const def = randomRatioStage(rnd(52, 88));
+  if (!def) return null;
+  const abs = expandRatio(def);
+  const px = abs.player.x, py = abs.player.y, pls = abs.planets;
+  const pl = pls[Math.random() < 0.5 ? 0 : 1];
+  const dist = Math.hypot(pl.x - px, pl.y - py) || 1;
+  let ax, ay;
+  if (Math.random() < 0.42) {
+    ax = (pls[0].x + pls[1].x) / 2 + (pls[0].y - pls[1].y) * rnd(-0.28, 0.28);
+    ay = (pls[0].y + pls[1].y) / 2 + (pls[1].x - pls[0].x) * rnd(-0.28, 0.28);
+  } else {
+    const off = pl.r * rnd(1.8, 3.5) * (Math.random() < 0.5 ? 1 : -1);
+    ax = pl.x - (pl.y - py) / dist * off;
+    ay = pl.y + (pl.x - px) / dist * off;
+  }
+  const angle = Math.atan2(ay - py, ax - px);
+  const tr = [];
+  simulateAndMeasure({ planets: pls, targets: [] }, px, py, angle, tr);
+  const picked = pickShowcaseTargets(tr, pls, abs.player);
+  if (!picked) return null;
+  const stat = scorePath(tr, pls, picked.n);
+  if (!stat) return null;
+  def.targets = picked.pts.map(q => ({ x: q.x / W, y: q.y / H }));
+  def.tier = 2;
+  def.showcase = {
+    px, angle, score: stat.score, turn: stat.turn, onTurn: stat.onTurn, loops: stat.loops,
+    passes: stat.passes, planets: stat.planets, returns: stat.returns,
+    sig: (px < W * 0.5 ? 1 : 2) + (stat.loops ? 4 : 0) + (stat.returns ? 8 : 0) + (stat.planets > 1 ? 16 : 0),
+  };
+  return def;
+}
+function* watchSearch() {
+  let best = null, soft = null;
+  for (let i = 0; i < 12; i++) {
+    const def = buildShowcase();
+    if (def) {
+      const s = def.showcase;
+      if (!soft || s.score > soft.showcase.score) soft = def;
+      if (acrobatic(s) && s.sig !== watchQ.lastSig) return def;
+      if (acrobatic(s) && (!best || s.score > best.showcase.score)) best = def;
+    }
+    yield;
+  }
+  if (best) return best;
+  return watchQ.spins >= 2 ? soft : null;
+}
+function revealWatch(first) {
+  const def = watchQ.next;
+  if (!def) return;
+  watchQ.next = null;
+  watchQ.seen = true;
+  watchQ.live = true;
+  watchQ.spins = 0;
+  watchQ.lastSig = def.showcase.sig;
+  watchFx.hold = false;
+  applyStage(def);
+  state.lockInput = false;
+  hideResult();
+  if (!first) watchFx.dir = -1;
+  watchSetTimeout(() => startDemo(), first ? 1100 : 800);
+}
+function advanceWatch(frameDt) {
+  if (watchFx.dir) {
+    watchFx.fade += watchFx.dir * frameDt * 3.1;
+    if (watchFx.dir > 0 && watchFx.fade >= 1) {
+      watchFx.fade = 1; watchFx.dir = 0; watchFx.hold = true; watchQ.live = false;
+    } else if (watchFx.dir < 0 && watchFx.fade <= 0) {
+      watchFx.fade = 0; watchFx.dir = 0;
+    }
+  }
+  if (!bulletInFlight() && !watchFx.dir && !watchQ.next) {
+    if (!watchQ.it) watchQ.it = watchSearch();
+    const r = watchQ.it.next();
+    if (r.done) {
+      watchQ.it = null;
+      if (r.value) { watchQ.next = r.value; watchQ.spins = 0; }
+      else watchQ.spins++;
+    }
+  }
+  if (watchFx.hold && watchQ.next) revealWatch(false);
+  else if (!watchQ.seen && watchQ.next && !watchFx.dir) revealWatch(true);
+}
+
 // 解リスト(生成時のものを再利用、画面サイズが変わっていたら再探索)
 function stageSolutions(absDef) {
   const d = state.currentDef;
@@ -1039,18 +1194,14 @@ function startDemo() {
   if (!state.currentDef) return;
   const absDef = expandRatio(state.currentDef);
   // 観るだけモードはトリックショット（最長軌道）優先、通常モードは現在位置に近い解
-  const sol = state.watchMode
-    ? findLongestSolution(absDef)
-    : findNearestSolution(absDef, state.player.x);
+  const sol = state.watchMode && state.currentDef.showcase
+    ? state.currentDef.showcase
+    : state.watchMode
+      ? findLongestSolution(absDef)
+      : findNearestSolution(absDef, state.player.x);
   if (!sol) {
     if (state.watchMode) {
-      // 解が見つからない異常系は飛ばして次のステージへ
-      watchSetTimeout(() => {
-        state.stageNum++;
-        state.stageShots = 0;
-        applyStage(generateSolvableStage());
-        watchSetTimeout(() => startDemo(), 2000);
-      }, 500);
+      watchSetTimeout(() => { if (state.watchMode) watchFx.dir = 1; }, 400);
       return;
     }
     showResult('miss', 'noLine', '', 1200);
@@ -1249,13 +1400,7 @@ function endShotFailed() {
   playMiss();
   updateHUD();
   if (state.watchMode) {
-    // 観るだけモード中は新しいステージに進んでリトライ（同じ詰みを繰り返さない）
-    watchSetTimeout(() => {
-      state.stageNum++;
-      state.stageShots = 0;
-      applyStage(generateSolvableStage());
-      watchSetTimeout(() => startDemo(), 2000);
-    }, 1500);
+    watchSetTimeout(() => { if (state.watchMode) watchFx.dir = 1; }, 700);
     return;
   }
   showResult('miss', 'missTitle', 'missSub');
@@ -1270,19 +1415,9 @@ function endShotCleared() {
   state.lockInput = true;
 
   if (state.watchMode) {
-    // 観るだけモード: 閃光のあとで文字。連鎖タイマーは watchSetTimeout
+    // 文字は出さない。軌跡の余韻のあと、フェードで次の見世物へ。
     playClear();
-    later(900, () => showResult('clear', 'cleared', '', 900));
-    watchSetTimeout(() => {
-      state.stageNum++;
-      state.stageShots = 0;
-      applyStage(generateSolvableStage());
-      state.lockInput = false;
-      hideResult();
-      updateHUD();
-      // 盤面を眺める時間 → デモ開始
-      watchSetTimeout(() => startDemo(), 2000);
-    }, 1900);
+    watchSetTimeout(() => { if (state.watchMode) watchFx.dir = 1; }, 1050);
     return;
   }
 
@@ -1425,7 +1560,8 @@ function updateCapture(b) {
 // クリア余韻: スロー + 軌跡を光らせて残す + 軌跡から光の粒が立ち上る
 function startAfterglow(b, t) {
   tfx.slow = 1;
-  ghost = { tr: b.trail, life: 1.6, max: 1.6, clear: true };
+  const glow = state.watchMode ? 2.6 : 1.6;
+  ghost = { tr: b.trail, life: glow, max: glow, clear: true };
   const tr = b.trail, N = FEEL.trailMax;
   for (let j = 0; j < 18; j++) {
     const i = ((tr.head - 1 - Math.floor(j * tr.n / 18) + N * 2) % N) * 3;
@@ -1831,6 +1967,10 @@ function render(time) {
   }
   ctx.restore();
   if (state.running) for (const b of state.bullets) drawOffscreen(b);
+  if (watchFx.fade > 0) {
+    ctx.fillStyle = 'rgba(7,11,27,' + watchFx.fade + ')';
+    ctx.fillRect(0, 0, W, H);
+  }
   syncSkipHint();
 }
 function drawOffscreen(b) {
@@ -1980,7 +2120,8 @@ function loop(ts) {
   fx.kickback = Math.max(0, fx.kickback - frameDt * 5);
   // ブースター粒子（ゲーム中は常に薄く出す）
   if (state.running) spawnThrustParticles(state.player, frameDt);
-  if (state.running && !bulletInFlight()) stepPregen(); // 次ステージの先行生成(1試行/フレーム)
+  if (state.running && state.watchMode) advanceWatch(frameDt);
+  else if (state.running && !bulletInFlight()) stepPregen(); // 次ステージの先行生成(1試行/フレーム)
   render(ts / 1000);
   signalYtReady();
   rafId = requestAnimationFrame(loop);
@@ -2118,6 +2259,7 @@ function setHudForWatch() {
 
 function startGame() {
   pre.n = 0; pre.def = pre.it = null;
+  resetWatchQueue();
   uiMode = 'play';
   endView = null;
   state.stageNum = 1;
@@ -2141,6 +2283,7 @@ function startGame() {
 
 function startWatchMode() {
   pre.n = 0; pre.def = pre.it = null;
+  resetWatchQueue();
   uiMode = 'play';
   endView = null;
   clearWatchTimers();
@@ -2149,19 +2292,16 @@ function startWatchMode() {
   state.stageShots = 0;
   state.demoUsed = false; // 観るだけモードでは demoUsed の概念は使わない
   state.watchMode = true;
-  state.lockInput = false;
+  state.lockInput = true;
   state.flash = 0;
   state.input.left = state.input.right = state.input.rotL = state.input.rotR = false;
   demo.active = false;
   hideResult();
-  applyStage(generateSolvableStage());
   state.running = true;
   overlay.classList.add('hidden');
   controlsEl.style.display = 'none';
   setHudForWatch();
   updateHUD();
-  // 盤面をじっくり眺めてからデモ開始
-  watchSetTimeout(() => startDemo(), 2500);
 }
 
 let uiMode = 'title';
@@ -2255,6 +2395,7 @@ function resetOverlayToTitle() {
 
 function exitToTitle() {
   pre.n = 0; pre.def = pre.it = null;
+  resetWatchQueue();
   clearWatchTimers();
   state.running = false;
   state.watchMode = false;
