@@ -1056,13 +1056,21 @@ function applyDemo(dt) {
   }
 }
 
+const holdT = { left: 0, right: 0, rotL: 0, rotR: 0 };
+function aimRamp(t) { return t <= 0 ? 0 : (t < 0.16 ? 0.2 : Math.min(1, 0.2 + (t - 0.16) * 3.4)); }
 function applyInput(dt) {
   const p = state.player;
-  if (state.input.left)  p.x -= MOVE_SPEED * dt;
-  if (state.input.right) p.x += MOVE_SPEED * dt;
-  if (state.input.rotL)  p.angle -= ROT_SPEED * dt;
-  if (state.input.rotR)  p.angle += ROT_SPEED * dt;
+  for (const k in holdT) holdT[k] = state.input[k] ? holdT[k] + dt : 0;
+  if (state.input.left)  p.x -= MOVE_SPEED * dt * aimRamp(holdT.left);
+  if (state.input.right) p.x += MOVE_SPEED * dt * aimRamp(holdT.right);
+  if (state.input.rotL)  p.angle -= ROT_SPEED * dt * aimRamp(holdT.rotL);
+  if (state.input.rotR)  p.angle += ROT_SPEED * dt * aimRamp(holdT.rotR);
   p.x = Math.max(40, Math.min(W - 40, p.x));
+}
+function aimCurve(dx) {
+  const s = Math.sign(dx), a = Math.abs(dx), fine = 64;
+  if (a <= fine) return s * a * 0.00105;
+  return s * (fine * 0.00105 + (a - fine) * 0.0052);
 }
 
 // ===== HUD =====
@@ -1330,6 +1338,12 @@ function startAfterglow(b, t) {
   }
 }
 
+function guideBudget() {
+  const n = state.stageNum | 0;
+  if (n <= 1) return { steps: 42, dist: 250, bend: 0.55 };
+  if (n === 2) return { steps: 28, dist: 165, bend: 0.4 };
+  return { steps: 16, dist: 105, bend: 0.26 };
+}
 function predictPath() {
   const p = state.player;
   const nx = Math.cos(p.angle);
@@ -1340,7 +1354,9 @@ function predictPath() {
   let vy = ny * BULLET_SPEED;
   const path = [];
   const sub = 1 / 60;
-  for (let i = 0; i < 110; i++) {
+  const lim = guideBudget();
+  let traveled = 0;
+  for (let i = 0; i < lim.steps; i++) {
     const g = gravityAt(x, y);
     const x0 = x, y0 = y;
     vx += g.ax * sub;
@@ -1358,7 +1374,16 @@ function predictPath() {
       break;
     }
     if (x < 0 || x > W || y < 0 || y > H) break;
-    if (i % 2 === 0) path.push({ x, y, k });
+    traveled += Math.hypot(x - x0, y - y0);
+    let near = false;
+    if (i > 8) {
+      for (const pl of state.planets) {
+        if (Math.hypot(pl.x - x, pl.y - y) < pl.r * 2.2) { near = true; break; }
+      }
+    }
+    const cut = traveled > lim.dist || (i > 8 && (k > lim.bend || (near && k > lim.bend * 0.65)));
+    if (i % 2 === 0 || cut) path.push({ x, y, k });
+    if (cut) break;
   }
   return path;
 }
@@ -1527,24 +1552,23 @@ function drawPlayer(p) {
 }
 
 function drawAimLine(path, time) {
-  if (!path.length || bulletInFlight()) return;
+  if (!path.length || bulletInFlight() || state.watchMode || demo.active) return;
   ctx.save();
-  // 加算合成で柔らかいエネルギー光に
+  // 加算合成で柔らかいエネルギー光に。先端へかけて消える。
   ctx.globalCompositeOperation = 'lighter';
   const phase = ((time || 0) * 0.55) % 1;
   for (let i = 0; i < path.length; i++) {
-    const t = i / path.length;
-    const distantFade = 1 - t;
+    const t = i / Math.max(1, path.length - 1);
+    const fade = (1 - t) * (1 - t);
     let dist = Math.abs(t - phase);
     if (dist > 0.5) dist = 1 - dist;
     const wave = Math.max(0, 1 - dist * 5);
-    const baseAlpha = distantFade * 0.32;
-    const alpha = Math.min(1, baseAlpha + wave * 0.45);
+    const alpha = Math.min(1, 0.08 + 0.85 * fade + wave * 0.25);
     ctx.globalAlpha = alpha;
     // 引力で曲がる区間は水色で示す(実際の軌跡と同じ色言語)
     const kk = path[i].k;
     const color = t < 0.3 ? 'rgba(255,255,255,1)' : (kk > 0.3 ? 'rgba(150,225,255,1)' : 'rgba(255,209,120,1)');
-    const r = 1.4 + distantFade * 1.0 + wave * 1.8 + kk * 1.2;
+    const r = 1.3 + fade * 1.1 + wave * 1.4 + kk * 1.0;
     // 柔らかいハロー(霧効果)
     const grad = ctx.createRadialGradient(path[i].x, path[i].y, 0, path[i].x, path[i].y, r * 2.6);
     grad.addColorStop(0, color);
@@ -1879,14 +1903,34 @@ const KEY_MAP = {
   q: 'rotL', Q: 'rotL',
   e: 'rotR', E: 'rotR',
 };
+const NUDGE = 0.012;
 window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') return;
   if (state.lockInput || demo.active || state.watchMode) return;
   if (KEY_MAP[e.key]) { state.input[KEY_MAP[e.key]] = true; e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { state.player.angle -= NUDGE; e.preventDefault(); }
+  else if (e.key === 'ArrowDown') { state.player.angle += NUDGE; e.preventDefault(); }
   else if (e.key === ' ' || e.key === 'Enter') { fire(); e.preventDefault(); }
 });
 window.addEventListener('keyup', e => {
   if (KEY_MAP[e.key]) { state.input[KEY_MAP[e.key]] = false; e.preventDefault(); }
 });
+const aimDrag = { id: -1, x: 0, y: 0, angle: 0 };
+function aimBlocked() { return !state.running || state.lockInput || demo.active || state.watchMode || bulletInFlight(); }
+canvas.addEventListener('pointerdown', e => {
+  if (aimBlocked() || (e.target.closest && e.target.closest('button'))) return;
+  aimDrag.id = e.pointerId;
+  aimDrag.x = e.clientX; aimDrag.y = e.clientY;
+  aimDrag.angle = state.player.angle;
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+});
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerId !== aimDrag.id || aimBlocked()) return;
+  state.player.angle = aimDrag.angle + aimCurve(e.clientX - aimDrag.x);
+});
+function endAimDrag(e) { if (e.pointerId === aimDrag.id) aimDrag.id = -1; }
+canvas.addEventListener('pointerup', endAimDrag);
+canvas.addEventListener('pointercancel', endAimDrag);
 
 // ===== Start / End =====
 const overlay = document.getElementById('overlay');
