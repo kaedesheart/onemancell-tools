@@ -21,6 +21,12 @@ const I18N = {
     endDemo: '合計 <strong style="color:#FFD178">{n}</strong> 発でクリア<br><span style="color:#7A86A0;font-size:.8em;">(お手本使用のため記録対象外)</span>',
     endShots: '合計 <strong style="color:#FFD178;font-size:1.3em;">{n}</strong> 発でクリア！',
     newBest: '<br><span style="color:#FFD178;font-weight:800;">🏆 新記録！</span>',
+    bestDelta: '<br><span style="color:#FFD178;font-weight:800;">自己ベスト更新！ {a}→{b}</span>',
+    closeBy: '<br><span style="color:#7A86A0;font-size:.8em;">ベストまであと{n}発</span>',
+    tiedBest: '<br><span style="color:#7A86A0;font-size:.8em;">ベストに並んだ</span>',
+    pace: 'ベスト {b} ・ あと{n}発',
+    paceOut: 'ベスト更新ならず',
+    stageBest: 'このステージのベスト {n}',
     endBest: '<br><span style="color:#7A86A0;font-size:.8em;">ベスト: {n} 発</span>',
     againAsk: 'もう一度プレイしますか？', again: 'もう一度',
   },
@@ -42,6 +48,12 @@ const I18N = {
     endDemo: 'Total shots: <strong style="color:#FFD178">{n}</strong><br><span style="color:#7A86A0;font-size:.8em;">Demo used — not ranked</span>',
     endShots: 'Total shots: <strong style="color:#FFD178;font-size:1.3em;">{n}</strong>',
     newBest: '<br><span style="color:#FFD178;font-weight:800;">🏆 New best!</span>',
+    bestDelta: '<br><span style="color:#FFD178;font-weight:800;">New best! {a}→{b}</span>',
+    closeBy: '<br><span style="color:#7A86A0;font-size:.8em;">{n} over best</span>',
+    tiedBest: '<br><span style="color:#7A86A0;font-size:.8em;">Tied the best</span>',
+    pace: 'Best {b} · {n} left',
+    paceOut: 'Best stands',
+    stageBest: 'Stage best {n}',
     endBest: '<br><span style="color:#7A86A0;font-size:.8em;">Best: {n}</span>',
     againAsk: 'Play again?', again: 'Again',
   },
@@ -92,6 +104,7 @@ const state = {
   running: false,
   stageNum: 1,
   totalShots: 0,
+  stageShots: 0,
   demoUsed: false,
   watchMode: false,
   currentDef: null,
@@ -432,7 +445,19 @@ const audioState = { ctx: null };
 const MUTE_KEY = 'omc-swingby-mute';
 let audioMuted = false;
 let ytAudioOn = true; // YouTube側の音声許可。SDKが無いときは常に許可
-const progress = { best: null, mute: false };
+const progress = { best: null, mute: false, stages: [null, null, null, null, null, null] };
+function readStages(raw) {
+  const out = [null, null, null, null, null, null];
+  if (!Array.isArray(raw)) return out;
+  for (let i = 0; i < MAX_STAGES && i < raw.length; i++) {
+    const n = Number(raw[i]);
+    if (Number.isFinite(n) && n > 0) out[i] = n;
+  }
+  return out;
+}
+function saveBlob() {
+  return { best: progress.best, mute: !!progress.mute, stages: progress.stages };
+}
 let cloudReady = false;
 let progressDirty = false;
 
@@ -459,12 +484,13 @@ function writeProgress() {
     const yt = ytApi();
     if (yt && yt.game && typeof yt.game.saveData === 'function') {
       if (!cloudReady) return; // loadData 完了前の save は SDK に拒否される
-      const p = yt.game.saveData(JSON.stringify({ best: progress.best, mute: !!progress.mute }));
+      const p = yt.game.saveData(JSON.stringify(saveBlob()));
       if (p && typeof p.then === 'function') p.then(() => {}, () => {});
       return;
     }
     if (progress.best != null) localStorage.setItem(BEST_KEY, String(progress.best));
     localStorage.setItem(MUTE_KEY, progress.mute ? '1' : '0');
+    localStorage.setItem(BEST_KEY + '-stages', JSON.stringify(progress.stages));
   } catch (e) {}
 }
 function applyCloud(data) {
@@ -472,6 +498,7 @@ function applyCloud(data) {
   const n = Number(data.best);
   if (Number.isFinite(n) && n > 0) progress.best = n;
   if ('mute' in data) progress.mute = !!data.mute;
+  if ('stages' in data) progress.stages = readStages(data.stages);
 }
 function applyProgress() {
   audioMuted = !!progress.mute;
@@ -490,6 +517,12 @@ function loadProgress() {
       else if (data) {
         const n = Number(data.best);
         if (Number.isFinite(n) && n > 0 && (progress.best == null || n < progress.best)) progress.best = n;
+        if (Array.isArray(data.stages)) {
+          const cloud = readStages(data.stages);
+          for (let i = 0; i < MAX_STAGES; i++) {
+            if (cloud[i] != null && (progress.stages[i] == null || cloud[i] < progress.stages[i])) progress.stages[i] = cloud[i];
+          }
+        }
       }
     }, () => {}).then(() => {
       cloudReady = true;
@@ -503,6 +536,7 @@ function loadProgress() {
     const n = v ? parseInt(v, 10) : NaN;
     progress.best = Number.isFinite(n) && n > 0 ? n : null;
     progress.mute = localStorage.getItem(MUTE_KEY) === '1';
+    progress.stages = readStages(JSON.parse(localStorage.getItem(BEST_KEY + '-stages') || 'null'));
   } catch (e) {}
   cloudReady = true;
   applyProgress();
@@ -988,6 +1022,7 @@ function startDemo() {
       // 解が見つからない異常系は飛ばして次のステージへ
       watchSetTimeout(() => {
         state.stageNum++;
+        state.stageShots = 0;
         applyStage(generateSolvableStage());
         watchSetTimeout(() => startDemo(), 2000);
       }, 500);
@@ -1078,7 +1113,27 @@ function updateHUD() {
   document.getElementById('stage-num').textContent = state.stageNum + '/' + MAX_STAGES;
   const shots = state.totalShots;
   document.getElementById('shots-count').textContent = state.demoUsed ? (shots + ' ✗') : shots;
+  updatePace();
   if (typeof updateFireBtnState === 'function') updateFireBtnState();
+}
+function updatePace() {
+  const line = document.getElementById('pace');
+  const st = document.getElementById('stage-pace');
+  if (!line) return;
+  const show = state.running && !state.watchMode && !state.demoUsed;
+  const best = getBestRecord();
+  if (!show || best == null) {
+    line.hidden = true;
+  } else {
+    const left = best - state.totalShots;
+    line.hidden = false;
+    if (left > 0) { line.classList.remove('dim'); line.textContent = t('pace', { b: best, n: left }); }
+    else { line.classList.add('dim'); line.textContent = t('paceOut'); }
+  }
+  const sb = progress.stages[state.stageNum - 1];
+  if (!st) return;
+  if (!show || sb == null) st.hidden = true;
+  else { st.hidden = false; st.textContent = t('stageBest', { n: sb }); }
 }
 
 function getBestRecord() {
@@ -1089,6 +1144,17 @@ function saveBestRecord(n) {
   progress.best = n;
   progressDirty = true;
   writeProgress();
+}
+function noteStageBest() {
+  if (state.demoUsed || state.watchMode) return;
+  const i = state.stageNum - 1;
+  const s = state.stageShots;
+  if (i < 0 || i >= MAX_STAGES || !(s > 0)) return;
+  if (progress.stages[i] == null || s < progress.stages[i]) {
+    progress.stages[i] = s;
+    progressDirty = true;
+    writeProgress();
+  }
 }
 
 function bulletInFlight() { return state.bullets.length > 0; }
@@ -1145,6 +1211,7 @@ function fire() {
       0.18 + Math.random() * 0.12, '#FFE7A5', 1.4 + Math.random() * 1.2, true);
   }
   state.totalShots++;
+  if (!state.watchMode) state.stageShots++;
   playFire();
   updateHUD();
   updateFireBtnState();
@@ -1160,6 +1227,7 @@ function endShotFailed() {
     // 観るだけモード中は新しいステージに進んでリトライ（同じ詰みを繰り返さない）
     watchSetTimeout(() => {
       state.stageNum++;
+      state.stageShots = 0;
       applyStage(generateSolvableStage());
       watchSetTimeout(() => startDemo(), 2000);
     }, 1500);
@@ -1182,6 +1250,7 @@ function endShotCleared() {
     later(900, () => showResult('clear', 'cleared', '', 900));
     watchSetTimeout(() => {
       state.stageNum++;
+      state.stageShots = 0;
       applyStage(generateSolvableStage());
       state.lockInput = false;
       hideResult();
@@ -1192,6 +1261,7 @@ function endShotCleared() {
     return;
   }
 
+  noteStageBest();
   const isLastStage = state.stageNum >= MAX_STAGES;
   if (isLastStage) {
     // 新記録になりそうかを予測（記録対象外＝デモ使用なら通常パーティクル）
@@ -1209,6 +1279,7 @@ function endShotCleared() {
     later(900, () => showResult('clear', 'stageClear', 'next', 900));
     later(1900, () => {
       state.stageNum++;
+      state.stageShots = 0;
       applyStage(generateSolvableStage());
       state.lockInput = false;
       hideResult();
@@ -1972,6 +2043,7 @@ function startGame() {
   endView = null;
   state.stageNum = 1;
   state.totalShots = 0;
+  state.stageShots = 0;
   state.demoUsed = false;
   state.watchMode = false;
   state.lockInput = false;
@@ -1995,6 +2067,7 @@ function startWatchMode() {
   clearWatchTimers();
   state.stageNum = 1;
   state.totalShots = 0;
+  state.stageShots = 0;
   state.demoUsed = false; // 観るだけモードでは demoUsed の概念は使わない
   state.watchMode = true;
   state.lockInput = false;
@@ -2031,8 +2104,10 @@ function renderEnd() {
     : '<div class="title-en">' + t('gameClear') + '</div>';
   let sub = v.demoUsed ? t('endDemo', { n: v.shots }) : t('endShots', { n: v.shots });
   if (!v.demoUsed) {
-    if (v.isNewBest) sub += t('newBest');
-    else if (v.prevBest != null) sub += t('endBest', { n: v.prevBest });
+    if (v.isNewBest && v.prevBest != null) sub += t('bestDelta', { a: v.prevBest, b: v.shots });
+    else if (v.isNewBest) sub += t('newBest');
+    else if (v.prevBest != null && v.shots === v.prevBest) sub += t('tiedBest');
+    else if (v.prevBest != null) sub += t('closeBy', { n: v.shots - v.prevBest });
   }
   overlaySub.innerHTML = sub;
   overlayBest.style.display = 'none';
@@ -2070,7 +2145,7 @@ function applyI18n() {
   if (pre) pre.textContent = t('bestPre');
   const post = document.getElementById('best-post');
   if (post) post.textContent = t('bestPost');
-  try { muteLabel(); hapticLabel(); } catch (e) {}
+  try { muteLabel(); hapticLabel(); updatePace(); } catch (e) {}
   if (uiMode === 'end') renderEnd();
   else if (uiMode !== 'play') renderTitle();
   if (lastResult && resultOverlay.classList.contains('show')) paintResult();
@@ -2128,7 +2203,7 @@ function showEndScreen() {
     }
   }
   uiMode = 'end';
-  endView = { demoUsed: state.demoUsed, shots, isNewBest, prevBest: isNewBest ? null : prevBest };
+  endView = { demoUsed: state.demoUsed, shots, isNewBest, prevBest };
   renderEnd();
   overlay.classList.remove('hidden');
 }
