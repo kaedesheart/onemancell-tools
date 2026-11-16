@@ -174,6 +174,8 @@ function addParticle(x, y, vx, vy, life, color, size, spark, drag) {
   pHead = (pHead + 1) % particles.length;
   p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = p.maxLife = life;
   p.color = color; p.size = size; p.spark = !!spark; p.drag = drag || 0.94;
+  p.delay = 0;
+  return p;
 }
 const rings = []; // 衝撃波/捕獲リング {x,y,r0,r1,life,max,color,w}
 function addRing(x, y, r0, r1, life, color, w) {
@@ -193,19 +195,25 @@ function spawnHitParticles(x, y, color = '#FFE7A5', count = 28) {
       0.55 + Math.random() * 0.55, color, 1.6 + Math.random() * 2.2, i % 2 === 0);
   }
 }
-// 的ヒット: 放射状スパーク + 衝撃波 + 発光
+// 的: 短い閃光 → 広がる破裂 → 残る煙。白い全面点滅はしない。
 function spawnHitBurst(x, y, final) {
-  const n = final ? 44 : 30;
+  const n = final ? 20 : 14;
   for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2 + Math.random() * 0.25;
-    const sp = (final ? 300 : 220) + Math.random() * 240;
-    addParticle(x, y, Math.cos(a) * sp, Math.sin(a) * sp, 0.3 + Math.random() * 0.4,
-      i % 3 ? '#FFE7A5' : '#FFFFFF', 1.4 + Math.random() * 1.4, true, 0.9);
+    const a = (i / n) * Math.PI * 2;
+    const sp = (final ? 240 : 160) + (i % 3) * 36;
+    addParticle(x, y, Math.cos(a) * sp, Math.sin(a) * sp, 0.26,
+      i % 2 ? '#FFF6D0' : '#FFD178', 2.1, true, 0.88);
   }
-  spawnHitParticles(x, y, '#FFD178', final ? 16 : 10);
-  addRing(x, y, 6, final ? 95 : 60, final ? 0.6 : 0.42, '#FFE7A5', 4);
-  if (final) addRing(x, y, 4, 160, 0.95, '#7CC8E8', 2);
-  flashes.push({ x, y, r: final ? 120 : 55, life: final ? 0.5 : 0.18, max: final ? 0.5 : 0.18 });
+  const m = final ? 12 : 7;
+  for (let i = 0; i < m; i++) {
+    const a = (i / m) * Math.PI * 2 + 0.3;
+    const sp = 28 + (i % 4) * 16;
+    const p = addParticle(x, y, Math.cos(a) * sp, Math.sin(a) * sp, final ? 0.9 : 0.62,
+      i % 2 ? '#6E7C99' : '#8C7350', final ? 5 : 3.4, false, 0.97);
+    p.delay = 0.14;
+  }
+  addRing(x, y, 6, final ? 64 : 42, 0.32, '#FFE7A5', 3);
+  flashes.push({ x, y, r: final ? 54 : 32, life: 0.14, max: 0.14 });
 }
 
 // 全クリア時の祝福パーティクル
@@ -221,11 +229,12 @@ function spawnCelebration(major) {
       Math.cos(angle) * speed, Math.sin(angle) * speed - 70, // 軽く上向きバイアス
       1.4 + Math.random() * 1.6, palette[Math.floor(Math.random() * palette.length)], 2 + Math.random() * 3);
   }
-  triggerShake(major ? 12 : 6);
+  triggerShake(major ? 8 : 5);
 }
 function updateParticles(dt) {
   for (const p of particles) {
     if (p.life <= 0) continue;
+    if (p.delay > 0) { p.delay -= dt; continue; }
     p.x += p.vx * dt;
     p.y += p.vy * dt;
     const d = Math.pow(p.drag, dt * 60); // フレームレート非依存の減衰
@@ -240,43 +249,51 @@ function drawParticles() {
   ctx.save();
   ctx.lineCap = 'round';
   for (const p of particles) {
-    if (p.life <= 0) continue;
+    if (p.life <= 0 || p.delay > 0) continue;
     const t = p.life / p.maxLife;
-    ctx.globalAlpha = t;
-    if (p.spark) { // 速度方向に伸びる火花
-      ctx.strokeStyle = p.color;
-      ctx.lineWidth = p.size * t + 0.4;
+    ctx.globalAlpha = Math.min(1, t + 0.15);
+    if (p.spark) {
+      ctx.strokeStyle = '#12182A';
+      ctx.lineWidth = p.size * t + 2.2;
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
-      ctx.lineTo(p.x - p.vx * 0.04, p.y - p.vy * 0.04);
+      ctx.lineTo(p.x - p.vx * 0.035, p.y - p.vy * 0.035);
+      ctx.stroke();
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = p.size * t + 0.6;
       ctx.stroke();
     } else {
+      const rad = p.size * (0.45 + 0.55 * t);
+      ctx.fillStyle = '#12182A';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, rad + 1.3, 0, 6.2832);
+      ctx.fill();
       ctx.fillStyle = p.color;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * (0.5 + 0.5 * t), 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, rad, 0, 6.2832);
       ctx.fill();
     }
   }
-  ctx.globalCompositeOperation = 'lighter';
   for (const r of rings) {
     const t = r.life / r.max;
-    ctx.globalAlpha = t;
-    ctx.strokeStyle = r.color;
-    ctx.lineWidth = r.w * t + 0.5;
+    ctx.globalAlpha = Math.min(1, t + 0.15);
+    const rr = Math.max(0, r.r0 + (r.r1 - r.r0) * (1 - t * t * t));
     ctx.beginPath();
-    ctx.arc(r.x, r.y, Math.max(0, r.r0 + (r.r1 - r.r0) * (1 - t * t * t)), 0, Math.PI * 2);
+    ctx.arc(r.x, r.y, rr, 0, 6.2832);
+    ctx.strokeStyle = '#12182A';
+    ctx.lineWidth = r.w * t + 2.4;
+    ctx.stroke();
+    ctx.strokeStyle = r.color;
+    ctx.lineWidth = Math.max(1.2, r.w * t);
     ctx.stroke();
   }
   for (const f of flashes) {
-    const t = f.life / f.max, rr = f.r * (1.2 - 0.2 * t);
-    const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, rr);
-    g.addColorStop(0, `rgba(255,255,255,${0.9 * t})`);
-    g.addColorStop(0.35, `rgba(255,231,165,${0.45 * t})`);
-    g.addColorStop(1, 'rgba(255,209,120,0)');
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = g;
+    const t = f.life / f.max;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 0.22 * t;
+    ctx.fillStyle = '#FFF6D8';
     ctx.beginPath();
-    ctx.arc(f.x, f.y, rr, 0, Math.PI * 2);
+    ctx.arc(f.x, f.y, f.r * (0.55 + 0.45 * (1 - t)), 0, 6.2832);
     ctx.fill();
   }
   ctx.restore();
@@ -296,28 +313,32 @@ function drawTrail(tr, alphaMul, boost) {
   if (!tr || tr.n < 2) return;
   const N = FEEL.trailMax, b = tr.buf, start = (tr.head - tr.n + N) % N;
   ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.lineJoin = 'round'; // cap は butt: 区間の継ぎ目が加算で光の粒にならないように
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   for (let pass = 0; pass < 2; pass++) {
     let key = -1;
     for (let j = 1; j < tr.n; j++) {
       const i0 = ((start + j - 1) % N) * 3, i1 = ((start + j) % N) * 3;
-      const kq = Math.min(4, (b[i1 + 2] * 4 + 0.5) | 0);
-      const aq = Math.min(4, (j / tr.n * 4 + 0.5) | 0); // 新しいほど濃い
+      const kq = Math.min(4, (b[i1 + 2] * 4 + 0.5) | 0); // 曲がり=色。頭ほど太い
+      const aq = Math.min(4, (j / tr.n * 4 + 0.5) | 0);
       const nk = kq * 5 + aq;
       if (nk !== key) {
         if (key >= 0) ctx.stroke();
         key = nk;
-        const age = 0.25 + 0.75 * aq / 4; // 古い部分も薄く残して全体の軌道を見せる
-        const a = (pass ? 0.45 + 0.13 * kq : 0.08 + 0.07 * kq) * age * alphaMul;
-        ctx.strokeStyle = `rgba(${TRAIL_RGB[kq]},${Math.min(1, a)})`;
-        ctx.lineWidth = (pass ? 1.2 + 0.6 * kq : 4 + 3 * kq) * boost;
+        const age = 0.42 + 0.58 * aq / 4;
+        if (pass === 0) {
+          ctx.strokeStyle = 'rgba(10,14,28,' + (0.72 * age * alphaMul) + ')';
+          ctx.lineWidth = (8 + 2.2 * kq) * boost;
+        } else {
+          ctx.strokeStyle = 'rgba(' + TRAIL_RGB[kq] + ',' + Math.min(1, (0.72 + 0.28 * age) * alphaMul) + ')';
+          ctx.lineWidth = (3.1 + 1.15 * kq) * boost;
+        }
         ctx.beginPath();
         ctx.moveTo(b[i0], b[i0 + 1]);
       }
       ctx.lineTo(b[i1], b[i1 + 1]);
     }
-    ctx.stroke();
+    if (key >= 0) ctx.stroke();
   }
   ctx.restore();
 }
@@ -565,18 +586,31 @@ function spawnThrustParticles(p, dt) {
 }
 function triggerShake(amount) {
   if (!FEEL.shake) return;
-  shake.magnitude = Math.max(shake.magnitude, amount);
+  shake.magnitude = Math.min(10, Math.max(shake.magnitude, amount));
 }
 // 方向付きの押し戻し(発射の反動): ランダム揺れとは別にバネで戻る
 const kick = { x: 0, y: 0 };
 function triggerKick(dx, dy) { if (FEEL.shake) { kick.x += dx; kick.y += dy; } }
 function updateShake(dt) {
-  shake.magnitude *= Math.pow(0.0001, dt);
-  if (shake.magnitude < 0.05) shake.magnitude = 0;
-  const kd = Math.pow(0.002, dt);
-  kick.x *= kd; kick.y *= kd;
-  shake.x = (Math.random() - 0.5) * shake.magnitude + kick.x;
-  shake.y = (Math.random() - 0.5) * shake.magnitude + kick.y;
+  if (shake.magnitude > 0) {
+    shake.magnitude *= Math.pow(0.012, dt);
+    if (shake.magnitude < 0.25) shake.magnitude = 0;
+    shake.cool = (shake.cool || 0) - dt;
+    if (shake.cool <= 0) {
+      shake.cool = 0.03;
+      shake.tx = (Math.random() - 0.5) * shake.magnitude;
+      shake.ty = (Math.random() - 0.5) * shake.magnitude;
+    }
+    const k = Math.min(1, dt * 18);
+    shake.x += ((shake.tx || 0) - shake.x) * k;
+    shake.y += ((shake.ty || 0) - shake.y) * k;
+  } else {
+    const k = Math.min(1, dt * 14);
+    shake.x += -shake.x * k;
+    shake.y += -shake.y * k;
+  }
+  kick.x *= Math.pow(0.002, dt);
+  kick.y *= Math.pow(0.002, dt);
 }
 
 // タイトル画面用の背景（state・makeStars定義後に呼ぶ）
@@ -1135,9 +1169,9 @@ function endShotCleared() {
   state.lockInput = true;
 
   if (state.watchMode) {
-    // 観るだけモード: ペースをゆったり、連鎖タイマーは watchSetTimeout で安全に管理
+    // 観るだけモード: 閃光のあとで文字。連鎖タイマーは watchSetTimeout
     playClear();
-    showResult('clear', 'cleared', '', 1300);
+    later(900, () => showResult('clear', 'cleared', '', 900));
     watchSetTimeout(() => {
       state.stageNum++;
       applyStage(generateSolvableStage());
@@ -1146,7 +1180,7 @@ function endShotCleared() {
       updateHUD();
       // 盤面を眺める時間 → デモ開始
       watchSetTimeout(() => startDemo(), 2000);
-    }, 1500);
+    }, 1900);
     return;
   }
 
@@ -1157,15 +1191,15 @@ function endShotCleared() {
     const willBeNewBest = !state.demoUsed && (prevBest == null || state.totalShots < prevBest);
     spawnCelebration(willBeNewBest);
     playAllClear();
-    showResult('clear', 'allClear', '', 1300);
-    later(1400, () => {
+    later(900, () => showResult('clear', 'allClear', '', 1000));
+    later(2000, () => {
       hideResult();
       showEndScreen();
     });
   } else {
     playClear();
-    showResult('clear', 'stageClear', 'next', 1300);
-    later(1500, () => {
+    later(900, () => showResult('clear', 'stageClear', 'next', 900));
+    later(1900, () => {
       state.stageNum++;
       applyStage(generateSolvableStage());
       state.lockInput = false;
@@ -1235,9 +1269,16 @@ function updateBullets(dt) {
     const hitPlanet = b.hitPlanet;
     if (b.life <= 0 || offBounds || hitPlanet) {
       if (hitPlanet) {
-        // 惑星にめり込んだダスト演出
-        spawnHitParticles(b.x, b.y, hitPlanet.color, 18);
+        spawnHitParticles(b.x, b.y, hitPlanet.color, 16);
         triggerShake(5);
+        tfx.stop = Math.max(tfx.stop, 0.045);
+        haptic(12);
+      } else {
+        const x = Math.max(10, Math.min(W - 10, b.x));
+        const y = Math.max(10, Math.min(H - 10, b.y));
+        spawnHitParticles(x, y, '#9BB0D0', 10);
+        triggerShake(2.5);
+        haptic(8);
       }
       if (!allCleared()) ghost = { tr: b.trail, life: Infinity, max: 1, clear: false };
       state.bullets.splice(i, 1);
@@ -1269,6 +1310,8 @@ function updateCapture(b) {
         b.capMask |= 1 << bi;
         tfx.pull = 1;
         addRing(best.x, best.y, best.r * 3.4, best.r * 1.05, 0.5, best.color, 3);
+        spawnHitParticles(b.x, b.y, best.color, 8);
+        triggerShake(2);
         playPull();
         haptic(6);
       }
@@ -1613,37 +1656,40 @@ function drawBullet(b) {
     ctx.setLineDash([]);
     ctx.globalCompositeOperation = 'source-over';
   }
-  ctx.globalAlpha = 1;
-  // 弾本体: 大きめのグロー
-  const hr = 18 + 10 * b.k; // 曲がっている最中は弾も膨らむ
-  const halo = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, hr);
-  halo.addColorStop(0, 'rgba(255,231,165,0.8)');
-  halo.addColorStop(0.5, b.k > 0.4 ? 'rgba(150,225,255,0.4)' : 'rgba(255,209,120,0.35)');
-  halo.addColorStop(1, 'rgba(255,209,120,0)');
-  ctx.fillStyle = halo;
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = b.k > 0.45 ? '#9AD8FF' : '#FFD178';
   ctx.beginPath();
-  ctx.arc(b.x, b.y, hr, 0, Math.PI * 2);
-  ctx.fill();
-  // コア
-  const core = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 6);
-  core.addColorStop(0, '#FFFFFF');
-  core.addColorStop(0.6, '#FFE7A5');
-  core.addColorStop(1, 'rgba(255,209,120,0)');
-  ctx.fillStyle = core;
-  ctx.beginPath();
-  ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
+  ctx.arc(b.x, b.y, 11 + 4 * b.k, 0, 6.2832);
   ctx.fill();
   ctx.restore();
 }
 
+function drawBulletCore(b) {
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, 6.2, 0, 6.2832);
+  ctx.fillStyle = '#12182A';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, 3.8, 0, 6.2832);
+  ctx.fillStyle = b.k > 0.45 ? '#E7F7FF' : '#FFF6D0';
+  ctx.fill();
+}
 function render(time) {
+  ctx.fillStyle = '#070B1B';
+  ctx.fillRect(0, 0, W, H);
   ctx.save();
-  // カメラシェイク（命中時の余韻）
-  if (shake.magnitude > 0) ctx.translate(shake.x, shake.y);
-  ctx.clearRect(-32, -32, W + 64, H + 64);
+  let sx = shake.x + kick.x, sy = shake.y + kick.y;
+  if (tfx.stop > 0) {
+    const j = Math.min(1.8, tfx.stop * 20);
+    sx += (Math.random() - 0.5) * j;
+    sy += (Math.random() - 0.5) * j;
+  }
+  if (sx > 9) sx = 9; else if (sx < -9) sx = -9;
+  if (sy > 9) sy = 9; else if (sy < -9) sy = -9;
+  if (sx || sy) ctx.translate(sx, sy);
   if (state.flash > 0) {
-    ctx.fillStyle = 'rgba(240, 138, 138,' + Math.min(0.25, state.flash * 0.4) + ')';
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(240, 138, 138,' + Math.min(0.12, state.flash * 0.22) + ')';
+    ctx.fillRect(-12, -12, W + 24, H + 24);
   }
   drawNebulae();
   drawStars(time);
@@ -1657,9 +1703,12 @@ function render(time) {
     }
     drawAimLine(predictPath(), time);
     for (const b of state.bullets) drawBullet(b);
-    drawPlayer(state.player);
   }
   drawParticles();
+  if (state.running) {
+    for (const b of state.bullets) drawBulletCore(b);
+    drawPlayer(state.player);
+  }
   ctx.restore();
 }
 
@@ -1734,7 +1783,7 @@ function loop(ts) {
   if (simPaused) return;
   const frameDt = last === 0 ? 0 : Math.min(0.1, (ts - last) / 1000);
   last = ts;
-  // 時間演出: ヒットストップ中は世界停止、捕獲/クリア時はスロー(物理は固定stepのまま=軌道は不変)
+  // ヒットストップは固定ステップを足さない（dtは変えない）。揺れは描画だけ。
   let worldDt = frameDt * timeScale();
   if (tfx.stop > 0) { tfx.stop -= frameDt; worldDt = 0; }
   tfx.pull = Math.max(0, tfx.pull - frameDt * 2.5);
