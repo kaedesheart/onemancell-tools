@@ -27,6 +27,7 @@ const I18N = {
     pace: 'ベスト {b} ・ あと{n}発',
     paceOut: 'ベスト更新ならず',
     stageBest: 'このステージのベスト {n}',
+    skip: 'タップかSpaceで見送る',
     endBest: '<br><span style="color:#7A86A0;font-size:.8em;">ベスト: {n} 発</span>',
     againAsk: 'もう一度プレイしますか？', again: 'もう一度',
   },
@@ -54,6 +55,7 @@ const I18N = {
     pace: 'Best {b} · {n} left',
     paceOut: 'Best stands',
     stageBest: 'Stage best {n}',
+    skip: 'Tap or Space to skip',
     endBest: '<br><span style="color:#7A86A0;font-size:.8em;">Best: {n}</span>',
     againAsk: 'Play again?', again: 'Again',
   },
@@ -121,7 +123,9 @@ const state = {
 // ===== Physics constants =====
 const G = 80000;
 const BULLET_SPEED = 380;
-const BULLET_LIFE = 7;
+const BULLET_LIFE = 24;
+const OOB_SCREENS = 1.75;
+const SKIP_AFTER = 2.5;
 const TARGET_R = 13;
 const MOVE_SPEED = 230;
 const ROT_SPEED  = 1.6;
@@ -135,7 +139,7 @@ const FEEL = {
   finalHitstop: 0.12, // 2つ目(クリア)の停止(秒)
   pullAccel: 2600,    // 1惑星からの引力(px/s²)がこれを超えたら「捕獲」演出
   bendRate: 5,        // 軌跡が最大輝度になる旋回速度(rad/s)
-  trailMax: 420,      // 軌跡リングバッファ(1step=1点, 7秒分)
+  trailMax: 420,      // 軌跡は直近420点だけ残す(長い飛行でも描画量を固定)
   maxParticles: 320,  // パーティクル上限(プール)
 };
 // 時間演出: stop=ヒットストップ残り秒, pull=捕獲スロー, slow=クリア余韻スロー
@@ -790,6 +794,27 @@ function sweepCircle(x0, y0, x1, y1, cx, cy, r) {
   }
   return endIn ? 1 : -1;
 }
+function offScreen(x, y) { return x < 0 || y < 0 || x > W || y > H; }
+function outOfBounds(x, y) {
+  const mx = W * OOB_SCREENS, my = H * OOB_SCREENS;
+  return x < -mx || y < -my || x > W + mx || y > H + my;
+}
+// 全惑星から離れ、脱出速度を超えている。画面内や惑星の近くでは切らない。
+function fleeing(x, y, vx, vy, planets) {
+  if (!offScreen(x, y)) return false;
+  let pull = 0;
+  const sp2 = vx * vx + vy * vy;
+  for (let i = 0; i < planets.length; i++) {
+    const p = planets[i];
+    const dx = x - p.x, dy = y - p.y;
+    const r2 = dx * dx + dy * dy;
+    const near = p.r * 3;
+    if (r2 < near * near) return false;
+    if (dx * vx + dy * vy <= 0) return false;
+    pull += 2 * G * p.mass / Math.sqrt(r2);
+  }
+  return sp2 > pull * 1.2;
+}
 
 // 弾道シミュレーション。勝利時はステップ数と累積旋回量 turn(rad) も返す
 // trace を渡すと毎stepの [x, y, turn] を積む(的なしで呼ぶと画面外/衝突まで飛ぶ)
@@ -832,7 +857,7 @@ function simulateAndMeasure(absDef, px, py, angle, trace) {
     }
     if (winMask && hitMask === winMask) return { hits: true, steps: s + 1, turn };
     if (planetT <= 1) return { hits: false };
-    if (x < -60 || x > W + 60 || y < -60 || y > H + 60) return { hits: false };
+    if (outOfBounds(x, y) || fleeing(x, y, vx, vy, absDef.planets)) return { hits: false };
     if (trace) trace.push(x, y, turn);
   }
   return { hits: false };
@@ -1344,7 +1369,7 @@ function updateBullets(dt) {
 
   for (let i = state.bullets.length - 1; i >= 0; i--) {
     const b = state.bullets[i];
-    const offBounds = b.x < -60 || b.x > W + 60 || b.y < -60 || b.y > H + 60;
+    const offBounds = outOfBounds(b.x, b.y) || fleeing(b.x, b.y, b.vx, b.vy, state.planets);
     const hitPlanet = b.hitPlanet;
     if (b.life <= 0 || offBounds || hitPlanet) {
       if (hitPlanet) {
@@ -1805,6 +1830,57 @@ function render(time) {
     drawPlayer(state.player);
   }
   ctx.restore();
+  if (state.running) for (const b of state.bullets) drawOffscreen(b);
+  syncSkipHint();
+}
+function drawOffscreen(b) {
+  const m = 26;
+  if (b.x >= m && b.y >= m && b.x <= W - m && b.y <= H - m) return;
+  const cx = W * 0.5, cy = H * 0.5;
+  const dx = b.x - cx, dy = b.y - cy;
+  const s = Math.min((W * 0.5 - m) / (Math.abs(dx) || 1), (H * 0.5 - m) / (Math.abs(dy) || 1));
+  const x = cx + dx * s, y = cy + dy * s;
+  const dist = Math.hypot(b.x - x, b.y - y);
+  const ang = Math.atan2(dy, dx);
+  const sz = dist < 90 ? 15 : dist < 260 ? 11 : 8;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(ang);
+  ctx.globalAlpha = dist < 140 ? 0.95 : 0.6;
+  ctx.fillStyle = '#FFD178';
+  ctx.beginPath();
+  ctx.moveTo(sz, 0);
+  ctx.lineTo(-sz * 0.75, sz * 0.55);
+  ctx.lineTo(-sz * 0.4, 0);
+  ctx.lineTo(-sz * 0.75, -sz * 0.55);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = 0.8;
+  ctx.fillStyle = '#FFE7A5';
+  ctx.font = '600 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(Math.round(dist)), x - Math.cos(ang) * (sz + 16), y - Math.sin(ang) * (sz + 16));
+  ctx.restore();
+}
+function canSkip() {
+  const b = state.bullets[0];
+  return !!(state.running && b && !state.lockInput && BULLET_LIFE - b.life >= SKIP_AFTER);
+}
+function skipShot() {
+  if (!canSkip()) return;
+  endShotFailed();
+}
+function syncSkipHint() {
+  const el = document.getElementById('skip-hint');
+  if (!el) return;
+  const on = canSkip();
+  if (!on) { el.hidden = true; return; }
+  el.hidden = false;
+  const label = t('skip');
+  if (el.textContent !== label) el.textContent = label;
 }
 
 // ===== Game loop =====
@@ -1977,6 +2053,7 @@ const KEY_MAP = {
 const NUDGE = 0.012;
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape') return;
+  if ((e.key === ' ' || e.key === 'Enter') && canSkip()) { skipShot(); e.preventDefault(); return; }
   if (state.lockInput || demo.active || state.watchMode) return;
   if (KEY_MAP[e.key]) { state.input[KEY_MAP[e.key]] = true; e.preventDefault(); }
   else if (e.key === 'ArrowUp') { state.player.angle -= NUDGE; e.preventDefault(); }
@@ -1989,7 +2066,9 @@ window.addEventListener('keyup', e => {
 const aimDrag = { id: -1, x: 0, y: 0, angle: 0 };
 function aimBlocked() { return !state.running || state.lockInput || demo.active || state.watchMode || bulletInFlight(); }
 canvas.addEventListener('pointerdown', e => {
-  if (aimBlocked() || (e.target.closest && e.target.closest('button'))) return;
+  if (e.target.closest && e.target.closest('button')) return;
+  if (canSkip()) { skipShot(); return; }
+  if (aimBlocked()) return;
   aimDrag.id = e.pointerId;
   aimDrag.x = e.clientX; aimDrag.y = e.clientY;
   aimDrag.angle = state.player.angle;
