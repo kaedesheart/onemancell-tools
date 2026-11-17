@@ -30,6 +30,14 @@ const I18N = {
     paceOut: 'ベスト更新ならず',
     stageBest: 'このステージのベスト {n}',
     skip: 'タップかSpaceで見送る',
+    shareBtn: 'Xでシェア',
+    shareScore: '{n}発でクリア',
+    shareDemo: '{n}発（記録対象外）',
+    shareNew: '自己ベスト更新 {a}→{b}',
+    shareFirst: '自己ベスト！',
+    shareClose: 'ベストまであと{n}発',
+    shareTie: 'ベストに並んだ',
+    shareNote: '画像を保存しました。投稿に添付できます。',
     endBest: dim('ベスト: {n} 発'),
     againAsk: 'もう一度プレイしますか？', again: 'もう一度',
   },
@@ -58,6 +66,14 @@ const I18N = {
     paceOut: 'Best stands',
     stageBest: 'Stage best {n}',
     skip: 'Tap or Space to skip',
+    shareBtn: 'Share on X',
+    shareScore: 'Cleared in {n}',
+    shareDemo: '{n} shots (unranked)',
+    shareNew: 'New best {a}→{b}',
+    shareFirst: 'New best!',
+    shareClose: '{n} over best',
+    shareTie: 'Tied the best',
+    shareNote: 'Image saved. Attach it to your post.',
     endBest: dim('Best: {n}'),
     againAsk: 'Play again?', again: 'Again',
   },
@@ -1293,6 +1309,11 @@ function noteStageBest() {
   }
 }
 
+let sharePts = null, shareTick = 0;
+function beginShareTrace() {
+  shareTick = 0;
+  sharePts = (!state.watchMode && state.stageNum >= MAX_STAGES) ? [] : null;
+}
 function bulletInFlight() { return state.bullets.length > 0; }
 function allCleared() { return state.targets.length > 0 && state.targets.every(t => t.hit); }
 
@@ -1343,6 +1364,7 @@ function fire() {
   }
   state.totalShots++;
   if (!state.watchMode) state.stageShots++;
+  beginShareTrace();
   playFire();
   updateHUD();
   updateFireBtnState();
@@ -1428,6 +1450,7 @@ function updateBullets(dt) {
       b.y = y0 + (y1 - y0) * planetT;
     }
     trailPush(b.trail, b.x, b.y, b.k);
+    if (sharePts && (shareTick++ % 2) === 0 && sharePts.length < 480) sharePts.push(b.x, b.y);
     if (!hitPlanet) updateCapture(b);
     for (const t of state.targets) {
       if (t.hit) continue;
@@ -2153,6 +2176,7 @@ function zeroRun(watch) {
   state.input.left = state.input.right = state.input.rotL = state.input.rotR = false;
   demo.active = false;
   hideResult();
+  sharePts = null;
 }
 function startGame() {
   zeroRun(false);
@@ -2191,6 +2215,7 @@ function renderTitle() {
   overlaySub.innerHTML = t('blurb');
   overlayHint.textContent = t('hint');
   overlayStartBtn.textContent = t('start');
+  syncShareBtn();
   const watch = byId('watch-btn');
   if (watch) watch.textContent = t('watch');
   refreshBestDisplay();
@@ -2214,6 +2239,151 @@ function renderEnd() {
   overlayHint.textContent = t('againAsk');
   overlayStartBtn.textContent = t('again');
   syncTitleArt();
+  syncShareBtn();
+}
+function syncShareBtn() {
+  const btn = byId('share-btn');
+  const note = byId('share-note');
+  if (!btn) return;
+  const on = uiMode === 'end' && !inPlayables();
+  btn.hidden = !on;
+  if (on) btn.textContent = t('shareBtn');
+  if (note && !on) note.hidden = true;
+}
+function shareCaption(v) {
+  const score = v.demoUsed ? t('shareDemo', { n: v.shots }) : t('shareScore', { n: v.shots });
+  return score + ' #スイングバイ https://tools.onemancell.com/swingby';
+}
+function shareDetail(v) {
+  if (v.demoUsed) return t('shareDemo', { n: v.shots });
+  if (v.isNewBest && v.prevBest != null) return t('shareScore', { n: v.shots }) + '  ' + t('shareNew', { a: v.prevBest, b: v.shots });
+  if (v.isNewBest) return t('shareScore', { n: v.shots }) + '  ' + t('shareFirst');
+  if (v.prevBest != null && v.shots === v.prevBest) return t('shareScore', { n: v.shots }) + '  ' + t('shareTie');
+  if (v.prevBest != null) return t('shareScore', { n: v.shots }) + '  ' + t('shareClose', { n: v.shots - v.prevBest });
+  return t('shareScore', { n: v.shots });
+}
+function buildShareCanvas() {
+  const c = document.createElement('canvas');
+  c.width = 1080;
+  c.height = 1350;
+  const g = c.getContext('2d');
+  const board = {
+    w: W, h: H,
+    pts: sharePts ? sharePts.slice() : [],
+    planets: state.planets.map(p => ({ x: p.x, y: p.y, r: p.r, mass: p.mass, color: p.color })),
+    targets: state.targets.map(t => ({ x: t.x, y: t.y, r: t.r || TARGET_R })),
+    player: { x: state.player.x, y: state.player.y, r: state.player.r, angle: state.player.angle },
+  };
+  g.fillStyle = '#070B1B';
+  g.fillRect(0, 0, 1080, 1350);
+  const bg = art.bg;
+  if (artReady(bg)) {
+    const s = Math.max(1080 / bg.naturalWidth, 1000 / bg.naturalHeight);
+    const iw = bg.naturalWidth * s, ih = bg.naturalHeight * s;
+    g.drawImage(bg, (1080 - iw) / 2, (1000 - ih) / 2, iw, ih);
+  }
+  const pad = 64;
+  const scale = Math.min((1080 - pad * 2) / Math.max(1, board.w), 980 / Math.max(1, board.h));
+  const ox = (1080 - board.w * scale) / 2;
+  const oy = 36;
+  const X = x => ox + x * scale;
+  const Y = y => oy + y * scale;
+  for (const p of board.planets) {
+    g.beginPath();
+    g.arc(X(p.x), Y(p.y), p.r * scale * 3.2, 0, Math.PI * 2);
+    g.fillStyle = (p.color || '#7CC8E8') + '33';
+    g.fill();
+    const sheet = art.planets;
+    const d = p.r * scale * 2.12;
+    if (artReady(sheet)) g.drawImage(sheet, planetKind(p) * 192, 0, 192, 192, X(p.x) - d / 2, Y(p.y) - d / 2, d, d);
+    else {
+      g.beginPath();
+      g.arc(X(p.x), Y(p.y), p.r * scale, 0, Math.PI * 2);
+      g.fillStyle = p.color || '#7CC8E8';
+      g.fill();
+    }
+  }
+  for (const t of board.targets) {
+    g.beginPath();
+    g.arc(X(t.x), Y(t.y), (t.r || 13) * scale, 0, Math.PI * 2);
+    g.strokeStyle = '#FFD178';
+    g.lineWidth = 4;
+    g.stroke();
+  }
+  if (board.pts.length >= 4) {
+    g.beginPath();
+    g.moveTo(X(board.pts[0]), Y(board.pts[1]));
+    for (let i = 2; i < board.pts.length; i += 2) g.lineTo(X(board.pts[i]), Y(board.pts[i + 1]));
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.strokeStyle = 'rgba(8,12,24,.8)';
+    g.lineWidth = 18;
+    g.stroke();
+    g.strokeStyle = '#FFD178';
+    g.lineWidth = 7;
+    g.stroke();
+  }
+  const ship = art.ship;
+  const pr = board.player;
+  if (pr) {
+    g.save();
+    g.translate(X(pr.x), Y(pr.y));
+    g.rotate((pr.angle || -Math.PI / 2) + Math.PI / 2);
+    const s = Math.max(42, (pr.r || 14) * scale * 3.1);
+    if (artReady(ship)) g.drawImage(ship, -s / 2, -s / 2, s, s);
+    else {
+      g.fillStyle = '#FFD178';
+      g.beginPath();
+      g.moveTo(s * 0.4, 0);
+      g.lineTo(-s * 0.3, s * 0.24);
+      g.lineTo(-s * 0.3, -s * 0.24);
+      g.closePath();
+      g.fill();
+    }
+    g.restore();
+  }
+  g.fillStyle = 'rgba(7,11,27,.88)';
+  g.fillRect(0, 1040, 1080, 310);
+  g.fillStyle = '#FFD178';
+  g.font = '800 78px sans-serif';
+  g.textAlign = 'center';
+  g.fillText('スイングバイ', 540, 1148);
+  g.fillStyle = '#E8ECF8';
+  g.font = '600 42px sans-serif';
+  const detail = endView ? shareDetail(endView) : '';
+  g.fillText(detail, 540, 1224);
+  g.fillStyle = '#8E98B0';
+  g.font = '500 32px sans-serif';
+  g.fillText('tools.onemancell.com/swingby', 540, 1292);
+  return c;
+}
+function shareResult() {
+  if (inPlayables() || uiMode !== 'end' || !endView) return;
+  const text = shareCaption(endView);
+  const c = buildShareCanvas();
+  c.toBlob(async blob => {
+    if (!blob) return;
+    const file = new File([blob], 'swingby.png', { type: 'image/png' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text });
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = href;
+    a.download = 'swingby.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 2500);
+    const note = byId('share-note');
+    if (note) { note.hidden = false; note.textContent = t('shareNote'); }
+    window.open('https://x.com/intent/post?text=' + encodeURIComponent(text), '_blank', 'noopener');
+  }, 'image/png');
 }
 function applyI18n() {
   document.documentElement.lang = lang;
@@ -2311,6 +2481,8 @@ function showEndScreen() {
 }
 
 overlayStartBtn.addEventListener('click', startGame);
+const shareBtn = byId('share-btn');
+if (shareBtn) shareBtn.addEventListener('click', shareResult);
 byId('watch-btn').addEventListener('click', startWatchMode);
 byId('exit-btn').addEventListener('click', exitToTitle);
 byId('mute-btn').addEventListener('click', () => setMuted(!audioMuted));
