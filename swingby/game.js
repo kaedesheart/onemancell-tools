@@ -161,8 +161,8 @@ const state = {
 const G = 80000;
 const BULLET_SPEED = 380;
 const BULLET_LIFE = 24;
-const AIR_CAP = 2.5;
-const AIR_MAX = 100;
+const AIR_TAU = 3.2;
+const AIR_MAX = 400;
 const OOB_SCREENS = 1.75;
 const SKIP_AFTER = 2.5;
 const TARGET_R = 13;
@@ -1556,8 +1556,8 @@ function updateBullets(dt) {
 
 function grantAirtime() {
   if (state.watchMode) return 0;
-  const t = Math.max(0, Math.min(lastFlight || 0, AIR_CAP));
-  const bonus = Math.round(t / AIR_CAP * AIR_MAX);
+  const t = Math.max(0, lastFlight || 0);
+  const bonus = Math.round(AIR_MAX * (1 - Math.exp(-t / AIR_TAU)));
   state.airBonus = (state.airBonus || 0) + bonus;
   lastFlight = 0;
   return bonus;
