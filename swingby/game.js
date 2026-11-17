@@ -38,6 +38,8 @@ const I18N = {
     shareClose: 'ベストまであと{n}発',
     shareTie: 'ベストに並んだ',
     shareNote: '画像を保存しました。投稿に添付できます。',
+    airBonus: '滞空ボーナス +{n}',
+    airTotal: '滞空ボーナス +{n}',
     endBest: dim('ベスト: {n} 発'),
     againAsk: 'もう一度プレイしますか？', again: 'もう一度',
   },
@@ -74,6 +76,8 @@ const I18N = {
     shareClose: '{n} over best',
     shareTie: 'Tied the best',
     shareNote: 'Image saved. Attach it to your post.',
+    airBonus: 'Airtime bonus +{n}',
+    airTotal: 'Airtime bonus +{n}',
     endBest: dim('Best: {n}'),
     againAsk: 'Play again?', again: 'Again',
   },
@@ -151,11 +155,14 @@ const state = {
   input: { left: false, right: false, rotL: false, rotR: false },
   flash: 0,
   lockInput: false,
+  airBonus: 0,
 };
 
 const G = 80000;
 const BULLET_SPEED = 380;
 const BULLET_LIFE = 24;
+const AIR_CAP = 2.5;
+const AIR_MAX = 100;
 const OOB_SCREENS = 1.75;
 const SKIP_AFTER = 2.5;
 const TARGET_R = 13;
@@ -462,6 +469,7 @@ function drawStardust() {
 const audioState = { ctx: null };
 const MUTE_KEY = 'omc-swingby-mute';
 let audioMuted = false;
+let audioUnlocked = false;
 let ytAudioOn = true; // YouTube側の音声許可。SDKが無いときは常に許可
 const progress = { best: null, mute: false, stages: [null, null, null, null, null, null] };
 function readStages(raw) {
@@ -561,10 +569,12 @@ function loadProgress() {
 }
 
 function initAudio() {
-  if (audioState.ctx || soundBlocked()) return;
-  try {
-    audioState.ctx = new (window.AudioContext || window.webkitAudioContext)();
-  } catch (e) { /* 非対応環境は黙ってスキップ */ }
+  if (!audioUnlocked || soundBlocked()) return;
+  if (!audioState.ctx) {
+    try { audioState.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  }
+  const c = audioState.ctx;
+  if (c && c.state === 'suspended') { try { c.resume(); } catch (e) {} }
 }
 
 function setMuted(m) {
@@ -617,7 +627,28 @@ function playAllClear() {
   [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((f, i) =>
     audioBeep({ type: 'triangle', freq: f, dur: 0.65, gain: 0.13, delay: i * 0.10 }));
 }
-document.addEventListener('pointerdown', () => { try { initAudio(); syncAudioOut(); } catch (e) {} });
+function playCrash() {
+  audioBeep({ type: 'sawtooth', freq: 240, freqEnd: 42, dur: 0.22, gain: 0.07 });
+  audioBeep({ type: 'square', freq: 96, freqEnd: 36, dur: 0.16, gain: 0.04 });
+}
+function playTap() {
+  audioBeep({ type: 'square', freq: 720, dur: 0.03, gain: 0.02 });
+}
+let whooshAt = 0;
+function playWhoosh(close, speed) {
+  const now = performance.now();
+  if (now - whooshAt < 200) return;
+  whooshAt = now;
+  const pitch = 150 + Math.min(420, speed * 0.32);
+  const gain = 0.012 + 0.045 * Math.max(0, Math.min(1, close));
+  audioBeep({ type: 'sine', freq: pitch, freqEnd: Math.max(48, pitch * 0.72), dur: 0.14, gain });
+}
+document.addEventListener('pointerdown', e => {
+  audioUnlocked = true;
+  try { initAudio(); syncAudioOut(); } catch (err) {}
+  const btn = e.target && e.target.closest && e.target.closest('button');
+  if (btn && btn.id !== 'fire-btn') playTap();
+});
 
 const fx = { muzzle: 0, kickback: 0, thrustTimer: 0 };
 function spawnThrustParticles(p, dt) {
@@ -1309,7 +1340,7 @@ function noteStageBest() {
   }
 }
 
-let sharePts = null, shareTick = 0;
+let sharePts = null, shareTick = 0, lastFlight = 0;
 function beginShareTrace() {
   shareTick = 0;
   sharePts = (!state.watchMode && state.stageNum >= MAX_STAGES) ? [] : null;
@@ -1370,11 +1401,11 @@ function fire() {
   updateFireBtnState();
 }
 
-function endShotFailed() {
+function endShotFailed(crash) {
   state.bullets = [];
   state.flash = 0.6;
   for (const t of state.targets) t.hit = false;
-  playMiss();
+  if (crash) playCrash(); else playMiss();
   updateHUD();
   if (state.watchMode) {
     watchSetTimeout(() => { if (state.watchMode) watchFx.dir = 1; }, 700);
@@ -1398,20 +1429,21 @@ function endShotCleared() {
   }
 
   noteStageBest();
+  const bonus = grantAirtime();
   const isLastStage = state.stageNum >= MAX_STAGES;
   if (isLastStage) {
     const prevBest = getBestRecord();
     const willBeNewBest = !state.demoUsed && (prevBest == null || state.totalShots < prevBest);
     spawnCelebration(willBeNewBest);
     playAllClear();
-    later(900, () => showResult('clear', 'allClear', '', 1000));
+    later(900, () => showResult('clear', 'allClear', '', 1000, t('airBonus', { n: bonus })));
     later(2000, () => {
       hideResult();
       showEndScreen();
     });
   } else {
     playClear();
-    later(900, () => showResult('clear', 'stageClear', 'next', 900));
+    later(900, () => showResult('clear', 'stageClear', '', 1100, t('airBonus', { n: bonus }) + ' · ' + t('next')));
     later(1900, () => {
       state.stageNum++;
       state.stageShots = 0;
@@ -1436,6 +1468,7 @@ function updateBullets(dt) {
     b.x  += b.vx * dt;
     b.y  += b.vy * dt;
     b.life -= dt;
+    b.flight = (b.flight || 0) + dt;
     const w = Math.abs(b.vx * g.ay - b.vy * g.ax) / (b.vx * b.vx + b.vy * b.vy + 1e-6);
     b.k = Math.min(1, w / FEEL.bendRate);
     const x1 = b.x, y1 = b.y;
@@ -1448,6 +1481,19 @@ function updateBullets(dt) {
       b.hitPlanet = hitPlanet;
       b.x = x0 + (x1 - x0) * planetT;
       b.y = y0 + (y1 - y0) * planetT;
+    } else {
+      for (let pi = 0; pi < state.planets.length; pi++) {
+        const pl = state.planets[pi];
+        const dist = Math.hypot(pl.x - b.x, pl.y - b.y);
+        const band = pl.r * 2.7;
+        const bit = 1 << pi;
+        if (dist < band && dist > pl.r * 0.85) {
+          if (!(b.whoosh & bit)) {
+            b.whoosh = (b.whoosh || 0) | bit;
+            playWhoosh(1 - Math.max(0, dist - pl.r) / Math.max(1, band - pl.r), Math.hypot(b.vx, b.vy));
+          }
+        } else if (dist > pl.r * 3.5) b.whoosh = (b.whoosh || 0) & ~bit;
+      }
     }
     trailPush(b.trail, b.x, b.y, b.k);
     if (sharePts && (shareTick++ % 2) === 0 && sharePts.length < 480) sharePts.push(b.x, b.y);
@@ -1463,7 +1509,7 @@ function updateBullets(dt) {
         tfx.stop = Math.max(tfx.stop, fin ? FEEL.finalHitstop : FEEL.hitstop);
         playHit(fin);
         haptic(fin ? 30 : 15);
-        if (fin) { startAfterglow(b, t); immediateClear = true; break; }
+        if (fin) { lastFlight = b.flight || 0; startAfterglow(b, t); immediateClear = true; break; }
       }
     }
   }
@@ -1477,12 +1523,14 @@ function updateBullets(dt) {
     return;
   }
 
+  let crashed = false;
   for (let i = state.bullets.length - 1; i >= 0; i--) {
     const b = state.bullets[i];
     const offBounds = outOfBounds(b.x, b.y) || fleeing(b.x, b.y, b.vx, b.vy, state.planets);
     const hitPlanet = b.hitPlanet;
     if (b.life <= 0 || offBounds || hitPlanet) {
       if (hitPlanet) {
+        crashed = true;
         spawnHitParticles(b.x, b.y, hitPlanet.color, 16);
         triggerShake(5);
         tfx.stop = Math.max(tfx.stop, 0.045);
@@ -1501,9 +1549,18 @@ function updateBullets(dt) {
 
   if (startedWithBullets && state.bullets.length === 0 && state.running && !state.lockInput) {
     if (allCleared()) endShotCleared();
-    else endShotFailed();
+    else endShotFailed(crashed);
     updateFireBtnState();
   }
+}
+
+function grantAirtime() {
+  if (state.watchMode) return 0;
+  const t = Math.max(0, Math.min(lastFlight || 0, AIR_CAP));
+  const bonus = Math.round(t / AIR_CAP * AIR_MAX);
+  state.airBonus = (state.airBonus || 0) + bonus;
+  lastFlight = 0;
+  return bonus;
 }
 
 function updateCapture(b) {
@@ -1976,11 +2033,11 @@ function hookYt() {
   if (!yt || !yt.system) return;
   try {
     const v = yt.system.isAudioEnabled();
-    const take = b => { ytAudioOn = !!b; try { if (b) initAudio(); syncAudioOut(); } catch (e) {} };
+    const take = b => { ytAudioOn = !!b; try { if (b && audioUnlocked) initAudio(); syncAudioOut(); } catch (e) {} };
     if (v && typeof v.then === 'function') v.then(take, () => {});
     else take(v);
   } catch (e) {}
-  try { yt.system.onAudioEnabledChange(b => { ytAudioOn = !!b; try { if (b) initAudio(); syncAudioOut(); } catch (e) {} }); } catch (e) {}
+  try { yt.system.onAudioEnabledChange(b => { ytAudioOn = !!b; try { if (b && audioUnlocked) initAudio(); syncAudioOut(); } catch (e) {} }); } catch (e) {}
   try { yt.system.onPause(() => { holdYt = true; syncHold(); try { writeProgress(); } catch (e) {} }); } catch (e) {}
   try { yt.system.onResume(() => { holdYt = false; syncHold(); }); } catch (e) {}
   if (inPlayables()) {
@@ -1988,7 +2045,7 @@ function hookYt() {
     if (mute) mute.hidden = true;
     const vib = byId('haptic-btn');
     if (vib) vib.hidden = false;
-    try { initAudio(); syncAudioOut(); } catch (e) {}
+    try { syncAudioOut(); } catch (e) {}
   }
 }
 if (!inPlayables()) {
@@ -2046,10 +2103,10 @@ let lastResult = null;
 function paintResult() {
   if (!lastResult) return;
   resultTitle.textContent = t(lastResult.titleKey);
-  resultSub.textContent = lastResult.subKey ? t(lastResult.subKey) : '';
+  resultSub.textContent = lastResult.subText || (lastResult.subKey ? t(lastResult.subKey) : '');
 }
-function showResult(kind, titleKey, subKey, ms) {
-  lastResult = { kind, titleKey, subKey: subKey || '' };
+function showResult(kind, titleKey, subKey, ms, subText) {
+  lastResult = { kind, titleKey, subKey: subKey || '', subText: subText || '' };
   paintResult();
   resultTitle.style.color = kind === 'clear' ? '#FFD178' : '#F08A8A';
   resultOverlay.classList.remove('hidden');
@@ -2177,6 +2234,8 @@ function zeroRun(watch) {
   demo.active = false;
   hideResult();
   sharePts = null;
+  state.airBonus = 0;
+  lastFlight = 0;
 }
 function startGame() {
   zeroRun(false);
@@ -2234,6 +2293,7 @@ function renderEnd() {
     else if (v.prevBest != null && v.shots === v.prevBest) sub += t('tiedBest');
     else if (v.prevBest != null) sub += t('closeBy', { n: v.shots - v.prevBest });
   }
+  if (v.air) sub += '<br><span style="color:#7CC8E8;">' + t('airTotal', { n: v.air }) + '</span>';
   overlaySub.innerHTML = sub;
   overlayBest.style.display = 'none';
   overlayHint.textContent = t('againAsk');
@@ -2251,16 +2311,18 @@ function syncShareBtn() {
   if (note && !on) note.hidden = true;
 }
 function shareCaption(v) {
-  const score = v.demoUsed ? t('shareDemo', { n: v.shots }) : t('shareScore', { n: v.shots });
+  let score = v.demoUsed ? t('shareDemo', { n: v.shots }) : t('shareScore', { n: v.shots });
+  if (v.air) score += ' ' + t('airTotal', { n: v.air });
   return score + ' #スイングバイ https://tools.onemancell.com/swingby';
 }
 function shareDetail(v) {
-  if (v.demoUsed) return t('shareDemo', { n: v.shots });
-  if (v.isNewBest && v.prevBest != null) return t('shareScore', { n: v.shots }) + '  ' + t('shareNew', { a: v.prevBest, b: v.shots });
-  if (v.isNewBest) return t('shareScore', { n: v.shots }) + '  ' + t('shareFirst');
-  if (v.prevBest != null && v.shots === v.prevBest) return t('shareScore', { n: v.shots }) + '  ' + t('shareTie');
-  if (v.prevBest != null) return t('shareScore', { n: v.shots }) + '  ' + t('shareClose', { n: v.shots - v.prevBest });
-  return t('shareScore', { n: v.shots });
+  let line = v.demoUsed ? t('shareDemo', { n: v.shots }) : t('shareScore', { n: v.shots });
+  if (!v.demoUsed && v.isNewBest && v.prevBest != null) line += '  ' + t('shareNew', { a: v.prevBest, b: v.shots });
+  else if (!v.demoUsed && v.isNewBest) line += '  ' + t('shareFirst');
+  else if (!v.demoUsed && v.prevBest != null && v.shots === v.prevBest) line += '  ' + t('shareTie');
+  else if (!v.demoUsed && v.prevBest != null) line += '  ' + t('shareClose', { n: v.shots - v.prevBest });
+  if (v.air) line += '  ' + t('airTotal', { n: v.air });
+  return line;
 }
 function buildShareCanvas() {
   const c = document.createElement('canvas');
@@ -2475,7 +2537,7 @@ function showEndScreen() {
     }
   }
   uiMode = 'end';
-  endView = { demoUsed: state.demoUsed, shots, isNewBest, prevBest };
+  endView = { demoUsed: state.demoUsed, shots, isNewBest, prevBest, air: state.airBonus || 0 };
   renderEnd();
   overlay.classList.remove('hidden');
 }
