@@ -17,6 +17,15 @@ const I18N = {
     soundOn: '🔊 サウンド ON', soundOff: '🔇 サウンド OFF',
     vibOn: '📳 振動 ON', vibOff: '📳 振動 OFF',
     hint: '↺やり直す自由・👁お手本を一度でも使うと記録なし',
+    helpTitle: '操作',
+    helpMove: '両端のボタンで、船を左右に動かす',
+    helpRot: '向きを変える',
+    helpFire: '発射。1発で的を2つ壊す',
+    helpDrag: '画面をドラッグしても照準できる',
+    helpKeys: 'A/D 移動 · Q/E 回転 · Space 発射',
+    helpOk: 'わかった',
+    helpTag: '移動',
+    helpAria: '操作説明',
     noLine: '解が見つかりません', missTitle: 'もう一度', missSub: '惑星に当たった or 外れた',
     stageClear: 'STAGE CLEAR', next: '次のステージへ', cleared: 'CLEAR', allClear: 'ALL CLEAR!',
     unranked: '記録なし', gameClear: 'GAME <span class="accent">CLEAR</span>',
@@ -50,6 +59,15 @@ const I18N = {
     soundOn: '🔊 Sound on', soundOff: '🔇 Sound off',
     vibOn: '📳 Vibrate on', vibOff: '📳 Vibrate off',
     hint: '↺ Retry anytime · 👁 Demo voids the record',
+    helpTitle: 'CONTROLS',
+    helpMove: 'Outer buttons move the ship',
+    helpRot: 'Turn to aim',
+    helpFire: 'Fire. One shot, both targets',
+    helpDrag: 'Or drag the sky to aim',
+    helpKeys: 'A/D move · Q/E turn · Space fire',
+    helpOk: 'Got it',
+    helpTag: 'MOVE',
+    helpAria: 'How to play',
     noLine: 'No path found', missTitle: 'Try again', missSub: 'Hit a planet, or missed',
     stageClear: 'STAGE CLEAR', next: 'Next stage', cleared: 'CLEAR', allClear: 'ALL CLEAR!',
     unranked: 'Unranked', gameClear: 'GAME <span class="accent">CLEAR</span>',
@@ -128,6 +146,9 @@ resize();
 
 const MAX_STAGES = 6;
 const BEST_KEY = 'omc-swingby-best';
+const HELP_KEY = 'omc-swingby-help';
+let helpOpen = false;
+let helpSeenMem = false;
 
 const state = {
   running: false,
@@ -1191,7 +1212,7 @@ function clearWatchTimers() {
 }
 
 function startDemo() {
-  if (!state.running || state.lockInput || demo.active || bulletInFlight()) return;
+  if (helpOpen || !state.running || state.lockInput || demo.active || bulletInFlight()) return;
   if (!state.currentDef) return;
   const absDef = expandRatio(state.currentDef);
   const sol = state.watchMode && state.currentDef.showcase
@@ -1348,7 +1369,7 @@ function pull(planets, x, y) {
 function gravityAt(x, y) { return pull(state.planets, x, y); }
 
 function fire() {
-  if (simPaused || !state.running || state.lockInput || bulletInFlight()) return;
+  if (helpOpen || simPaused || !state.running || state.lockInput || bulletInFlight()) return;
   const p = state.player;
   const nx = Math.cos(p.angle);
   const ny = Math.sin(p.angle);
@@ -1964,7 +1985,7 @@ function drawOffscreen(b) {
 }
 function canSkip() {
   const b = state.bullets[0];
-  return !!(state.running && b && !state.lockInput && BULLET_LIFE - b.life >= SKIP_AFTER);
+  return !!(state.running && !helpOpen && b && !state.lockInput && BULLET_LIFE - b.life >= SKIP_AFTER);
 }
 function skipShot() {
   if (!canSkip()) return;
@@ -2116,7 +2137,7 @@ function updateFireBtnState() {
 function bindHold(btn, key) {
   const press = (e) => {
     e.preventDefault();
-    if (state.lockInput || demo.active || state.watchMode) return;
+    if (helpOpen || state.lockInput || demo.active || state.watchMode) return;
     state.input[key] = true;
     btn.classList.add('active');
     if (e.pointerId != null) btn.setPointerCapture?.(e.pointerId);
@@ -2145,6 +2166,12 @@ const KEY_MAP = {
 };
 const NUDGE = 0.012;
 window.addEventListener('keydown', e => {
+  if (helpOpen) {
+    if (e.key === 'Escape') { closeHelp(); e.preventDefault(); return; }
+    const help = byId('help');
+    if (!(help && e.target && help.contains(e.target))) e.preventDefault();
+    return;
+  }
   if (e.key === 'Escape') return;
   if ((e.key === ' ' || e.key === 'Enter') && canSkip()) { skipShot(); e.preventDefault(); return; }
   if (state.lockInput || demo.active || state.watchMode) return;
@@ -2157,7 +2184,7 @@ window.addEventListener('keyup', e => {
   if (KEY_MAP[e.key]) { state.input[KEY_MAP[e.key]] = false; e.preventDefault(); }
 });
 const aimDrag = { id: -1, x: 0, y: 0, angle: 0 };
-function aimBlocked() { return !state.running || state.lockInput || demo.active || state.watchMode || bulletInFlight(); }
+function aimBlocked() { return helpOpen || !state.running || state.lockInput || demo.active || state.watchMode || bulletInFlight(); }
 canvas.addEventListener('pointerdown', e => {
   if (e.target.closest && e.target.closest('button')) return;
   if (canSkip()) { skipShot(); return; }
@@ -2199,6 +2226,8 @@ function setHudForPlay() {
   byId('retry-btn').style.display = '';
   byId('demo-btn').style.display = '';
   byId('exit-btn').style.display = 'none';
+  const helpBtn = byId('help-btn');
+  if (helpBtn) helpBtn.style.display = state.running ? '' : 'none';
 }
 
 function setHudForWatch() {
@@ -2206,6 +2235,9 @@ function setHudForWatch() {
   byId('retry-btn').style.display = 'none';
   byId('demo-btn').style.display = 'none';
   byId('exit-btn').style.display = '';
+  const helpBtn = byId('help-btn');
+  if (helpBtn) helpBtn.style.display = 'none';
+  hideHelp();
 }
 
 function zeroRun(watch) {
@@ -2230,6 +2262,54 @@ function trackSwingby(name, params) {
     if (typeof window.omcTrack === 'function') window.omcTrack(name, params);
   } catch (e) {}
 }
+function helpSeen() {
+  if (helpSeenMem) return true;
+  try { return localStorage.getItem(HELP_KEY) === '1'; } catch (e) { return false; }
+}
+function markHelpSeen() {
+  helpSeenMem = true;
+  try { localStorage.setItem(HELP_KEY, '1'); } catch (e) {}
+}
+function setHelpInert(on) {
+  const hud = document.querySelector('.hud');
+  if (hud) { if (on) hud.setAttribute('inert', ''); else hud.removeAttribute('inert'); }
+  if (controlsEl) { if (on) controlsEl.setAttribute('inert', ''); else controlsEl.removeAttribute('inert'); }
+  if (overlay) { if (on) overlay.setAttribute('inert', ''); else overlay.removeAttribute('inert'); }
+}
+function hideHelp() {
+  helpOpen = false;
+  setHelpInert(false);
+  const el = byId('help');
+  if (el) el.hidden = true;
+  document.querySelectorAll('.ctrl-btn.coach').forEach(b => b.classList.remove('coach'));
+  const helpBtn = byId('help-btn');
+  if (helpBtn) helpBtn.setAttribute('aria-expanded', 'false');
+}
+function openHelp() {
+  if (!state.running || state.watchMode) return;
+  helpOpen = true;
+  state.input.left = state.input.right = state.input.rotL = state.input.rotR = false;
+  document.querySelectorAll('.ctrl-btn.active').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('[data-input="left"], [data-input="right"]').forEach(b => b.classList.add('coach'));
+  setHelpInert(true);
+  const el = byId('help');
+  if (el) el.hidden = false;
+  const helpBtn = byId('help-btn');
+  if (helpBtn) helpBtn.setAttribute('aria-expanded', 'true');
+  const sheet = byId('help-sheet');
+  if (sheet) {
+    try { sheet.focus({ preventScroll: true }); } catch (e) { try { sheet.focus(); } catch (e2) {} }
+  }
+}
+function closeHelp() {
+  if (!helpOpen) return;
+  const first = !helpSeen();
+  hideHelp();
+  if (first) {
+    markHelpSeen();
+    trackSwingby('tutorial_complete', { stage: state.stageNum });
+  }
+}
 function startGame() {
   zeroRun(false);
   state.lockInput = false;
@@ -2241,6 +2321,7 @@ function startGame() {
   updateHUD();
   updateFireBtnState();
   trackSwingby('game_start', { stage: state.stageNum });
+  if (!helpSeen()) openHelp();
 }
 
 function startWatchMode() {
@@ -2331,6 +2412,8 @@ function applyI18n() {
   aria('retry-btn', 'retry');
   aria('demo-btn', 'demo');
   aria('exit-btn', 'toTitle');
+  aria('help-btn', 'helpAria');
+  paintHelp();
   const move = { left: 'moveL', right: 'moveR', rotL: 'rotL', rotR: 'rotR' };
   document.querySelectorAll('[data-input]').forEach(btn => {
     const key = move[btn.dataset.input];
@@ -2350,6 +2433,21 @@ function applyI18n() {
   if (uiMode === 'end') renderEnd();
   else if (uiMode !== 'play') renderTitle();
   if (lastResult && resultOverlay.classList.contains('show')) paintResult();
+}
+function paintHelp() {
+  const set = (id, key) => { const el = byId(id); if (el) el.textContent = t(key); };
+  set('help-title', 'helpTitle');
+  set('help-move', 'helpMove');
+  set('help-rot', 'helpRot');
+  set('help-fire', 'helpFire');
+  set('help-drag', 'helpDrag');
+  set('help-keys', 'helpKeys');
+  set('help-ok', 'helpOk');
+  const mark = byId('help-fire-mark');
+  if (mark) mark.textContent = t('fire');
+  document.querySelectorAll('[data-input="left"], [data-input="right"]').forEach(btn => {
+    btn.dataset.coach = t('helpTag');
+  });
 }
 function bootLang() {
   const forced = queryLang();
@@ -2385,6 +2483,7 @@ function exitToTitle() {
   demo.active = false;
   state.bullets = [];
   controlsEl.style.display = 'none';
+  hideHelp();
   setHudForPlay();
   hideResult();
   resetOverlayToTitle();
@@ -2429,12 +2528,36 @@ hookYt();
 loadProgress();
 
 byId('retry-btn').addEventListener('click', () => {
-  if (!state.running || state.lockInput || demo.active || !state.currentDef) return;
+  if (helpOpen || !state.running || state.lockInput || demo.active || !state.currentDef) return;
   applyStage(state.currentDef);
   updateFireBtnState();
 });
 
 byId('demo-btn').addEventListener('click', startDemo);
+const helpBtn = byId('help-btn');
+if (helpBtn) helpBtn.addEventListener('click', () => {
+  if (!state.running || state.watchMode || helpOpen) return;
+  openHelp();
+});
+const helpOk = byId('help-ok');
+if (helpOk) {
+  helpOk.addEventListener('click', closeHelp);
+  helpOk.addEventListener('keydown', e => {
+    if (!helpOpen || (e.key !== 'Enter' && e.key !== ' ')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    closeHelp();
+  });
+}
+const helpSheet = byId('help-sheet');
+if (helpSheet) helpSheet.addEventListener('keydown', e => {
+  if (!helpOpen) return;
+  if ((e.key === 'Enter' || e.key === ' ') && e.target === helpSheet) {
+    closeHelp();
+    e.preventDefault();
+    e.stopPropagation();
+  }
+});
 
 function refitStage() {
   const sx = state.fitW ? W / state.fitW : 0;
