@@ -304,7 +304,7 @@ function setupStickyOffset() {
 }
 
 // ── Die element factory ────────────────────────────────────────────────
-const D10_SVG = '<svg class="d10-svg" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><use href="#d10-die"/><text class="d10-num" x="50" y="81" font-size="28" stroke-width="2.7"></text><text class="d10-mark" x="74" y="18" font-size="14" stroke-width="2"></text></svg>';
+const D10_SVG = '<svg class="d10-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><use href="#d10-die"/><text class="d10-num" x="32" y="34" font-size="22" stroke-width="2.1"></text><text class="d10-mark" x="37" y="16" font-size="7.5" stroke-width="1.2"></text></svg>';
 
 function d10Aria(value, cls) {
   if (cls === 'critical') return `出目 ${value}、クリティカル`;
@@ -319,8 +319,8 @@ function paintD10(el, value, cls) {
   const v = String(value);
   if (num) {
     num.textContent = v;
-    num.setAttribute('font-size', v === '10' ? '22' : '28');
-    num.setAttribute('stroke-width', v === '10' ? '2.2' : '2.7');
+    num.setAttribute('font-size', v === '10' ? '17' : '22');
+    num.setAttribute('stroke-width', v === '10' ? '1.6' : '2.1');
   }
   const mark = el.querySelector('.d10-mark');
   if (mark) mark.textContent = cls === 'critical' ? '★' : cls === 'error' ? '✕' : '';
