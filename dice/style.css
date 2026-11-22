@@ -541,10 +541,10 @@ ul { list-style: none; }
 .d10-mark,
 .cube-num {
   font-family: inherit;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   fill: #fff;
-  stroke: rgba(44, 62, 74, 0.62);
+  stroke: #1a3142;
   stroke-linejoin: round;
   paint-order: stroke;
   text-anchor: middle;

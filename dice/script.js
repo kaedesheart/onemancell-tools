@@ -304,7 +304,7 @@ function setupStickyOffset() {
 }
 
 // ── Die element factory ────────────────────────────────────────────────
-const D10_SVG = '<svg class="d10-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><use href="#d10-die"/><text class="d10-num" x="32" y="34" font-size="22" stroke-width="2.1"></text><text class="d10-mark" x="37" y="16" font-size="7.5" stroke-width="1.2"></text></svg>';
+const D10_SVG = '<svg class="d10-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><use href="#d10-die"/><text class="d10-num" x="32" y="33.5" font-size="16" stroke-width="2.3"></text><text class="d10-mark" x="18.5" y="28" font-size="12" stroke-width="1.6"></text></svg>';
 
 function d10Aria(value, cls) {
   if (cls === 'critical') return `出目 ${value}、クリティカル`;
@@ -314,26 +314,30 @@ function d10Aria(value, cls) {
   return `出目 ${value}`;
 }
 
-function numStyle(value) {
+function numStyle(value, kind) {
   const n = String(value).length;
-  if (n >= 4) return ['10', '1.15'];
-  if (n === 3) return ['13', '1.4'];
-  if (n === 2) return ['17', '1.6'];
-  return ['22', '2.1'];
+  if (kind === 'd10') {
+    if (n >= 2) return ['13', '2'];
+    return ['16', '2.3'];
+  }
+  if (n >= 4) return ['10.5', '1.4'];
+  if (n === 3) return ['13', '1.6'];
+  if (n === 2) return ['18', '2.1'];
+  return ['20', '2.3'];
 }
 
-function paintNum(el, selector, value) {
+function paintNum(el, selector, value, kind) {
   const num = el.querySelector(selector);
   if (!num) return;
   const v = String(value);
-  const [size, stroke] = numStyle(v);
+  const [size, stroke] = numStyle(v, kind);
   num.textContent = v;
   num.setAttribute('font-size', size);
   num.setAttribute('stroke-width', stroke);
 }
 
 function paintD10(el, value, cls) {
-  paintNum(el, '.d10-num', value);
+  paintNum(el, '.d10-num', value, 'd10');
   const mark = el.querySelector('.d10-mark');
   if (mark) mark.textContent = cls === 'critical' ? '★' : cls === 'error' ? '✕' : '';
 }
@@ -348,7 +352,7 @@ function makeDieEl(value, cls) {
   return el;
 }
 
-const CUBE_SVG = '<svg class="cube-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><use href="#cube-die"/><text class="cube-num" x="32" y="23" font-size="22" stroke-width="2.1"></text></svg>';
+const CUBE_SVG = '<svg class="cube-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><use href="#cube-die"/><text class="cube-num" x="27" y="39" font-size="20" stroke-width="2.3"></text></svg>';
 
 function paintCube(el, value) {
   paintNum(el, '.cube-num', value);
