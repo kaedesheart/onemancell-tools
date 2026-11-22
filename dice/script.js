@@ -304,20 +304,92 @@ function setupStickyOffset() {
 }
 
 // ── Die element factory ────────────────────────────────────────────────
+const D10_SVG = '<svg class="d10-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><use href="#d10-die"/><text class="d10-num" x="32" y="33.5" font-size="20" stroke-width="2.3"></text><text class="d10-mark" x="18.5" y="28" font-size="12" stroke-width="1.6"></text></svg>';
+
+function d10Aria(value, cls) {
+  if (cls === 'critical') return `出目 ${value}、クリティカル`;
+  if (cls === 'success') return `出目 ${value}、成功`;
+  if (cls === 'failure') return `出目 ${value}、失敗`;
+  if (cls === 'error') return `出目 ${value}`;
+  return `出目 ${value}`;
+}
+
+function numStyle(value) {
+  const n = String(value).length;
+  if (n >= 4) return ['10.5', '1.4'];
+  if (n === 3) return ['13', '1.6'];
+  if (n === 2) return ['18', '2.1'];
+  return ['20', '2.3'];
+}
+
+function paintNum(el, selector, value) {
+  const num = el.querySelector(selector);
+  if (!num) return;
+  const v = String(value);
+  const [size, stroke] = numStyle(v);
+  num.textContent = v;
+  num.setAttribute('font-size', size);
+  num.setAttribute('stroke-width', stroke);
+}
+
+function paintD10(el, value, cls) {
+  paintNum(el, '.d10-num', value);
+  const mark = el.querySelector('.d10-mark');
+  if (mark) mark.textContent = cls === 'critical' ? '★' : cls === 'error' ? '✕' : '';
+}
+
 function makeDieEl(value, cls) {
   const el = document.createElement('div');
-  el.className = `die ${cls}`;
-  el.textContent = value;
-  if (cls === 'critical' || cls === 'error') {
-    const badge = document.createElement('span');
-    badge.className = 'die-badge';
-    badge.textContent = cls === 'critical' ? '★' : '✕';
-    el.appendChild(badge);
-  }
+  el.className = `die d10${cls ? ' ' + cls : ''}`;
+  el.setAttribute('role', 'img');
+  el.innerHTML = D10_SVG;
+  paintD10(el, value, cls);
+  el.setAttribute('aria-label', cls && cls !== 'rolling' ? d10Aria(value, cls) : '振っています');
   return el;
 }
 
+const CUBE_SVG = '<svg class="cube-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><use href="#cube-die"/><text class="cube-num" x="27" y="39" font-size="20" stroke-width="2.3"></text></svg>';
+
+function paintCube(el, value) {
+  paintNum(el, '.cube-num', value);
+}
+
+function makeSquareDie(value, cls, sides) {
+  const el = document.createElement('div');
+  el.className = `die cube${cls ? ' ' + cls : ''}`;
+  el.setAttribute('role', 'img');
+  el.innerHTML = CUBE_SVG;
+  paintCube(el, value);
+  el.setAttribute('aria-label', cls && cls !== 'rolling' ? `D${sides} 出目 ${value}` : '振っています');
+  return el;
+}
+
+function setRollingValue(el, value) {
+  if (el.classList.contains('d10')) {
+    paintD10(el, value, 'rolling');
+    return;
+  }
+  if (el.classList.contains('cube')) {
+    paintCube(el, value);
+    return;
+  }
+  el.textContent = value;
+}
+
 function revealDie(el, value, cls) {
+  if (el.classList.contains('d10')) {
+    el.className = `die d10 ${cls}`;
+    paintD10(el, value, cls);
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', d10Aria(value, cls));
+    return;
+  }
+  if (el.classList.contains('cube')) {
+    el.className = `die cube ${cls}`;
+    paintCube(el, value);
+    el.setAttribute('role', 'img');
+    return;
+  }
   el.textContent = '';
   el.className = `die ${cls}`;
   el.textContent = value;
@@ -364,23 +436,21 @@ function animateDice(container, results, target, onAllDone) {
   let finished = false;
   const cyclers = [];
   const dieEls = results.map((_, i) => {
-    const el = document.createElement('div');
-    el.className = 'die rolling';
+    const el = makeDieEl(rollDie(10), 'rolling');
     el.style.animationDelay = `${i * stagger}ms`;
     if (compact) el.style.animationDuration = `${duration}ms`;
-    el.textContent = rollDie(10);
     container.appendChild(el);
     return el;
   });
   if (compact) {
     cyclers.push(setInterval(() => {
       dieEls.forEach(el => {
-        if (el.classList.contains('rolling')) el.textContent = rollDie(10);
+        if (el.classList.contains('rolling')) setRollingValue(el, rollDie(10));
       });
     }, 90));
   } else {
     dieEls.forEach(el => {
-      cyclers.push(setInterval(() => { el.textContent = rollDie(10); }, 70));
+      cyclers.push(setInterval(() => setRollingValue(el, rollDie(10)), 70));
     });
   }
   const stopCyclers = () => cyclers.forEach(id => clearInterval(id));
@@ -666,20 +736,29 @@ function rollExtra() {
     const cyclers = [];
 
     const dieEls = allDice.map(({ sides }, i) => {
-      const el = document.createElement('div');
-      el.className = 'die rolling';
+      const el = sides === 10
+        ? makeDieEl(rollDie(10), 'rolling')
+        : makeSquareDie(rollDie(sides), 'rolling', sides);
       el.style.animationDelay = `${i * 60}ms`;
-      el.textContent = rollDie(sides);
       diceDisplay.appendChild(el);
-      cyclers.push(setInterval(() => { el.textContent = rollDie(sides); }, 70));
+      cyclers.push(setInterval(() => setRollingValue(el, rollDie(sides)), 70));
       return el;
     });
 
     dieEls.forEach((el, i) => {
       el.addEventListener('animationend', () => {
         clearInterval(cyclers[i]);
-        el.className = 'die success';
-        el.textContent = allDice[i].value;
+        const face = allDice[i];
+        if (face.sides === 10) {
+          el.className = 'die d10 success';
+          paintD10(el, face.value, null);
+          el.setAttribute('aria-label', `D10 出目 ${face.value}`);
+        } else {
+          el.className = 'die cube success';
+          paintCube(el, face.value);
+          el.setAttribute('role', 'img');
+          el.setAttribute('aria-label', `D${face.sides} 出目 ${face.value}`);
+        }
 
         tumbledCount++;
         if (tumbledCount === allDice.length) {
@@ -695,10 +774,11 @@ function rollExtra() {
 
   } else {
     diceDisplay.innerHTML = '';
-    allDice.forEach(({ value }) => {
-      const el = document.createElement('div');
-      el.className = 'die success';
-      el.textContent = value;
+    allDice.forEach(({ sides, value }) => {
+      const el = sides === 10
+        ? makeDieEl(value, 'success')
+        : makeSquareDie(value, 'success', sides);
+      if (sides === 10) el.setAttribute('aria-label', `D10 出目 ${value}`);
       diceDisplay.appendChild(el);
     });
     totalEl.innerHTML = `<span class="extra-total-label">合計</span><strong>${total}</strong>`;
