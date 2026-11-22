@@ -77,10 +77,18 @@ ul { list-style: none; }
   font-weight: 700;
   color: var(--accent-dark);
   letter-spacing: 0.02em;
+  min-width: 0;
+}
+.header-title-text {
+  min-width: 0;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  line-height: 1.25;
 }
 .header-logo {
   height: 1.9em;
   width: auto;
+  flex-shrink: 0;
 }
 .icon-btn {
   width: 40px;
@@ -171,31 +179,53 @@ ul { list-style: none; }
 }
 .history-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   min-width: 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 4px 6px 4px 10px;
+  border-radius: 14px;
+  padding: 6px 6px 6px 10px;
   font-size: 0.75rem;
   color: var(--text-muted);
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.45;
   box-shadow: var(--shadow);
 }
-.history-body {
+.history-main {
+  flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.55;
 }
 .history-skill,
+.history-chunk {
+  display: inline-block;
+  white-space: nowrap;
+  margin-right: 0.28em;
+}
+.history-memo {
+  display: inline-block;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  margin-right: 0.28em;
+  vertical-align: baseline;
+}
+.history-body {
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
 .history-time-label,
 .history-copy { flex-shrink: 0; }
 .history-time-label {
   display: inline-block;
   font-weight: 700;
   margin-right: 2px;
+  margin-top: 1px;
   opacity: 0.75;
+  white-space: nowrap;
 }
 .history-skill {
   font-weight: 800;
@@ -235,16 +265,19 @@ ul { list-style: none; }
 }
 .tab-btn {
   flex: 1;
-  padding: 10px 3px;
+  min-width: 0;
+  padding: 10px 1px;
   border: none;
   background: none;
   cursor: pointer;
-  font-size: 0.74rem;
+  font-size: clamp(0.66rem, 2.85vw, 0.78rem);
   font-weight: 500;
   color: var(--text-muted);
   border-bottom: 3px solid transparent;
   margin-bottom: -2px;
   transition: color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+  word-break: keep-all;
 }
 .tab-btn.active {
   color: var(--accent);
@@ -372,11 +405,12 @@ ul { list-style: none; }
 }
 .roll-label-field {
   flex-shrink: 0;
+  width: 2.6em;
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--text-muted);
 }
-#roll-label {
+.roll-label-row input[type="text"] {
   flex: 1;
   min-width: 0;
   border: none;
@@ -386,7 +420,7 @@ ul { list-style: none; }
   color: var(--text);
   padding: 6px 0;
 }
-#roll-label:focus { outline: none; }
+.roll-label-row input[type="text"]:focus { outline: none; }
 .roll-label-clear {
   width: 32px;
   height: 32px;
@@ -493,6 +527,31 @@ ul { list-style: none; }
 
 .die.rolling { animation: diceTumble 0.82s ease-in-out; }
 .die.reveal  { animation: dieReveal  0.36s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+.roll-status {
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0 auto 8px;
+}
+.roll-status.hidden { display: none; }
+.roll-status.is-rolling { color: var(--text-muted); }
+.roll-status.is-settled {
+  display: table;
+  color: #146c43;
+  background: #e3f6ec;
+  border: 1px solid #b7e4c7;
+  padding: 3px 12px;
+  border-radius: 999px;
+}
+.dice-grid.is-rolling .die {
+  filter: saturate(0.45);
+  opacity: 0.9;
+}
+.dice-grid.is-settled .die {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #1f8a4c;
+}
 
 /* ── Success summary ───────────────────────────────────────── */
 .success-summary {
@@ -1308,6 +1367,12 @@ ul { list-style: none; }
   flex-direction: column;
   gap: 8px;
 }
+.quick-bonus-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  padding: 0 2px;
+}
 .quick-section {
   background: var(--surface);
   border-radius: var(--radius);
@@ -1649,9 +1714,8 @@ ul { list-style: none; }
   font-size: 0.74rem;
   line-height: 1.55;
   display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
 }
 .skill-meta {
   font-size: 0.72rem;
@@ -1827,7 +1891,39 @@ a.install-btn { text-decoration: none; }
   font-size: 0.75rem;
   color: var(--text-muted);
   line-height: 1.55;
-  margin-top: 10px;
+  margin-top: 8px;
+}
+.bonus-cap-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-light);
+  color: var(--accent-dark);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  vertical-align: middle;
+}
+.skill-confirm-cap {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--accent-dark);
+  line-height: 1.5;
+}
+#tab-chara .ability-ctrl .stepper-btn-sm,
+#tab-chara .lv-btn,
+#tab-chara .luck-roll-btn {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+}
+@media (max-width: 430px) {
+  .header-title { font-size: 1rem; gap: 8px; }
+  .header-logo { height: 1.55em; }
+  #tab-chara .ability-grid { grid-template-columns: 1fr; }
 }
 .skill-confirm-total { font-weight: 700; margin-bottom: 14px; }
 .skill-confirm-formula {
