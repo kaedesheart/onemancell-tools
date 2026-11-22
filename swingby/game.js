@@ -1431,6 +1431,11 @@ function endShotCleared() {
   noteStageBest();
   const bonus = grantAirtime();
   const isLastStage = state.stageNum >= MAX_STAGES;
+  trackSwingby('level_complete', {
+    stage: state.stageNum,
+    shots: state.stageShots,
+    all_clear: isLastStage ? 1 : 0,
+  });
   if (isLastStage) {
     const prevBest = getBestRecord();
     const willBeNewBest = !state.demoUsed && (prevBest == null || state.totalShots < prevBest);
@@ -2237,6 +2242,11 @@ function zeroRun(watch) {
   state.airBonus = 0;
   lastFlight = 0;
 }
+function trackSwingby(name, params) {
+  try {
+    if (typeof window.omcTrack === 'function') window.omcTrack(name, params);
+  } catch (e) {}
+}
 function startGame() {
   zeroRun(false);
   state.lockInput = false;
@@ -2247,6 +2257,7 @@ function startGame() {
   setHudForPlay();
   updateHUD();
   updateFireBtnState();
+  trackSwingby('game_start', { stage: state.stageNum });
 }
 
 function startWatchMode() {
