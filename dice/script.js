@@ -10,7 +10,7 @@ const state = {
   lastPool:    [], // 前回振ったプール
   mode:        'lively',  // 'lively' | 'simple'
   soundOn:     true,
-  history:     [],        // [{ text }], max 3, newest first
+  history:     [],        // max 3, newest first. skill rolls or { text }
 };
 
 function loadState() {
@@ -157,7 +157,7 @@ function playResultSound(cls) {
   } catch (_) {}
 }
 
-// ── History / labels / chat text ───────────────────────────────────────
+// ── History / labels ───────────────────────────────────────────────────
 const LABEL_MAX = 40;
 const BONUS_MAX = 10;
 const DICE_TOTAL_MAX = 12; // 技能ダイス + ボーナス。2D + 10 = 12D10
@@ -189,60 +189,8 @@ function formatRollHeading(label, memo) {
   return memo || '';
 }
 
-function formatHistoryBody(report) {
-  const faces = Array.isArray(report.faces) ? `[${report.faces.join(', ')}] ` : '';
-  const bonus = report.bonus > 0 ? `（ボーナス+${report.bonus}）` : '';
-  return `${report.count}d10(判${report.target}) → ${faces}成功数${report.successes}（${report.resultLabel}）${bonus}`;
-}
-
-function buildChatText(report) {
-  const core = formatHistoryBody(report);
-  const head = formatRollHeading(report.label, report.memo);
-  if (!head) return core;
-  if (report.label && !report.memo) return `${head}${core}`;
-  return `${head} ${core}`;
-}
-
 function bonusCapFor(baseDice) {
   return Math.min(BONUS_MAX, Math.max(0, DICE_TOTAL_MAX - baseDice));
-}
-
-function copyText(text, btn) {
-  const done = () => {
-    if (!btn) return;
-    if (!btn.dataset.label) btn.dataset.label = btn.textContent;
-    btn.textContent = 'コピーしました';
-    btn.classList.add('copied');
-    setTimeout(() => {
-      btn.textContent = btn.dataset.label;
-      btn.classList.remove('copied');
-    }, 1600);
-  };
-  const fallback = () => {
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.setAttribute('readonly', '');
-      ta.style.position = 'fixed';
-      ta.style.top = '0';
-      ta.style.left = '0';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      const ok = document.execCommand('copy');
-      ta.remove();
-      if (ok) done();
-      else window.prompt('コピーできませんでした。テキストを選択してください', text);
-    } catch (_) {
-      window.prompt('コピーできませんでした。テキストを選択してください', text);
-    }
-  };
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(text).then(done).catch(fallback);
-  } else {
-    fallback();
-  }
 }
 
 function addHistory(entry) {
@@ -251,6 +199,15 @@ function addHistory(entry) {
   if (state.history.length > 3) state.history.pop();
   renderHistory();
   saveState();
+}
+
+function appendChip(parent, className, text, ariaLabel) {
+  const span = document.createElement('span');
+  span.className = className;
+  span.textContent = text;
+  if (ariaLabel) span.setAttribute('aria-label', ariaLabel);
+  parent.appendChild(span);
+  return ariaLabel || text;
 }
 
 function renderHistory() {
@@ -266,59 +223,24 @@ function renderHistory() {
   const timeLabels = ['今回', '前回', '前々回'];
   state.history.forEach((entry, i) => {
     const li = document.createElement('li');
-    li.className = 'history-item';
-    const time = document.createElement('span');
-    time.className = 'history-time-label';
-    time.textContent = timeLabels[i] || '';
-    li.appendChild(time);
-
-    const main = document.createElement('span');
-    main.className = 'history-main';
-    if (entry.label) {
-      const skill = document.createElement('span');
-      skill.className = 'history-skill';
-      skill.textContent = `〈${entry.label}〉`;
-      main.appendChild(skill);
-    }
-    if (entry.memo) {
-      const memo = document.createElement('span');
-      memo.className = 'history-memo';
-      memo.textContent = entry.memo;
-      main.appendChild(memo);
-    }
-    if (Array.isArray(entry.faces)) {
-      const chunks = [
-        `${entry.count}d10(判${entry.target})`,
-        `→ [${entry.faces.join(', ')}]`,
-        `成功数${entry.successes}（${entry.resultLabel}）`,
-      ];
-      if (entry.bonus > 0) chunks.push(`（ボーナス+${entry.bonus}）`);
-      chunks.forEach(text => {
-        const chunk = document.createElement('span');
-        chunk.className = 'history-chunk';
-        chunk.textContent = text;
-        main.appendChild(chunk);
-      });
-    } else if (entry.label || entry.memo) {
-      const body = document.createElement('span');
-      body.className = 'history-body';
-      body.textContent = entry.body || '';
-      main.appendChild(body);
+    li.className = 'history-chip' + (i === 0 ? ' is-latest' : '');
+    const bits = [];
+    bits.push(appendChip(li, 'history-when', timeLabels[i] || ''));
+    const obj = entry && typeof entry === 'object' ? entry : { text: String(entry || '') };
+    if (Array.isArray(obj.faces)) {
+      if (obj.label) bits.push(appendChip(li, 'history-skill', `〈${obj.label}〉`));
+      if (obj.memo) bits.push(appendChip(li, 'history-memo', obj.memo));
+      bits.push(appendChip(li, 'history-dice', `${obj.count}d10(判${obj.target})`));
+      bits.push(appendChip(li, 'history-faces', `[${obj.faces.join(', ')}]`));
+      bits.push(appendChip(li, 'history-result', `成功${obj.successes} ${obj.resultLabel || ''}`.trim()));
+      if (obj.bonus > 0) bits.push(appendChip(li, 'history-bonus', `ボーナス+${obj.bonus}`));
     } else {
-      main.textContent = entry.text || '';
+      if (obj.label) bits.push(appendChip(li, 'history-skill', `〈${obj.label}〉`));
+      if (obj.memo) bits.push(appendChip(li, 'history-memo', obj.memo));
+      const text = obj.text || obj.body || '';
+      if (text) bits.push(appendChip(li, 'history-detail', text));
     }
-    li.appendChild(main);
-
-    const copySource = entry.copy || entry.text;
-    if (copySource) {
-      const copyBtn = document.createElement('button');
-      copyBtn.type = 'button';
-      copyBtn.className = 'history-copy';
-      copyBtn.textContent = 'コピー';
-      copyBtn.setAttribute('aria-label', 'このロールをチャット用にコピー');
-      copyBtn.addEventListener('click', () => copyText(copySource, copyBtn));
-      li.appendChild(copyBtn);
-    }
+    li.title = bits.filter(Boolean).join(' ');
     list.appendChild(li);
   });
 }
@@ -340,13 +262,18 @@ function bindClearable(inputId, clearId) {
 function setupRollLabel() {
   bindClearable('roll-skill', 'roll-skill-clear');
   bindClearable('roll-memo', 'roll-memo-clear');
-  ['copy-result-btn', 'chara-copy-btn', 'sheet-copy-btn'].forEach(id => {
-    const btn = document.getElementById(id);
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-      if (state.lastReport && state.lastReport.copy) copyText(state.lastReport.copy, btn);
-    });
-  });
+}
+
+function setupStickyOffset() {
+  const header = document.querySelector('.header');
+  if (!header) return;
+  const apply = () => {
+    const h = header.getBoundingClientRect().height;
+    document.documentElement.style.setProperty('--header-h', `${h}px`);
+  };
+  apply();
+  if (window.ResizeObserver) new ResizeObserver(apply).observe(header);
+  else window.addEventListener('resize', apply);
 }
 
 // ── Die element factory ────────────────────────────────────────────────
@@ -375,25 +302,9 @@ function revealDie(el, value, cls) {
   }
 }
 
-function setRollStatus(el, phase) {
-  if (!el) return;
-  el.classList.remove('hidden', 'is-rolling', 'is-settled');
-  if (phase === 'rolling') {
-    el.textContent = '振っています…';
-    el.classList.add('is-rolling');
-  } else if (phase === 'settled') {
-    el.textContent = '✓ 確定';
-    el.classList.add('is-settled');
-  } else {
-    el.textContent = '';
-    el.classList.add('hidden');
-  }
-}
-
 function markDicePhase(container, phase) {
   if (!container) return;
-  container.classList.remove('is-rolling', 'is-settled');
-  if (phase === 'rolling' || phase === 'settled') container.classList.add(`is-${phase}`);
+  container.classList.toggle('is-rolling', phase === 'rolling');
 }
 
 function fillDiceFinal(container, results, target) {
@@ -450,22 +361,16 @@ function emokloreFaces() {
       dice: document.getElementById('dice-display'),
       count: document.getElementById('success-count'),
       label: document.getElementById('result-label'),
-      copy: document.getElementById('copy-result-btn'),
-      status: document.getElementById('roll-status'),
     },
     chara: {
       dice: document.getElementById('chara-dice-display'),
       count: document.getElementById('chara-success-count'),
       label: document.getElementById('chara-result-label'),
-      copy: document.getElementById('chara-copy-btn'),
-      status: document.getElementById('chara-roll-status'),
     },
     sheet: {
       dice: document.getElementById('sheet-dice-display'),
       count: document.getElementById('sheet-success-count'),
       label: document.getElementById('sheet-result-label'),
-      copy: document.getElementById('sheet-copy-btn'),
-      status: document.getElementById('sheet-roll-status'),
     },
   };
 }
@@ -494,8 +399,6 @@ function resetFace(face) {
     face.label.textContent = '';
     face.label.className = 'result-label';
   }
-  if (face.copy) face.copy.classList.add('hidden');
-  setRollStatus(face.status, null);
   markDicePhase(face.dice, null);
 }
 
@@ -546,10 +449,6 @@ function rollEmoklore(options) {
     cls: info.cls,
     bonus,
   };
-  report.body = formatHistoryBody(report);
-  report.text = buildChatText(report);
-  report.copy = report.text;
-  state.lastReport = report;
 
   playRollSound();
 
@@ -583,9 +482,7 @@ function rollEmoklore(options) {
         face.label.textContent = info.label;
         face.label.className = `result-label ${info.cls} visible`;
       }
-      if (face.copy) face.copy.classList.remove('hidden');
-      setRollStatus(face.status, 'settled');
-      markDicePhase(face.dice, 'settled');
+      markDicePhase(face.dice, null);
     });
     if (fromChara) {
       const title = document.getElementById('chara-roll-title');
@@ -593,8 +490,6 @@ function rollEmoklore(options) {
       if (title) title.textContent = skillLine(report);
       if (card) card.classList.remove('hidden');
     }
-    const sheetCopy = document.getElementById('sheet-copy-btn');
-    if (isSkillSheetResultOpen() && sheetCopy) sheetCopy.focus();
   };
 
   const settle = () => {
@@ -604,9 +499,6 @@ function rollEmoklore(options) {
     playResultSound(info.cls);
     btn.disabled = false;
     const entry = {
-      body: report.body,
-      text: report.text,
-      copy: report.copy,
       count: report.count,
       target: report.target,
       faces: report.faces,
@@ -624,9 +516,7 @@ function rollEmoklore(options) {
     return;
   }
 
-  setRollStatus(host.status, 'rolling');
   animateDice(host.dice, results, target, () => {
-    setRollStatus(host.status, 'settled');
     if (!faceVisible(host)) {
       settle();
       return;
@@ -714,11 +604,9 @@ function rollExtra() {
   void resultArea.offsetWidth;
   resultArea.classList.add('entering');
   totalEl.innerHTML = '';
-  const extraStatus = document.getElementById('extra-roll-status');
 
   if (state.mode === 'lively') {
     diceDisplay.innerHTML = '';
-    setRollStatus(extraStatus, 'rolling');
     markDicePhase(diceDisplay, 'rolling');
     let tumbledCount = 0;
     const cyclers = [];
@@ -741,8 +629,7 @@ function rollExtra() {
 
         tumbledCount++;
         if (tumbledCount === allDice.length) {
-          setRollStatus(extraStatus, 'settled');
-          markDicePhase(diceDisplay, 'settled');
+          markDicePhase(diceDisplay, null);
           setTimeout(() => {
             totalEl.innerHTML = `<span class="extra-total-label">合計</span><strong>${total}</strong>`;
             btn.disabled = false;
@@ -761,8 +648,7 @@ function rollExtra() {
       diceDisplay.appendChild(el);
     });
     totalEl.innerHTML = `<span class="extra-total-label">合計</span><strong>${total}</strong>`;
-    setRollStatus(extraStatus, 'settled');
-    markDicePhase(diceDisplay, 'settled');
+    markDicePhase(diceDisplay, null);
     btn.disabled = false;
     addHistory(historyText);
   }
@@ -2279,6 +2165,7 @@ function setupChara() {
 // ── Boot ───────────────────────────────────────────────────────────────
 function init() {
   loadState();
+  setupStickyOffset();
   syncUIToState();
   renderHistory();
   loadMemo();
