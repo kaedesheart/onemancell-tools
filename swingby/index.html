@@ -28,6 +28,9 @@
       <button class="icon-btn" id="demo-btn" aria-label="Show me" title="Show me">
         <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
       </button>
+      <button class="icon-btn" id="help-btn" type="button" style="display:none;" aria-label="操作説明" aria-expanded="false" aria-controls="help" title="操作説明">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.6a2.6 2.6 0 0 1 5.1.8c0 1.7-2.6 2-2.6 3.4"/><path d="M12 17.2h.01"/></svg>
+      </button>
       <button class="icon-btn" id="exit-btn" style="display:none;" aria-label="Title" title="Title">
         <svg viewBox="0 0 24 24"><path d="M15 6 L9 12 L15 18"/></svg>
       </button>
@@ -79,6 +82,36 @@
     <button type="button" class="ctrl-btn" data-input="right" aria-label="Move right">
       <svg viewBox="0 0 24 24"><path d="M9 6 L15 12 L9 18"/></svg>
     </button>
+  </div>
+
+  <div id="help" hidden>
+    <div class="help-shade"></div>
+    <div class="help-sheet" id="help-sheet" role="dialog" aria-modal="true" aria-labelledby="help-title" aria-describedby="help-move help-rot help-fire help-drag help-keys" tabindex="-1">
+      <div class="help-kicker" id="help-title">操作</div>
+      <ul class="help-list">
+        <li class="help-move">
+          <span class="help-icons" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M15 6 L9 12 L15 18"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M9 6 L15 12 L9 18"/></svg>
+          </span>
+          <span class="help-text" id="help-move">両端のボタンで、船を左右に動かす</span>
+        </li>
+        <li>
+          <span class="help-icons" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+          </span>
+          <span class="help-text" id="help-rot">向きを変える</span>
+        </li>
+        <li>
+          <span class="help-fire-mark" id="help-fire-mark" aria-hidden="true">FIRE</span>
+          <span class="help-text" id="help-fire">発射。1発で的を2つ壊す</span>
+        </li>
+      </ul>
+      <p class="help-note" id="help-drag">画面をドラッグしても照準できる</p>
+      <p class="help-keys" id="help-keys">A/D 移動 · Q/E 回転 · Space 発射</p>
+      <button type="button" class="help-ok" id="help-ok">わかった</button>
+    </div>
   </div>
   </div>
 
