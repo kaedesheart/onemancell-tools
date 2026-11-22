@@ -159,8 +159,8 @@ function playResultSound(cls) {
 
 // ── History / labels ───────────────────────────────────────────────────
 const LABEL_MAX = 40;
-const BONUS_MAX = 10;
-const DICE_TOTAL_MAX = 12; // 技能ダイス + ボーナス。2D + 10 = 12D10
+const BONUS_MAX = 99;       // ダイスボーナスの増分
+const DICE_TOTAL_MAX = 100; // 描画のための合計個数
 
 function normalizeLabel(raw) {
   let s = String(raw == null ? '' : raw).trim();
@@ -189,8 +189,33 @@ function formatRollHeading(label, memo) {
   return memo || '';
 }
 
-function bonusCapFor(baseDice) {
-  return Math.min(BONUS_MAX, Math.max(0, DICE_TOTAL_MAX - baseDice));
+function adjustRange(baseDice) {
+  const base = Math.max(1, baseDice | 0);
+  return {
+    min: 1 - base,
+    max: Math.min(BONUS_MAX, Math.max(0, DICE_TOTAL_MAX - base)),
+  };
+}
+
+function clampBonus(baseDice, bonus) {
+  const range = adjustRange(baseDice);
+  const n = Number(bonus);
+  const value = Number.isFinite(n) ? Math.trunc(n) : 0;
+  return Math.min(range.max, Math.max(range.min, value));
+}
+
+function formatAdjust(bonus) {
+  const n = Number(bonus) || 0;
+  if (n > 0) return `ボーナス +${n}`;
+  if (n < 0) return `ダイス −${-n}`;
+  return '±0';
+}
+
+function bonusMark(bonus) {
+  const n = Number(bonus) || 0;
+  if (n > 0) return `（ボーナス+${n}）`;
+  if (n < 0) return `（−${-n}D）`;
+  return '';
 }
 
 function addHistory(entry) {
@@ -233,7 +258,9 @@ function renderHistory() {
       bits.push(appendChip(li, 'history-dice', `${obj.count}d10(判${obj.target})`));
       bits.push(appendChip(li, 'history-faces', `[${obj.faces.join(', ')}]`));
       bits.push(appendChip(li, 'history-result', `成功${obj.successes} ${obj.resultLabel || ''}`.trim()));
-      if (obj.bonus > 0) bits.push(appendChip(li, 'history-bonus', `ボーナス+${obj.bonus}`));
+      const bonusN = Number(obj.bonus);
+      if (bonusN > 0) bits.push(appendChip(li, 'history-bonus', `ボーナス+${bonusN}`));
+      else if (bonusN < 0) bits.push(appendChip(li, 'history-bonus is-minus', `−${-bonusN}D`));
     } else {
       if (obj.label) bits.push(appendChip(li, 'history-skill', `〈${obj.label}〉`));
       if (obj.memo) bits.push(appendChip(li, 'history-memo', obj.memo));
@@ -307,46 +334,74 @@ function markDicePhase(container, phase) {
   container.classList.toggle('is-rolling', phase === 'rolling');
 }
 
+function applyDiceFit(container, count) {
+  if (!container || container.classList.contains('extra')) return;
+  let fit = '';
+  if (count >= 49) fit = 'xs';
+  else if (count >= 25) fit = 'sm';
+  else if (count >= 13) fit = 'md';
+  if (fit) container.dataset.fit = fit;
+  else delete container.dataset.fit;
+}
+
 function fillDiceFinal(container, results, target) {
   if (!container) return;
   container.innerHTML = '';
+  applyDiceFit(container, results.length);
   results.forEach(v => container.appendChild(makeDieEl(v, classifyDie(v, target))));
   markDicePhase(container, 'settled');
 }
 
 function animateDice(container, results, target, onAllDone) {
   container.innerHTML = '';
+  applyDiceFit(container, results.length);
   markDicePhase(container, 'rolling');
+  const n = results.length;
+  const compact = n > 12;
+  const stagger = compact ? Math.max(10, Math.min(48, Math.floor(800 / Math.max(1, n - 1)))) : 60;
+  const duration = n >= 25 ? 560 : 820;
   let tumbledCount = 0;
   let finished = false;
   const cyclers = [];
   const dieEls = results.map((_, i) => {
     const el = document.createElement('div');
     el.className = 'die rolling';
-    el.style.animationDelay = `${i * 60}ms`;
+    el.style.animationDelay = `${i * stagger}ms`;
+    if (compact) el.style.animationDuration = `${duration}ms`;
     el.textContent = rollDie(10);
     container.appendChild(el);
-    cyclers.push(setInterval(() => { el.textContent = rollDie(10); }, 70));
     return el;
   });
+  if (compact) {
+    cyclers.push(setInterval(() => {
+      dieEls.forEach(el => {
+        if (el.classList.contains('rolling')) el.textContent = rollDie(10);
+      });
+    }, 90));
+  } else {
+    dieEls.forEach(el => {
+      cyclers.push(setInterval(() => { el.textContent = rollDie(10); }, 70));
+    });
+  }
+  const stopCyclers = () => cyclers.forEach(id => clearInterval(id));
   const finish = () => {
     if (finished) return;
     finished = true;
     clearTimeout(safety);
-    cyclers.forEach(id => clearInterval(id));
+    stopCyclers();
     markDicePhase(container, 'settled');
     onAllDone();
   };
   const safety = setTimeout(() => {
-    cyclers.forEach(id => clearInterval(id));
+    stopCyclers();
     results.forEach((v, i) => {
       if (dieEls[i]) revealDie(dieEls[i], v, classifyDie(v, target));
     });
     finish();
-  }, 900 + results.length * 70);
+  }, compact ? (n - 1) * stagger + duration + 400 : 900 + n * 70);
   dieEls.forEach((el, i) => {
     el.addEventListener('animationend', () => {
-      clearInterval(cyclers[i]);
+      if (!compact) clearInterval(cyclers[i]);
       revealDie(el, results[i], classifyDie(results[i], target));
       tumbledCount++;
       if (tumbledCount >= results.length) finish();
@@ -403,9 +458,8 @@ function resetFace(face) {
 }
 
 function skillLine(report) {
-  const bonus = report.bonus > 0 ? `（ボーナス+${report.bonus}）` : '';
   const name = formatRollHeading(report.label, report.memo) || '判定';
-  return `${name} ${report.count}d10(判${report.target})${bonus}`;
+  return `${name} ${report.count}d10(判${report.target})${bonusMark(report.bonus)}`;
 }
 
 function pickAnimFace(faces) {
@@ -431,7 +485,7 @@ function rollEmoklore(options) {
   const fromSkill = typeof spec.label === 'string';
   const count = spec.count != null ? spec.count : state.diceCount;
   const target = spec.target != null ? spec.target : state.targetValue;
-  const bonus = spec.bonus > 0 ? spec.bonus : 0;
+  const bonus = Number.isFinite(Number(spec.bonus)) ? Math.trunc(Number(spec.bonus)) : 0;
   const fromChara = !!spec.fromChara;
   const name = fromSkill ? normalizeLabel(spec.label) : readRollSkill();
   const memo = fromSkill ? '' : readRollMemo();
@@ -1751,21 +1805,35 @@ let skillConfirm = null;
 function renderBonusPreview() {
   if (!skillConfirm) return;
   const { baseDice, judgment } = skillConfirm;
-  const cap = bonusCapFor(baseDice);
-  if (skillConfirm.bonus > cap) skillConfirm.bonus = cap;
+  const range = adjustRange(baseDice);
+  skillConfirm.bonus = clampBonus(baseDice, skillConfirm.bonus);
   const bonus = skillConfirm.bonus;
-  document.getElementById('bonus-display').textContent = `+${bonus}`;
+  const total = baseDice + bonus;
+  const display = document.getElementById('adjust-display');
+  display.textContent = formatAdjust(bonus);
+  display.classList.toggle('is-plus', bonus > 0);
+  display.classList.toggle('is-minus', bonus < 0);
   document.getElementById('skill-confirm-base').textContent = String(baseDice);
   document.getElementById('skill-confirm-judg').textContent = String(judgment);
-  document.getElementById('skill-confirm-total').textContent = String(baseDice + bonus);
+  document.getElementById('skill-confirm-total').textContent = String(total);
   document.getElementById('skill-confirm-total-judg').textContent = String(judgment);
-  document.getElementById('bonus-minus').disabled = bonus <= 0;
-  document.getElementById('bonus-plus').disabled = bonus >= cap;
-  const capEl = document.getElementById('skill-confirm-cap');
-  if (capEl) {
-    capEl.textContent = cap >= BONUS_MAX
-      ? `上限 +${BONUS_MAX}（この技能なら合計 ${baseDice + cap}D10・最大12D10）`
-      : `この技能は ${baseDice}D のためボーナスは +${cap} まで（合計最大12D10、上限 +10）`;
+  document.getElementById('adjust-minus').disabled = bonus <= range.min;
+  document.getElementById('adjust-plus').disabled = bonus >= range.max;
+  const limitEl = document.getElementById('adjust-limit');
+  if (limitEl) {
+    if (bonus <= range.min) {
+      limitEl.hidden = false;
+      limitEl.classList.remove('is-max');
+      limitEl.textContent = '最低1個です。これ以上は減らせません。';
+    } else if (bonus >= range.max) {
+      limitEl.hidden = false;
+      limitEl.classList.add('is-max');
+      limitEl.textContent = '合計100個までです。';
+    } else {
+      limitEl.hidden = true;
+      limitEl.classList.remove('is-max');
+      limitEl.textContent = '';
+    }
   }
 }
 
@@ -1798,12 +1866,13 @@ function commitSkillConfirm() {
   if (document.getElementById('roll-btn').disabled) return;
   skillConfirm.committed = true;
   const c = skillConfirm;
-  const bonus = Math.min(c.bonus, bonusCapFor(c.baseDice));
+  const bonus = clampBonus(c.baseDice, c.bonus);
   const total = c.baseDice + bonus;
+  const adjustText = bonus > 0 ? `ボーナス +${bonus}` : (bonus < 0 ? `ダイス −${-bonus}` : '');
   document.getElementById('skill-confirm-preview').classList.add('hidden');
   document.getElementById('skill-confirm-result').classList.remove('hidden');
   document.getElementById('skill-confirm-formula').textContent =
-    `${total}d10(判${c.judgment})` + (bonus > 0 ? ` ・ ボーナス+${bonus}` : '');
+    `${total}d10(判${c.judgment})` + (adjustText ? ` ・ ${adjustText}` : '');
   rollEmoklore({
     label: c.displayName,
     count: total,
@@ -1820,13 +1889,17 @@ function setupSkillConfirm() {
   document.getElementById('skill-confirm-cancel').addEventListener('click', closeSkillConfirm);
   document.getElementById('sheet-close-done').addEventListener('click', closeSkillConfirm);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeSkillConfirm(); });
-  document.getElementById('bonus-minus').addEventListener('click', () => {
-    if (!skillConfirm || skillConfirm.bonus <= 0) return;
+  document.getElementById('adjust-minus').addEventListener('click', () => {
+    if (!skillConfirm) return;
+    const range = adjustRange(skillConfirm.baseDice);
+    if (skillConfirm.bonus <= range.min) return;
     skillConfirm.bonus -= 1;
     renderBonusPreview();
   });
-  document.getElementById('bonus-plus').addEventListener('click', () => {
-    if (!skillConfirm || skillConfirm.bonus >= bonusCapFor(skillConfirm.baseDice)) return;
+  document.getElementById('adjust-plus').addEventListener('click', () => {
+    if (!skillConfirm) return;
+    const range = adjustRange(skillConfirm.baseDice);
+    if (skillConfirm.bonus >= range.max) return;
     skillConfirm.bonus += 1;
     renderBonusPreview();
   });

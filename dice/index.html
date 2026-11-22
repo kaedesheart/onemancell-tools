@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=3" sizes="180x180">
   <link rel="manifest" href="manifest.json?v=3">
   <title>エモクロアダイスツール</title>
-  <link rel="stylesheet" href="style.css?v=2026-11-22c">
+  <link rel="stylesheet" href="style.css?v=2026-11-22d">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
@@ -105,7 +105,7 @@
         </div>
 
         <div class="quick-skills-section" id="quick-skills-section">
-          <p class="quick-bonus-hint">技能ボタンは確認画面でボーナスダイスを足せます（上限 +10・最大12D10）。振っても、上のダイス数・判定値・技能・メモは変わりません。</p>
+          <p class="quick-bonus-hint">技能ボタンは確認画面でダイスボーナスを増減できます。振っても、上のダイス数・判定値・技能・メモは変わりません。</p>
           <details class="quick-section">
             <summary class="quick-summary">
               <span class="quick-summary-label">ベース技能</span>
@@ -502,7 +502,7 @@
     </div>
   </div>
 
-  <!-- キャラ技能の確認（ボーナスダイス） -->
+  <!-- キャラ技能の確認（ダイスボーナス） -->
   <div id="skill-confirm-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="skill-confirm-title">
     <div class="settings-sheet skill-confirm-sheet">
       <div class="settings-header">
@@ -512,14 +512,14 @@
       <div id="skill-confirm-preview" class="skill-confirm-body">
         <p class="skill-confirm-meta">ベース <b id="skill-confirm-base">1</b>D10 ・ 判定値 <b id="skill-confirm-judg">5</b></p>
         <div class="skill-confirm-bonus">
-          <span>ボーナスダイス <span class="bonus-cap-tag">上限 +10 / 最大12D10</span></span>
+          <span id="adjust-caption">ダイスボーナス</span>
           <div class="stepper">
-            <button type="button" id="bonus-minus" class="stepper-btn" aria-label="ボーナスダイスを減らす">－</button>
-            <span id="bonus-display" class="stepper-value bonus-value">+0</span>
-            <button type="button" id="bonus-plus" class="stepper-btn" aria-label="ボーナスダイスを増やす">＋</button>
+            <button type="button" id="adjust-minus" class="stepper-btn" aria-label="ダイスボーナスを1減らす">－</button>
+            <span id="adjust-display" class="stepper-value adjust-value" aria-live="polite">±0</span>
+            <button type="button" id="adjust-plus" class="stepper-btn" aria-label="ダイスボーナスを1増やす">＋</button>
           </div>
-          <p id="skill-confirm-cap" class="skill-confirm-cap">上限 +10（最大12D10）</p>
-          <p class="skill-confirm-note">共鳴感情が一致したときなど、ダイスの個数だけ増やせます。判定値は変わりません。判定タブの技能ボタンからも同じ画面が開きます。</p>
+          <p class="skill-confirm-note">＋でダイスが増え、－で減ります。判定値は変わりません。<br>合計は最低1個です。</p>
+          <p id="adjust-limit" class="skill-confirm-limit" hidden></p>
         </div>
         <p class="skill-confirm-total">振るダイス <b id="skill-confirm-total">1</b>D10（判定値 <b id="skill-confirm-total-judg">5</b>）</p>
         <div class="skill-confirm-actions">
@@ -540,7 +540,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=2026-11-22c"></script>
+  <script src="script.js?v=2026-11-22d"></script>
 
 </body>
 </html>

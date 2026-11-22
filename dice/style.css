@@ -223,6 +223,7 @@ ul { list-style: none; }
 .history-when,
 .history-skill,
 .history-bonus { font-weight: 800; }
+.history-bonus.is-minus { color: #b4534a; }
 .history-when { color: var(--accent-dark); }
 .history-chip.is-latest .history-skill { color: var(--accent-dark); }
 .history-memo { font-weight: 600; }
@@ -436,15 +437,20 @@ ul { list-style: none; }
 .dice-grid {
   display: flex;
   flex-wrap: wrap;
+  align-content: flex-start;
   gap: 8px;
   justify-content: center;
   margin-bottom: 16px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* ── Die card ──────────────────────────────────────────────── */
 .die {
   width: 54px;
   height: 54px;
+  flex: 0 0 auto;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -456,6 +462,34 @@ ul { list-style: none; }
   position: relative;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   user-select: none;
+}
+.dice-grid[data-fit="md"] { gap: 6px; }
+.dice-grid[data-fit="md"] .die {
+  width: 44px;
+  height: 44px;
+  font-size: 1.15rem;
+  border-radius: 7px;
+}
+.dice-grid[data-fit="sm"] { gap: 4px; }
+.dice-grid[data-fit="sm"] .die {
+  width: 34px;
+  height: 34px;
+  font-size: 0.92rem;
+  border-radius: 6px;
+}
+.dice-grid[data-fit="xs"] { gap: 3px; }
+.dice-grid[data-fit="xs"] .die {
+  width: 26px;
+  height: 26px;
+  font-size: 0.72rem;
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.16);
+}
+.dice-grid[data-fit="sm"] .die-badge,
+.dice-grid[data-fit="xs"] .die-badge {
+  font-size: 0.48rem;
+  top: 1px;
+  right: 1px;
 }
 .die.critical {
   background: var(--die-critical);
@@ -508,6 +542,22 @@ ul { list-style: none; }
 
 .die.rolling { animation: diceTumble 0.82s ease-in-out; }
 .die.reveal  { animation: dieReveal  0.36s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes diceTumbleCompact {
+  0%   { transform: translateY(0)    rotate(0deg)   scale(1);    }
+  20%  { transform: translateY(-6px) rotate(-12deg) scale(1.04); }
+  45%  { transform: translateY(-2px) rotate(10deg)  scale(0.98); }
+  70%  { transform: translateY(-4px) rotate(-6deg)  scale(1.02); }
+  100% { transform: translateY(0)    rotate(0deg)   scale(1);    }
+}
+.dice-grid[data-fit="sm"] .die.rolling,
+.dice-grid[data-fit="xs"] .die.rolling {
+  animation-name: diceTumbleCompact;
+  animation-duration: 0.56s;
+}
+.dice-grid[data-fit="sm"].is-rolling,
+.dice-grid[data-fit="xs"].is-rolling {
+  padding-top: 8px;
+}
 
 .dice-grid.is-rolling .die {
   filter: saturate(0.45);
@@ -1817,32 +1867,33 @@ a.install-btn { text-decoration: none; }
   color: var(--text-muted);
   margin-bottom: 8px;
 }
-.bonus-value { min-width: 3.2ch; font-size: 1.6rem; }
+.skill-confirm-sheet .stepper { flex-wrap: nowrap; }
+.skill-confirm-sheet .adjust-value {
+  flex: 1 1 auto;
+  min-width: 7.2em;
+  max-width: 100%;
+  font-size: clamp(1.02rem, 4.4vw, 1.32rem);
+  letter-spacing: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.adjust-value.is-plus { color: var(--accent-dark); }
+.adjust-value.is-minus { color: #b4534a; }
 .skill-confirm-note {
   font-size: 0.75rem;
   color: var(--text-muted);
   line-height: 1.55;
   margin-top: 8px;
 }
-.bonus-cap-tag {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--accent-light);
-  color: var(--accent-dark);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0;
-  vertical-align: middle;
-}
-.skill-confirm-cap {
-  margin-top: 8px;
+.skill-confirm-limit {
+  margin-top: 6px;
   font-size: 0.75rem;
   font-weight: 800;
-  color: var(--accent-dark);
   line-height: 1.5;
+  color: #b4534a;
 }
+.skill-confirm-limit.is-max { color: var(--accent-dark); }
+.skill-confirm-limit[hidden] { display: none; }
 #tab-chara .ability-ctrl .stepper-btn-sm,
 #tab-chara .lv-btn,
 #tab-chara .luck-roll-btn {
@@ -1888,6 +1939,7 @@ a.install-btn { text-decoration: none; }
 .skill-confirm-sheet .stepper-btn {
   width: 44px;
   height: 44px;
+  flex: 0 0 44px;
 }
 .skill-confirm-sheet .stepper-btn:disabled {
   opacity: 0.35;
@@ -1895,4 +1947,5 @@ a.install-btn { text-decoration: none; }
 }
 .skill-confirm-sheet .success-count { font-size: 2.2rem; }
 .skill-confirm-sheet .dice-grid { margin-bottom: 8px; }
+.skill-confirm-sheet { overflow-x: hidden; }
 .settings-sheet .settings-header { position: sticky; top: 0; background: var(--surface); z-index: 1; }
