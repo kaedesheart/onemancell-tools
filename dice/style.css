@@ -166,94 +166,75 @@ ul { list-style: none; }
   pointer-events: none;
 }
 
-/* ── History ───────────────────────────────────────────────── */
+/* ── Sticky tabs + one-line history ────────────────────────── */
+.session-bar {
+  position: sticky;
+  top: var(--header-h, 64px);
+  z-index: 90;
+  width: 100%;
+  min-width: 0;
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgba(44, 62, 74, 0.08);
+}
 .history-section {
-  padding: 8px 12px 4px;
-  min-height: 40px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 8px 6px;
+  background: var(--surface);
 }
 .history-list {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: stretch;
-}
-.history-item {
-  display: flex;
-  align-items: flex-start;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 6px;
   min-width: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 6px 6px 6px 10px;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  white-space: normal;
-  line-height: 1.45;
-  box-shadow: var(--shadow);
-}
-.history-main {
-  flex: 1 1 auto;
-  min-width: 0;
-  line-height: 1.55;
-}
-.history-skill,
-.history-chunk {
-  display: inline-block;
-  white-space: nowrap;
-  margin-right: 0.28em;
-}
-.history-memo {
-  display: inline-block;
-  white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: break-word;
   max-width: 100%;
-  margin-right: 0.28em;
-  vertical-align: baseline;
+  min-height: 28px;
+  max-height: 32px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
-.history-body {
-  white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: break-word;
-}
-.history-time-label,
-.history-copy { flex-shrink: 0; }
-.history-time-label {
-  display: inline-block;
-  font-weight: 700;
-  margin-right: 2px;
-  margin-top: 1px;
-  opacity: 0.75;
+.history-list::-webkit-scrollbar { display: none; }
+.history-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
+  height: 28px;
+  max-height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.68rem;
+  line-height: 1;
   white-space: nowrap;
 }
-.history-skill {
-  font-weight: 800;
-  color: var(--accent-dark);
-}
-.history-copy {
-  border: none;
+.history-chip.is-latest {
+  border-color: var(--accent);
   background: var(--accent-light);
   color: var(--accent-dark);
-  border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 800;
-  font-family: inherit;
-  padding: 5px 8px;
-  min-height: 28px;
-  cursor: pointer;
+  font-weight: 700;
 }
-.history-copy:active { background: var(--accent); color: #fff; }
-.history-copy.copied { background: var(--accent); color: #fff; }
-.history-item:first-child {
-  border-color: var(--accent);
-  color: var(--accent-dark);
-  font-weight: 600;
-}
+.history-when,
+.history-skill,
+.history-bonus { font-weight: 800; }
+.history-when { color: var(--accent-dark); }
+.history-chip.is-latest .history-skill { color: var(--accent-dark); }
+.history-memo { font-weight: 600; }
 .history-empty {
-  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 28px;
+  font-size: 0.68rem;
+  line-height: 1;
   color: var(--text-muted);
-  padding: 4px 2px;
+  white-space: nowrap;
 }
 
 /* ── Tab nav ───────────────────────────────────────────────── */
@@ -528,29 +509,9 @@ ul { list-style: none; }
 .die.rolling { animation: diceTumble 0.82s ease-in-out; }
 .die.reveal  { animation: dieReveal  0.36s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
-.roll-status {
-  text-align: center;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  margin: 0 auto 8px;
-}
-.roll-status.hidden { display: none; }
-.roll-status.is-rolling { color: var(--text-muted); }
-.roll-status.is-settled {
-  display: table;
-  color: #146c43;
-  background: #e3f6ec;
-  border: 1px solid #b7e4c7;
-  padding: 3px 12px;
-  border-radius: 999px;
-}
 .dice-grid.is-rolling .die {
   filter: saturate(0.45);
   opacity: 0.9;
-}
-.dice-grid.is-settled .die {
-  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #1f8a4c;
 }
 
 /* ── Success summary ───────────────────────────────────────── */
@@ -616,29 +577,6 @@ ul { list-style: none; }
 }
 .result-skill.hidden { display: none; }
 
-.copy-result-btn {
-  display: flex;
-  width: 100%;
-  margin-top: 12px;
-  min-height: 44px;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid var(--accent);
-  background: var(--surface);
-  color: var(--accent-dark);
-  border-radius: var(--radius-sm);
-  font-weight: 800;
-  font-size: 0.92rem;
-  font-family: inherit;
-  cursor: pointer;
-}
-.copy-result-btn.hidden { display: none; }
-.copy-result-btn:active,
-.copy-result-btn.copied {
-  background: var(--accent);
-  color: #fff;
-}
-
 .chara-roll-head {
   display: flex;
   flex-wrap: wrap;
@@ -655,13 +593,6 @@ ul { list-style: none; }
   flex: 1 1 160px;
 }
 .chara-roll-result .success-count { font-size: 2rem; }
-.chara-roll-result .copy-result-btn {
-  width: auto;
-  margin-top: 0;
-  min-height: 44px;
-  padding: 8px 12px;
-  flex: 0 0 auto;
-}
 .chara-roll-result .dice-grid { margin-bottom: 10px; }
 
 /* ── Extra dice tab ────────────────────────────────────────── */

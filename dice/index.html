@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=3" sizes="180x180">
   <link rel="manifest" href="manifest.json?v=3">
   <title>エモクロアダイスツール</title>
-  <link rel="stylesheet" href="style.css?v=2026-11-22b">
+  <link rel="stylesheet" href="style.css?v=2026-11-22c">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
@@ -41,17 +41,18 @@
       </div>
     </header>
 
-    <section class="history-section" aria-label="ロール履歴">
-      <ul id="history-list" class="history-list"></ul>
-    </section>
-
-    <nav class="tab-nav" role="tablist">
-      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="emoklore">判定</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="chara">キャラ</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="extra">ダイスロール</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="status">ステータス</button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="note">メモ</button>
-    </nav>
+    <div class="session-bar">
+      <nav class="tab-nav" role="tablist">
+        <button class="tab-btn active" role="tab" aria-selected="true" data-tab="emoklore">判定</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="chara">キャラ</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="extra">ダイスロール</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="status">ステータス</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="note">メモ</button>
+      </nav>
+      <section class="history-section" aria-label="ロール履歴">
+        <ul id="history-list" class="history-list"></ul>
+      </section>
+    </div>
 
     <main class="tab-container">
 
@@ -95,14 +96,12 @@
 
         <div id="emoklore-result" class="result-area" aria-live="polite" aria-label="ダイスの結果">
           <div id="result-skill" class="result-skill hidden"></div>
-          <div id="roll-status" class="roll-status hidden" aria-live="polite"></div>
           <div id="dice-display" class="dice-grid"></div>
           <div class="success-summary">
             <span class="success-label">成功数</span>
             <span id="success-count" class="success-count">—</span>
           </div>
           <div id="result-label" class="result-label"></div>
-          <button type="button" id="copy-result-btn" class="copy-result-btn hidden">チャット用にコピー</button>
         </div>
 
         <div class="quick-skills-section" id="quick-skills-section">
@@ -192,9 +191,7 @@
         <div id="chara-roll-result" class="result-area chara-roll-result hidden" aria-live="polite" aria-label="キャラタブで振ったダイスの結果">
           <div class="chara-roll-head">
             <span id="chara-roll-title" class="chara-roll-title">直前の判定</span>
-            <button type="button" id="chara-copy-btn" class="copy-result-btn hidden">直前の判定をコピー</button>
           </div>
-          <div id="chara-roll-status" class="roll-status hidden" aria-live="polite"></div>
           <div id="chara-dice-display" class="dice-grid"></div>
           <div class="success-summary">
             <span class="success-label">成功数</span>
@@ -304,7 +301,6 @@
         </button>
 
         <div id="extra-result" class="result-area hidden" aria-live="polite" aria-label="ダイスの結果">
-          <div id="extra-roll-status" class="roll-status hidden" aria-live="polite"></div>
           <div id="extra-dice-display" class="dice-grid extra"></div>
           <div id="extra-total" class="extra-total"></div>
         </div>
@@ -533,20 +529,18 @@
       </div>
       <div id="skill-confirm-result" class="skill-confirm-body hidden">
         <p id="skill-confirm-formula" class="skill-confirm-formula"></p>
-        <div id="sheet-roll-status" class="roll-status hidden" aria-live="polite"></div>
         <div id="sheet-dice-display" class="dice-grid"></div>
         <div class="success-summary">
           <span class="success-label">成功数</span>
           <span id="sheet-success-count" class="success-count">—</span>
         </div>
         <div id="sheet-result-label" class="result-label"></div>
-        <button type="button" id="sheet-copy-btn" class="copy-result-btn hidden">この結果をコピー</button>
         <button type="button" id="sheet-close-done" class="install-btn skill-confirm-done">閉じる</button>
       </div>
     </div>
   </div>
 
-  <script src="script.js?v=2026-11-22b"></script>
+  <script src="script.js?v=2026-11-22c"></script>
 
 </body>
 </html>
