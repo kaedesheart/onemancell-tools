@@ -300,7 +300,7 @@ html[lang="en"] .title-ja { letter-spacing: .28em; }
   cursor: pointer;
   font-family: inherit;
 }
-#share-btn[hidden], #share-note[hidden] { display: none; }
+#share-btn[hidden] { display: none; }
 #overlay .start-btn {
   margin-top: 30px;
   background: linear-gradient(140deg, #FFE49E, #FFD178 52%, #FFC04A);
