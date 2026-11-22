@@ -505,6 +505,56 @@ ul { list-style: none; }
 }
 .die.failure { background: var(--die-failure); }
 
+/* ── D10（上から見た十面体） ─────────────────────────────── */
+.d10-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.die.d10 {
+  --die-fill: var(--die-neutral);
+  padding: 0;
+  background: transparent;
+  border-radius: 50%;
+  color: #fff;
+}
+.die.d10.critical { --die-fill: var(--die-critical); background: transparent; }
+.die.d10.error    { --die-fill: var(--die-error);    background: transparent; }
+.die.d10.success  { --die-fill: var(--die-success);  background: transparent; }
+.die.d10.failure  { --die-fill: var(--die-failure);  background: transparent; }
+.d10-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  color: var(--die-fill);
+}
+.d10-num,
+.d10-mark {
+  font-family: inherit;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  fill: #fff;
+  stroke: rgba(44, 62, 74, 0.62);
+  stroke-linejoin: round;
+  paint-order: stroke;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.dice-grid.extra .die.d10 {
+  width: 54px;
+  min-width: 54px;
+  height: 54px;
+  padding: 0;
+}
+.dice-grid[data-fit="md"] .die.d10,
+.dice-grid[data-fit="sm"] .die.d10,
+.dice-grid[data-fit="xs"] .die.d10 {
+  border-radius: 50%;
+  padding: 0;
+}
+
 .die-badge {
   position: absolute;
   top: 2px;
@@ -562,6 +612,9 @@ ul { list-style: none; }
 .dice-grid.is-rolling .die {
   filter: saturate(0.45);
   opacity: 0.9;
+}
+.dice-grid.is-rolling .die.d10 {
+  filter: none;
 }
 
 /* ── Success summary ───────────────────────────────────────── */
