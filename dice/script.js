@@ -159,8 +159,8 @@ function playResultSound(cls) {
 
 // ── History / labels / chat text ───────────────────────────────────────
 const LABEL_MAX = 40;
-let pendingBonus = 0;
-let rollFromChara = false;
+const BONUS_MAX = 10;
+const DICE_TOTAL_MAX = 12; // 技能ダイス + ボーナス。2D + 10 = 12D10
 
 function normalizeLabel(raw) {
   let s = String(raw == null ? '' : raw).trim();
@@ -169,32 +169,42 @@ function normalizeLabel(raw) {
   return s.slice(0, LABEL_MAX);
 }
 
-function formatHistoryBody(count, target, resultLabel, successes) {
-  const sign = successes > 0 ? '+' : '';
-  return `${count}d10(判${target}) → ${resultLabel} (${sign}${successes})`;
+function normalizeMemo(raw) {
+  return String(raw == null ? '' : raw).trim().replace(/\s+/g, ' ').slice(0, LABEL_MAX);
 }
 
-function buildChatText(report) {
-  const head = report.label ? `〈${report.label}〉` : '';
-  return `${head}${report.count}d10(判${report.target}) → [${report.faces.join(', ')}] 成功数${report.successes}（${report.resultLabel}）`;
-}
-
-function resolveRollLabel(skillLabel) {
-  const input = document.getElementById('roll-label');
-  if (typeof skillLabel === 'string') {
-    const name = normalizeLabel(skillLabel);
-    if (input) input.value = name;
-    syncLabelClear();
-    return name;
-  }
+function readRollSkill() {
+  const input = document.getElementById('roll-skill');
   return input ? normalizeLabel(input.value) : '';
 }
 
-function syncLabelClear() {
-  const input = document.getElementById('roll-label');
-  const btn = document.getElementById('roll-label-clear');
-  if (!input || !btn) return;
-  btn.classList.toggle('hidden', input.value.trim() === '');
+function readRollMemo() {
+  const input = document.getElementById('roll-memo');
+  return input ? normalizeMemo(input.value) : '';
+}
+
+function formatRollHeading(label, memo) {
+  if (label && memo) return `〈${label}〉 ${memo}`;
+  if (label) return `〈${label}〉`;
+  return memo || '';
+}
+
+function formatHistoryBody(report) {
+  const faces = Array.isArray(report.faces) ? `[${report.faces.join(', ')}] ` : '';
+  const bonus = report.bonus > 0 ? `（ボーナス+${report.bonus}）` : '';
+  return `${report.count}d10(判${report.target}) → ${faces}成功数${report.successes}（${report.resultLabel}）${bonus}`;
+}
+
+function buildChatText(report) {
+  const core = formatHistoryBody(report);
+  const head = formatRollHeading(report.label, report.memo);
+  if (!head) return core;
+  if (report.label && !report.memo) return `${head}${core}`;
+  return `${head} ${core}`;
+}
+
+function bonusCapFor(baseDice) {
+  return Math.min(BONUS_MAX, Math.max(0, DICE_TOTAL_MAX - baseDice));
 }
 
 function copyText(text, btn) {
@@ -262,18 +272,42 @@ function renderHistory() {
     time.textContent = timeLabels[i] || '';
     li.appendChild(time);
 
+    const main = document.createElement('span');
+    main.className = 'history-main';
     if (entry.label) {
       const skill = document.createElement('span');
       skill.className = 'history-skill';
       skill.textContent = `〈${entry.label}〉`;
-      li.appendChild(skill);
+      main.appendChild(skill);
+    }
+    if (entry.memo) {
+      const memo = document.createElement('span');
+      memo.className = 'history-memo';
+      memo.textContent = entry.memo;
+      main.appendChild(memo);
+    }
+    if (Array.isArray(entry.faces)) {
+      const chunks = [
+        `${entry.count}d10(判${entry.target})`,
+        `→ [${entry.faces.join(', ')}]`,
+        `成功数${entry.successes}（${entry.resultLabel}）`,
+      ];
+      if (entry.bonus > 0) chunks.push(`（ボーナス+${entry.bonus}）`);
+      chunks.forEach(text => {
+        const chunk = document.createElement('span');
+        chunk.className = 'history-chunk';
+        chunk.textContent = text;
+        main.appendChild(chunk);
+      });
+    } else if (entry.label || entry.memo) {
       const body = document.createElement('span');
       body.className = 'history-body';
       body.textContent = entry.body || '';
-      li.appendChild(body);
+      main.appendChild(body);
     } else {
-      li.appendChild(document.createTextNode(entry.text || ''));
+      main.textContent = entry.text || '';
     }
+    li.appendChild(main);
 
     const copySource = entry.copy || entry.text;
     if (copySource) {
@@ -289,16 +323,23 @@ function renderHistory() {
   });
 }
 
-function setupRollLabel() {
-  const input = document.getElementById('roll-label');
-  const clear = document.getElementById('roll-label-clear');
-  if (!input || !clear) return;
-  input.addEventListener('input', syncLabelClear);
-  clear.addEventListener('click', () => {
+function bindClearable(inputId, clearId) {
+  const input = document.getElementById(inputId);
+  const btn = document.getElementById(clearId);
+  if (!input || !btn) return;
+  const sync = () => btn.classList.toggle('hidden', input.value.trim() === '');
+  input.addEventListener('input', sync);
+  btn.addEventListener('click', () => {
     input.value = '';
-    syncLabelClear();
+    sync();
     input.focus();
   });
+  sync();
+}
+
+function setupRollLabel() {
+  bindClearable('roll-skill', 'roll-skill-clear');
+  bindClearable('roll-memo', 'roll-memo-clear');
   ['copy-result-btn', 'chara-copy-btn', 'sheet-copy-btn'].forEach(id => {
     const btn = document.getElementById(id);
     if (!btn) return;
@@ -334,14 +375,37 @@ function revealDie(el, value, cls) {
   }
 }
 
+function setRollStatus(el, phase) {
+  if (!el) return;
+  el.classList.remove('hidden', 'is-rolling', 'is-settled');
+  if (phase === 'rolling') {
+    el.textContent = '振っています…';
+    el.classList.add('is-rolling');
+  } else if (phase === 'settled') {
+    el.textContent = '✓ 確定';
+    el.classList.add('is-settled');
+  } else {
+    el.textContent = '';
+    el.classList.add('hidden');
+  }
+}
+
+function markDicePhase(container, phase) {
+  if (!container) return;
+  container.classList.remove('is-rolling', 'is-settled');
+  if (phase === 'rolling' || phase === 'settled') container.classList.add(`is-${phase}`);
+}
+
 function fillDiceFinal(container, results, target) {
   if (!container) return;
   container.innerHTML = '';
   results.forEach(v => container.appendChild(makeDieEl(v, classifyDie(v, target))));
+  markDicePhase(container, 'settled');
 }
 
 function animateDice(container, results, target, onAllDone) {
   container.innerHTML = '';
+  markDicePhase(container, 'rolling');
   let tumbledCount = 0;
   let finished = false;
   const cyclers = [];
@@ -359,6 +423,7 @@ function animateDice(container, results, target, onAllDone) {
     finished = true;
     clearTimeout(safety);
     cyclers.forEach(id => clearInterval(id));
+    markDicePhase(container, 'settled');
     onAllDone();
   };
   const safety = setTimeout(() => {
@@ -386,18 +451,21 @@ function emokloreFaces() {
       count: document.getElementById('success-count'),
       label: document.getElementById('result-label'),
       copy: document.getElementById('copy-result-btn'),
+      status: document.getElementById('roll-status'),
     },
     chara: {
       dice: document.getElementById('chara-dice-display'),
       count: document.getElementById('chara-success-count'),
       label: document.getElementById('chara-result-label'),
       copy: document.getElementById('chara-copy-btn'),
+      status: document.getElementById('chara-roll-status'),
     },
     sheet: {
       dice: document.getElementById('sheet-dice-display'),
       count: document.getElementById('sheet-success-count'),
       label: document.getElementById('sheet-result-label'),
       copy: document.getElementById('sheet-copy-btn'),
+      status: document.getElementById('sheet-roll-status'),
     },
   };
 }
@@ -427,11 +495,13 @@ function resetFace(face) {
     face.label.className = 'result-label';
   }
   if (face.copy) face.copy.classList.add('hidden');
+  setRollStatus(face.status, null);
+  markDicePhase(face.dice, null);
 }
 
 function skillLine(report) {
   const bonus = report.bonus > 0 ? `（ボーナス+${report.bonus}）` : '';
-  const name = report.label ? `〈${report.label}〉` : '判定';
+  const name = formatRollHeading(report.label, report.memo) || '判定';
   return `${name} ${report.count}d10(判${report.target})${bonus}`;
 }
 
@@ -449,29 +519,25 @@ function pickAnimFace(faces) {
   return null;
 }
 
-function rollEmoklore(skillLabel) {
+function rollEmoklore(options) {
+  const spec = options || {};
   const btn = document.getElementById('roll-btn');
-  if (btn.disabled) {
-    pendingBonus = 0;
-    rollFromChara = false;
-    return;
-  }
+  if (btn.disabled) return;
   btn.disabled = true;
 
-  const count = state.diceCount;
-  const target = state.targetValue;
+  const fromSkill = typeof spec.label === 'string';
+  const count = spec.count != null ? spec.count : state.diceCount;
+  const target = spec.target != null ? spec.target : state.targetValue;
+  const bonus = spec.bonus > 0 ? spec.bonus : 0;
+  const fromChara = !!spec.fromChara;
+  const name = fromSkill ? normalizeLabel(spec.label) : readRollSkill();
+  const memo = fromSkill ? '' : readRollMemo();
   const results = rollDice(count, 10);
   const successes = countSuccesses(results, target);
   const info = getResultInfo(successes);
-  const name = resolveRollLabel(skillLabel);
-  const bonus = pendingBonus;
-  const fromChara = rollFromChara;
-  pendingBonus = 0;
-  rollFromChara = false;
-
-  const body = formatHistoryBody(count, target, info.label, successes);
   const report = {
     label: name,
+    memo,
     count,
     target,
     faces: results.slice(),
@@ -479,10 +545,10 @@ function rollEmoklore(skillLabel) {
     resultLabel: info.label,
     cls: info.cls,
     bonus,
-    body,
-    text: `${name ? `〈${name}〉 ` : ''}${body}`,
   };
-  report.copy = buildChatText(report);
+  report.body = formatHistoryBody(report);
+  report.text = buildChatText(report);
+  report.copy = report.text;
   state.lastReport = report;
 
   playRollSound();
@@ -495,9 +561,10 @@ function rollEmoklore(skillLabel) {
   resultArea.classList.add('entering');
 
   resetFace(faces.judgment);
+  const heading = formatRollHeading(name, memo);
   if (resultSkill) {
-    resultSkill.textContent = name ? `〈${name}〉` : '';
-    resultSkill.classList.toggle('hidden', !name);
+    resultSkill.textContent = heading;
+    resultSkill.classList.toggle('hidden', !heading);
   }
   if (isSkillSheetResultOpen()) resetFace(faces.sheet);
 
@@ -517,6 +584,8 @@ function rollEmoklore(skillLabel) {
         face.label.className = `result-label ${info.cls} visible`;
       }
       if (face.copy) face.copy.classList.remove('hidden');
+      setRollStatus(face.status, 'settled');
+      markDicePhase(face.dice, 'settled');
     });
     if (fromChara) {
       const title = document.getElementById('chara-roll-title');
@@ -534,9 +603,20 @@ function rollEmoklore(skillLabel) {
     paintFaces();
     playResultSound(info.cls);
     btn.disabled = false;
-    addHistory(name
-      ? { label: name, body, text: report.text, copy: report.copy }
-      : { text: report.text, copy: report.copy });
+    const entry = {
+      body: report.body,
+      text: report.text,
+      copy: report.copy,
+      count: report.count,
+      target: report.target,
+      faces: report.faces,
+      successes: report.successes,
+      resultLabel: report.resultLabel,
+      bonus: report.bonus,
+    };
+    if (name) entry.label = name;
+    if (memo) entry.memo = memo;
+    addHistory(entry);
   };
 
   if (!host) {
@@ -544,7 +624,9 @@ function rollEmoklore(skillLabel) {
     return;
   }
 
+  setRollStatus(host.status, 'rolling');
   animateDice(host.dice, results, target, () => {
+    setRollStatus(host.status, 'settled');
     if (!faceVisible(host)) {
       settle();
       return;
@@ -632,9 +714,12 @@ function rollExtra() {
   void resultArea.offsetWidth;
   resultArea.classList.add('entering');
   totalEl.innerHTML = '';
+  const extraStatus = document.getElementById('extra-roll-status');
 
   if (state.mode === 'lively') {
     diceDisplay.innerHTML = '';
+    setRollStatus(extraStatus, 'rolling');
+    markDicePhase(diceDisplay, 'rolling');
     let tumbledCount = 0;
     const cyclers = [];
 
@@ -656,6 +741,8 @@ function rollExtra() {
 
         tumbledCount++;
         if (tumbledCount === allDice.length) {
+          setRollStatus(extraStatus, 'settled');
+          markDicePhase(diceDisplay, 'settled');
           setTimeout(() => {
             totalEl.innerHTML = `<span class="extra-total-label">合計</span><strong>${total}</strong>`;
             btn.disabled = false;
@@ -674,6 +761,8 @@ function rollExtra() {
       diceDisplay.appendChild(el);
     });
     totalEl.innerHTML = `<span class="extra-total-label">合計</span><strong>${total}</strong>`;
+    setRollStatus(extraStatus, 'settled');
+    markDicePhase(diceDisplay, 'settled');
     btn.disabled = false;
     addHistory(historyText);
   }
@@ -1771,41 +1860,39 @@ function renderQuickSkills() {
 }
 
 // ── chara actions ──────────────────────────────────────────────────────
-function rollSkill(skill, level, displayName, pickKey) {
-  if (!skill || skill.type === 'infinity') return;
-  const dice = skillDice(skill, level);
-  const usedKey = effectiveAbilityKey(skill, pickKey);
-  const judgment = Math.min(10, Math.max(1, skillJudgment(skill, level, usedKey)));
-  state.diceCount = dice;
-  state.targetValue = judgment;
-  document.getElementById('diceCount-display').textContent = dice;
-  document.getElementById('targetValue-display').textContent = judgment;
-  switchToTab('emoklore');
-  rollEmoklore(displayName);
-}
-
-const BONUS_MAX = 10;
 let skillConfirm = null;
 
 function renderBonusPreview() {
   if (!skillConfirm) return;
-  const { baseDice, judgment, bonus } = skillConfirm;
+  const { baseDice, judgment } = skillConfirm;
+  const cap = bonusCapFor(baseDice);
+  if (skillConfirm.bonus > cap) skillConfirm.bonus = cap;
+  const bonus = skillConfirm.bonus;
   document.getElementById('bonus-display').textContent = `+${bonus}`;
   document.getElementById('skill-confirm-base').textContent = String(baseDice);
   document.getElementById('skill-confirm-judg').textContent = String(judgment);
   document.getElementById('skill-confirm-total').textContent = String(baseDice + bonus);
   document.getElementById('skill-confirm-total-judg').textContent = String(judgment);
   document.getElementById('bonus-minus').disabled = bonus <= 0;
-  document.getElementById('bonus-plus').disabled = bonus >= BONUS_MAX;
+  document.getElementById('bonus-plus').disabled = bonus >= cap;
+  const capEl = document.getElementById('skill-confirm-cap');
+  if (capEl) {
+    capEl.textContent = cap >= BONUS_MAX
+      ? `上限 +${BONUS_MAX}（この技能なら合計 ${baseDice + cap}D10・最大12D10）`
+      : `この技能は ${baseDice}D のためボーナスは +${cap} まで（合計最大12D10、上限 +10）`;
+  }
 }
 
-function openSkillConfirm(skill, level, displayName, pickKey) {
+function openSkillConfirm(skill, level, displayName, pickKey, source) {
   if (!skill || skill.type === 'infinity') return;
   if (document.getElementById('roll-btn').disabled) return;
   const baseDice = skillDice(skill, level);
   const usedKey = effectiveAbilityKey(skill, pickKey);
   const judgment = Math.min(10, Math.max(1, skillJudgment(skill, level, usedKey)));
-  skillConfirm = { skill, level, displayName, pickKey, baseDice, judgment, bonus: 0 };
+  skillConfirm = {
+    skill, level, displayName, pickKey, baseDice, judgment, bonus: 0,
+    source: source === 'judgment' ? 'judgment' : 'chara',
+  };
   document.getElementById('skill-confirm-preview').classList.remove('hidden');
   document.getElementById('skill-confirm-result').classList.add('hidden');
   document.getElementById('skill-confirm-title').textContent = `〈${displayName}〉`;
@@ -1825,18 +1912,19 @@ function commitSkillConfirm() {
   if (document.getElementById('roll-btn').disabled) return;
   skillConfirm.committed = true;
   const c = skillConfirm;
-  const total = c.baseDice + c.bonus;
-  state.diceCount = total;
-  state.targetValue = c.judgment;
-  pendingBonus = c.bonus;
-  document.getElementById('diceCount-display').textContent = String(total);
-  document.getElementById('targetValue-display').textContent = String(c.judgment);
+  const bonus = Math.min(c.bonus, bonusCapFor(c.baseDice));
+  const total = c.baseDice + bonus;
   document.getElementById('skill-confirm-preview').classList.add('hidden');
   document.getElementById('skill-confirm-result').classList.remove('hidden');
   document.getElementById('skill-confirm-formula').textContent =
-    `${total}d10(判${c.judgment})` + (c.bonus > 0 ? ` ・ ボーナス+${c.bonus}` : '');
-  rollFromChara = true;
-  rollEmoklore(c.displayName);
+    `${total}d10(判${c.judgment})` + (bonus > 0 ? ` ・ ボーナス+${bonus}` : '');
+  rollEmoklore({
+    label: c.displayName,
+    count: total,
+    target: c.judgment,
+    bonus,
+    fromChara: c.source !== 'judgment',
+  });
 }
 
 function setupSkillConfirm() {
@@ -1852,7 +1940,7 @@ function setupSkillConfirm() {
     renderBonusPreview();
   });
   document.getElementById('bonus-plus').addEventListener('click', () => {
-    if (!skillConfirm || skillConfirm.bonus >= BONUS_MAX) return;
+    if (!skillConfirm || skillConfirm.bonus >= bonusCapFor(skillConfirm.baseDice)) return;
     skillConfirm.bonus += 1;
     renderBonusPreview();
   });
@@ -2079,12 +2167,12 @@ function setupChara() {
       if (btn.dataset.quickSkill) {
         const s = SKILL_BY_ID[btn.dataset.quickSkill];
         const lv = s.type === 'base' ? 1 : (chara.skills[s.id] || 0);
-        rollSkill(s, lv, s.id, `skill:${s.id}`);
+        openSkillConfirm(s, lv, s.id, `skill:${s.id}`, 'judgment');
       } else if (btn.dataset.quickNamed) {
         const n = chara.named.find(x => x.uid === parseInt(btn.dataset.quickNamed, 10));
         if (n) {
           const s = SKILL_BY_ID[n.base];
-          rollSkill(s, n.level, n.name ? `${s.id}：${n.name}` : s.id, `named:${n.uid}`);
+          openSkillConfirm(s, n.level, n.name ? `${s.id}：${n.name}` : s.id, `named:${n.uid}`, 'judgment');
         }
       }
     });
@@ -2213,7 +2301,7 @@ function init() {
   setupRollLabel();
   setupSkillConfirm();
 
-  document.getElementById('roll-btn').addEventListener('click', rollEmoklore);
+  document.getElementById('roll-btn').addEventListener('click', () => rollEmoklore());
   document.getElementById('extra-roll-btn').addEventListener('click', rollExtra);
   setupAd();
 }

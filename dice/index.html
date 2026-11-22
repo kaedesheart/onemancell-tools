@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=3" sizes="180x180">
   <link rel="manifest" href="manifest.json?v=3">
   <title>エモクロアダイスツール</title>
-  <link rel="stylesheet" href="style.css?v=2026-11-22a">
+  <link rel="stylesheet" href="style.css?v=2026-11-22b">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
@@ -35,7 +35,7 @@
       <div class="header-inner">
         <h1 class="header-title">
           <img src="emoklore-logo/logo-b.svg" class="header-logo" alt="エモクロアTRPG">
-          <span>エモクロアダイスツール</span>
+          <span class="header-title-text">エモクロア<wbr>ダイスツール</span>
         </h1>
         <button id="settings-btn" class="icon-btn" aria-label="設定を開く">⚙</button>
       </div>
@@ -78,9 +78,14 @@
         </div>
 
         <div class="roll-label-row">
-          <label class="roll-label-field" for="roll-label">技能・メモ</label>
-          <input id="roll-label" type="text" maxlength="40" placeholder="民俗学、聞き耳など（任意）" autocomplete="off" enterkeyhint="done">
-          <button type="button" id="roll-label-clear" class="roll-label-clear hidden" aria-label="ラベルを消す">✕</button>
+          <label class="roll-label-field" for="roll-skill">技能</label>
+          <input id="roll-skill" type="text" maxlength="40" placeholder="民俗学、聞き耳など（任意）" autocomplete="off" enterkeyhint="done">
+          <button type="button" id="roll-skill-clear" class="roll-label-clear hidden" aria-label="技能名を消す">✕</button>
+        </div>
+        <div class="roll-label-row">
+          <label class="roll-label-field" for="roll-memo">メモ</label>
+          <input id="roll-memo" type="text" maxlength="40" placeholder="補足（〈〉には入りません）" autocomplete="off" enterkeyhint="done">
+          <button type="button" id="roll-memo-clear" class="roll-label-clear hidden" aria-label="メモを消す">✕</button>
         </div>
 
         <button id="roll-btn" class="roll-btn">
@@ -90,6 +95,7 @@
 
         <div id="emoklore-result" class="result-area" aria-live="polite" aria-label="ダイスの結果">
           <div id="result-skill" class="result-skill hidden"></div>
+          <div id="roll-status" class="roll-status hidden" aria-live="polite"></div>
           <div id="dice-display" class="dice-grid"></div>
           <div class="success-summary">
             <span class="success-label">成功数</span>
@@ -100,6 +106,7 @@
         </div>
 
         <div class="quick-skills-section" id="quick-skills-section">
+          <p class="quick-bonus-hint">技能ボタンは確認画面でボーナスダイスを足せます（上限 +10・最大12D10）。振っても、上のダイス数・判定値・技能・メモは変わりません。</p>
           <details class="quick-section">
             <summary class="quick-summary">
               <span class="quick-summary-label">ベース技能</span>
@@ -185,8 +192,9 @@
         <div id="chara-roll-result" class="result-area chara-roll-result hidden" aria-live="polite" aria-label="キャラタブで振ったダイスの結果">
           <div class="chara-roll-head">
             <span id="chara-roll-title" class="chara-roll-title">直前の判定</span>
-            <button type="button" id="chara-copy-btn" class="copy-result-btn hidden">チャット用にコピー</button>
+            <button type="button" id="chara-copy-btn" class="copy-result-btn hidden">直前の判定をコピー</button>
           </div>
+          <div id="chara-roll-status" class="roll-status hidden" aria-live="polite"></div>
           <div id="chara-dice-display" class="dice-grid"></div>
           <div class="success-summary">
             <span class="success-label">成功数</span>
@@ -296,6 +304,7 @@
         </button>
 
         <div id="extra-result" class="result-area hidden" aria-live="polite" aria-label="ダイスの結果">
+          <div id="extra-roll-status" class="roll-status hidden" aria-live="polite"></div>
           <div id="extra-dice-display" class="dice-grid extra"></div>
           <div id="extra-total" class="extra-total"></div>
         </div>
@@ -507,13 +516,14 @@
       <div id="skill-confirm-preview" class="skill-confirm-body">
         <p class="skill-confirm-meta">ベース <b id="skill-confirm-base">1</b>D10 ・ 判定値 <b id="skill-confirm-judg">5</b></p>
         <div class="skill-confirm-bonus">
-          <span>ボーナスダイス</span>
+          <span>ボーナスダイス <span class="bonus-cap-tag">上限 +10 / 最大12D10</span></span>
           <div class="stepper">
             <button type="button" id="bonus-minus" class="stepper-btn" aria-label="ボーナスダイスを減らす">－</button>
             <span id="bonus-display" class="stepper-value bonus-value">+0</span>
             <button type="button" id="bonus-plus" class="stepper-btn" aria-label="ボーナスダイスを増やす">＋</button>
           </div>
-          <p class="skill-confirm-note">共鳴感情が一致したときなど、ダイスの個数だけ増やせます。判定値は変わりません。</p>
+          <p id="skill-confirm-cap" class="skill-confirm-cap">上限 +10（最大12D10）</p>
+          <p class="skill-confirm-note">共鳴感情が一致したときなど、ダイスの個数だけ増やせます。判定値は変わりません。判定タブの技能ボタンからも同じ画面が開きます。</p>
         </div>
         <p class="skill-confirm-total">振るダイス <b id="skill-confirm-total">1</b>D10（判定値 <b id="skill-confirm-total-judg">5</b>）</p>
         <div class="skill-confirm-actions">
@@ -523,19 +533,20 @@
       </div>
       <div id="skill-confirm-result" class="skill-confirm-body hidden">
         <p id="skill-confirm-formula" class="skill-confirm-formula"></p>
+        <div id="sheet-roll-status" class="roll-status hidden" aria-live="polite"></div>
         <div id="sheet-dice-display" class="dice-grid"></div>
         <div class="success-summary">
           <span class="success-label">成功数</span>
           <span id="sheet-success-count" class="success-count">—</span>
         </div>
         <div id="sheet-result-label" class="result-label"></div>
-        <button type="button" id="sheet-copy-btn" class="copy-result-btn hidden">チャット用にコピー</button>
+        <button type="button" id="sheet-copy-btn" class="copy-result-btn hidden">この結果をコピー</button>
         <button type="button" id="sheet-close-done" class="install-btn skill-confirm-done">閉じる</button>
       </div>
     </div>
   </div>
 
-  <script src="script.js?v=2026-11-22a"></script>
+  <script src="script.js?v=2026-11-22b"></script>
 
 </body>
 </html>
