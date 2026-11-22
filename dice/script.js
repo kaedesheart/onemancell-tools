@@ -314,14 +314,26 @@ function d10Aria(value, cls) {
   return `出目 ${value}`;
 }
 
-function paintD10(el, value, cls) {
-  const num = el.querySelector('.d10-num');
+function numStyle(value) {
+  const n = String(value).length;
+  if (n >= 4) return ['10', '1.15'];
+  if (n === 3) return ['13', '1.4'];
+  if (n === 2) return ['17', '1.6'];
+  return ['22', '2.1'];
+}
+
+function paintNum(el, selector, value) {
+  const num = el.querySelector(selector);
+  if (!num) return;
   const v = String(value);
-  if (num) {
-    num.textContent = v;
-    num.setAttribute('font-size', v === '10' ? '17' : '22');
-    num.setAttribute('stroke-width', v === '10' ? '1.6' : '2.1');
-  }
+  const [size, stroke] = numStyle(v);
+  num.textContent = v;
+  num.setAttribute('font-size', size);
+  num.setAttribute('stroke-width', stroke);
+}
+
+function paintD10(el, value, cls) {
+  paintNum(el, '.d10-num', value);
   const mark = el.querySelector('.d10-mark');
   if (mark) mark.textContent = cls === 'critical' ? '★' : cls === 'error' ? '✕' : '';
 }
@@ -336,18 +348,29 @@ function makeDieEl(value, cls) {
   return el;
 }
 
+const CUBE_SVG = '<svg class="cube-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><use href="#cube-die"/><text class="cube-num" x="32" y="23" font-size="22" stroke-width="2.1"></text></svg>';
+
+function paintCube(el, value) {
+  paintNum(el, '.cube-num', value);
+}
+
 function makeSquareDie(value, cls, sides) {
   const el = document.createElement('div');
-  el.className = `die${cls ? ' ' + cls : ''}`;
+  el.className = `die cube${cls ? ' ' + cls : ''}`;
   el.setAttribute('role', 'img');
-  el.textContent = value;
-  el.setAttribute('aria-label', cls === 'rolling' ? '振っています' : `D${sides} 出目 ${value}`);
+  el.innerHTML = CUBE_SVG;
+  paintCube(el, value);
+  el.setAttribute('aria-label', cls && cls !== 'rolling' ? `D${sides} 出目 ${value}` : '振っています');
   return el;
 }
 
 function setRollingValue(el, value) {
   if (el.classList.contains('d10')) {
     paintD10(el, value, 'rolling');
+    return;
+  }
+  if (el.classList.contains('cube')) {
+    paintCube(el, value);
     return;
   }
   el.textContent = value;
@@ -359,6 +382,12 @@ function revealDie(el, value, cls) {
     paintD10(el, value, cls);
     el.setAttribute('role', 'img');
     el.setAttribute('aria-label', d10Aria(value, cls));
+    return;
+  }
+  if (el.classList.contains('cube')) {
+    el.className = `die cube ${cls}`;
+    paintCube(el, value);
+    el.setAttribute('role', 'img');
     return;
   }
   el.textContent = '';
@@ -725,8 +754,8 @@ function rollExtra() {
           paintD10(el, face.value, null);
           el.setAttribute('aria-label', `D10 出目 ${face.value}`);
         } else {
-          el.className = 'die success';
-          el.textContent = face.value;
+          el.className = 'die cube success';
+          paintCube(el, face.value);
           el.setAttribute('role', 'img');
           el.setAttribute('aria-label', `D${face.sides} 出目 ${face.value}`);
         }

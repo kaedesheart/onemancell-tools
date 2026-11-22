@@ -512,7 +512,8 @@ ul { list-style: none; }
   height: 0;
   overflow: hidden;
 }
-.die.d10 {
+.die.d10,
+.die.cube {
   --die-fill: var(--die-neutral);
   padding: 0;
   background: transparent;
@@ -520,11 +521,16 @@ ul { list-style: none; }
   box-shadow: none;
   color: #fff;
 }
-.die.d10.critical { --die-fill: var(--die-critical); background: transparent; box-shadow: none; }
-.die.d10.error    { --die-fill: var(--die-error);    background: transparent; box-shadow: none; }
-.die.d10.success  { --die-fill: var(--die-success);  background: transparent; box-shadow: none; }
-.die.d10.failure  { --die-fill: var(--die-failure);  background: transparent; box-shadow: none; }
-.d10-svg {
+.die.d10.critical,
+.die.cube.critical { --die-fill: var(--die-critical); background: transparent; box-shadow: none; }
+.die.d10.error,
+.die.cube.error    { --die-fill: var(--die-error);    background: transparent; box-shadow: none; }
+.die.d10.success,
+.die.cube.success  { --die-fill: var(--die-success);  background: transparent; box-shadow: none; }
+.die.d10.failure,
+.die.cube.failure  { --die-fill: var(--die-failure);  background: transparent; box-shadow: none; }
+.d10-svg,
+.cube-svg {
   display: block;
   width: 100%;
   height: 100%;
@@ -532,7 +538,8 @@ ul { list-style: none; }
   color: var(--die-fill);
 }
 .d10-num,
-.d10-mark {
+.d10-mark,
+.cube-num {
   font-family: inherit;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -543,7 +550,8 @@ ul { list-style: none; }
   text-anchor: middle;
   dominant-baseline: central;
 }
-.dice-grid.extra .die.d10 {
+.dice-grid.extra .die.d10,
+.dice-grid.extra .die.cube {
   width: 54px;
   min-width: 54px;
   height: 54px;
@@ -551,7 +559,10 @@ ul { list-style: none; }
 }
 .dice-grid[data-fit="md"] .die.d10,
 .dice-grid[data-fit="sm"] .die.d10,
-.dice-grid[data-fit="xs"] .die.d10 {
+.dice-grid[data-fit="xs"] .die.d10,
+.dice-grid[data-fit="md"] .die.cube,
+.dice-grid[data-fit="sm"] .die.cube,
+.dice-grid[data-fit="xs"] .die.cube {
   border-radius: 0;
   box-shadow: none;
   padding: 0;
@@ -615,7 +626,8 @@ ul { list-style: none; }
   filter: saturate(0.45);
   opacity: 0.9;
 }
-.dice-grid.is-rolling .die.d10 {
+.dice-grid.is-rolling .die.d10,
+.dice-grid.is-rolling .die.cube {
   filter: none;
 }
 
