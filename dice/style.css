@@ -165,30 +165,56 @@ ul { list-style: none; }
 }
 .history-list {
   display: flex;
+  flex-direction: column;
   gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  align-items: center;
-  padding-bottom: 2px;
+  align-items: stretch;
 }
-.history-list::-webkit-scrollbar { display: none; }
 .history-item {
-  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
-  padding: 4px 10px;
-  font-size: 0.72rem;
+  padding: 4px 6px 4px 10px;
+  font-size: 0.75rem;
   color: var(--text-muted);
   white-space: nowrap;
   box-shadow: var(--shadow);
 }
+.history-body {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-skill,
+.history-time-label,
+.history-copy { flex-shrink: 0; }
 .history-time-label {
   display: inline-block;
   font-weight: 700;
-  margin-right: 4px;
+  margin-right: 2px;
   opacity: 0.75;
 }
+.history-skill {
+  font-weight: 800;
+  color: var(--accent-dark);
+}
+.history-copy {
+  border: none;
+  background: var(--accent-light);
+  color: var(--accent-dark);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  font-family: inherit;
+  padding: 5px 8px;
+  min-height: 28px;
+  cursor: pointer;
+}
+.history-copy:active { background: var(--accent); color: #fff; }
+.history-copy.copied { background: var(--accent); color: #fff; }
 .history-item:first-child {
   border-color: var(--accent);
   color: var(--accent-dark);
@@ -329,6 +355,51 @@ ul { list-style: none; }
   box-shadow: 0 2px 8px rgba(91, 184, 212, 0.2);
 }
 .roll-btn-icon { font-size: 1.3rem; }
+
+/* ── Roll label ────────────────────────────────────────────── */
+.roll-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  box-shadow: var(--shadow);
+  margin-bottom: 12px;
+}
+.roll-label-row:focus-within {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.roll-label-field {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+#roll-label {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--text);
+  padding: 6px 0;
+}
+#roll-label:focus { outline: none; }
+.roll-label-clear {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.roll-label-clear.hidden { display: none; }
+.roll-label-clear:active { background: var(--border); }
 
 /* ── Result area ───────────────────────────────────────────── */
 .result-area {
@@ -475,6 +546,64 @@ ul { list-style: none; }
 .result-label.triple      { color: var(--color-triple);      background: rgba( 58, 152, 184, 0.10); }
 .result-label.miracle     { color: var(--color-miracle);     background: rgba(245, 166,  35, 0.10); }
 .result-label.catastrophe { color: var(--color-catastrophe); background: rgba(180,  79, 232, 0.10); }
+
+.result-skill {
+  text-align: center;
+  font-weight: 800;
+  color: var(--accent-dark);
+  font-size: 1rem;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+.result-skill.hidden { display: none; }
+
+.copy-result-btn {
+  display: flex;
+  width: 100%;
+  margin-top: 12px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--accent);
+  background: var(--surface);
+  color: var(--accent-dark);
+  border-radius: var(--radius-sm);
+  font-weight: 800;
+  font-size: 0.92rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.copy-result-btn.hidden { display: none; }
+.copy-result-btn:active,
+.copy-result-btn.copied {
+  background: var(--accent);
+  color: #fff;
+}
+
+.chara-roll-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.chara-roll-title {
+  font-weight: 800;
+  color: var(--accent-dark);
+  font-size: 0.92rem;
+  line-height: 1.4;
+  flex: 1 1 160px;
+}
+.chara-roll-result .success-count { font-size: 2rem; }
+.chara-roll-result .copy-result-btn {
+  width: auto;
+  margin-top: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  flex: 0 0 auto;
+}
+.chara-roll-result .dice-grid { margin-bottom: 10px; }
 
 /* ── Extra dice tab ────────────────────────────────────────── */
 .dice-type-grid {
@@ -1661,4 +1790,82 @@ a.install-btn { text-decoration: none; }
 .ios-guide-note { margin-bottom: 12px; }
 .ios-guide-sheet a:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 4px; }
 .settings-sheet { max-height: 90dvh; overflow-y: auto; }
+
+/* ── Skill confirm sheet ───────────────────────────────────── */
+.skill-confirm-body { padding: 16px 16px 20px; }
+.skill-confirm-body.hidden { display: none; }
+.skill-confirm-meta,
+.skill-confirm-total,
+.skill-confirm-formula {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.skill-confirm-meta { margin-bottom: 14px; }
+.skill-confirm-meta b,
+.skill-confirm-total b {
+  color: var(--text);
+  font-size: 1.15rem;
+}
+.skill-confirm-bonus {
+  background: var(--bg);
+  border-radius: var(--radius);
+  padding: 14px 12px 12px;
+  text-align: center;
+  margin-bottom: 14px;
+}
+.skill-confirm-bonus > span {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.bonus-value { min-width: 3.2ch; font-size: 1.6rem; }
+.skill-confirm-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-top: 10px;
+}
+.skill-confirm-total { font-weight: 700; margin-bottom: 14px; }
+.skill-confirm-formula {
+  font-weight: 800;
+  color: var(--accent-dark);
+  margin-bottom: 8px;
+}
+.skill-confirm-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.skill-confirm-cancel {
+  min-height: 52px;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+.skill-confirm-actions .skill-confirm-roll {
+  flex: 1;
+  width: auto;
+  margin-bottom: 0;
+  min-height: 52px;
+  padding: 12px;
+}
+.skill-confirm-done {
+  width: 100%;
+  justify-content: center;
+  min-height: 48px;
+  margin-top: 8px;
+}
+.skill-confirm-sheet .stepper-btn {
+  width: 44px;
+  height: 44px;
+}
+.skill-confirm-sheet .stepper-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+.skill-confirm-sheet .success-count { font-size: 2.2rem; }
+.skill-confirm-sheet .dice-grid { margin-bottom: 8px; }
 .settings-sheet .settings-header { position: sticky; top: 0; background: var(--surface); z-index: 1; }

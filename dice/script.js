@@ -157,9 +157,87 @@ function playResultSound(cls) {
   } catch (_) {}
 }
 
-// ── History ────────────────────────────────────────────────────────────
-function addHistory(text) {
-  state.history.unshift({ text });
+// ── History / labels / chat text ───────────────────────────────────────
+const LABEL_MAX = 40;
+let pendingBonus = 0;
+let rollFromChara = false;
+
+function normalizeLabel(raw) {
+  let s = String(raw == null ? '' : raw).trim();
+  if (!s) return '';
+  s = s.replace(/^[〈<「『]/, '').replace(/[〉>」』]$/, '').trim();
+  return s.slice(0, LABEL_MAX);
+}
+
+function formatHistoryBody(count, target, resultLabel, successes) {
+  const sign = successes > 0 ? '+' : '';
+  return `${count}d10(判${target}) → ${resultLabel} (${sign}${successes})`;
+}
+
+function buildChatText(report) {
+  const head = report.label ? `〈${report.label}〉` : '';
+  return `${head}${report.count}d10(判${report.target}) → [${report.faces.join(', ')}] 成功数${report.successes}（${report.resultLabel}）`;
+}
+
+function resolveRollLabel(skillLabel) {
+  const input = document.getElementById('roll-label');
+  if (typeof skillLabel === 'string') {
+    const name = normalizeLabel(skillLabel);
+    if (input) input.value = name;
+    syncLabelClear();
+    return name;
+  }
+  return input ? normalizeLabel(input.value) : '';
+}
+
+function syncLabelClear() {
+  const input = document.getElementById('roll-label');
+  const btn = document.getElementById('roll-label-clear');
+  if (!input || !btn) return;
+  btn.classList.toggle('hidden', input.value.trim() === '');
+}
+
+function copyText(text, btn) {
+  const done = () => {
+    if (!btn) return;
+    if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+    btn.textContent = 'コピーしました';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = btn.dataset.label;
+      btn.classList.remove('copied');
+    }, 1600);
+  };
+  const fallback = () => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '0';
+      ta.style.left = '0';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      if (ok) done();
+      else window.prompt('コピーできませんでした。テキストを選択してください', text);
+    } catch (_) {
+      window.prompt('コピーできませんでした。テキストを選択してください', text);
+    }
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done).catch(fallback);
+  } else {
+    fallback();
+  }
+}
+
+function addHistory(entry) {
+  const item = typeof entry === 'string' ? { text: entry } : entry;
+  state.history.unshift(item);
   if (state.history.length > 3) state.history.pop();
   renderHistory();
   saveState();
@@ -179,12 +257,54 @@ function renderHistory() {
   state.history.forEach((entry, i) => {
     const li = document.createElement('li');
     li.className = 'history-item';
-    const label = document.createElement('span');
-    label.className = 'history-time-label';
-    label.textContent = timeLabels[i];
-    li.appendChild(label);
-    li.appendChild(document.createTextNode(entry.text));
+    const time = document.createElement('span');
+    time.className = 'history-time-label';
+    time.textContent = timeLabels[i] || '';
+    li.appendChild(time);
+
+    if (entry.label) {
+      const skill = document.createElement('span');
+      skill.className = 'history-skill';
+      skill.textContent = `〈${entry.label}〉`;
+      li.appendChild(skill);
+      const body = document.createElement('span');
+      body.className = 'history-body';
+      body.textContent = entry.body || '';
+      li.appendChild(body);
+    } else {
+      li.appendChild(document.createTextNode(entry.text || ''));
+    }
+
+    const copySource = entry.copy || entry.text;
+    if (copySource) {
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'history-copy';
+      copyBtn.textContent = 'コピー';
+      copyBtn.setAttribute('aria-label', 'このロールをチャット用にコピー');
+      copyBtn.addEventListener('click', () => copyText(copySource, copyBtn));
+      li.appendChild(copyBtn);
+    }
     list.appendChild(li);
+  });
+}
+
+function setupRollLabel() {
+  const input = document.getElementById('roll-label');
+  const clear = document.getElementById('roll-label-clear');
+  if (!input || !clear) return;
+  input.addEventListener('input', syncLabelClear);
+  clear.addEventListener('click', () => {
+    input.value = '';
+    syncLabelClear();
+    input.focus();
+  });
+  ['copy-result-btn', 'chara-copy-btn', 'sheet-copy-btn'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      if (state.lastReport && state.lastReport.copy) copyText(state.lastReport.copy, btn);
+    });
   });
 }
 
@@ -202,107 +322,244 @@ function makeDieEl(value, cls) {
   return el;
 }
 
+function revealDie(el, value, cls) {
+  el.textContent = '';
+  el.className = `die ${cls}`;
+  el.textContent = value;
+  if (cls === 'critical' || cls === 'error') {
+    const badge = document.createElement('span');
+    badge.className = 'die-badge';
+    badge.textContent = cls === 'critical' ? '★' : '✕';
+    el.appendChild(badge);
+  }
+}
+
+function fillDiceFinal(container, results, target) {
+  if (!container) return;
+  container.innerHTML = '';
+  results.forEach(v => container.appendChild(makeDieEl(v, classifyDie(v, target))));
+}
+
+function animateDice(container, results, target, onAllDone) {
+  container.innerHTML = '';
+  let tumbledCount = 0;
+  let finished = false;
+  const cyclers = [];
+  const dieEls = results.map((_, i) => {
+    const el = document.createElement('div');
+    el.className = 'die rolling';
+    el.style.animationDelay = `${i * 60}ms`;
+    el.textContent = rollDie(10);
+    container.appendChild(el);
+    cyclers.push(setInterval(() => { el.textContent = rollDie(10); }, 70));
+    return el;
+  });
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(safety);
+    cyclers.forEach(id => clearInterval(id));
+    onAllDone();
+  };
+  const safety = setTimeout(() => {
+    cyclers.forEach(id => clearInterval(id));
+    results.forEach((v, i) => {
+      if (dieEls[i]) revealDie(dieEls[i], v, classifyDie(v, target));
+    });
+    finish();
+  }, 900 + results.length * 70);
+  dieEls.forEach((el, i) => {
+    el.addEventListener('animationend', () => {
+      clearInterval(cyclers[i]);
+      revealDie(el, results[i], classifyDie(results[i], target));
+      tumbledCount++;
+      if (tumbledCount >= results.length) finish();
+    }, { once: true });
+  });
+}
+
 // ── エモクロア roll ────────────────────────────────────────────────────
+function emokloreFaces() {
+  return {
+    judgment: {
+      dice: document.getElementById('dice-display'),
+      count: document.getElementById('success-count'),
+      label: document.getElementById('result-label'),
+      copy: document.getElementById('copy-result-btn'),
+    },
+    chara: {
+      dice: document.getElementById('chara-dice-display'),
+      count: document.getElementById('chara-success-count'),
+      label: document.getElementById('chara-result-label'),
+      copy: document.getElementById('chara-copy-btn'),
+    },
+    sheet: {
+      dice: document.getElementById('sheet-dice-display'),
+      count: document.getElementById('sheet-success-count'),
+      label: document.getElementById('sheet-result-label'),
+      copy: document.getElementById('sheet-copy-btn'),
+    },
+  };
+}
+
+function isSkillSheetResultOpen() {
+  const overlay = document.getElementById('skill-confirm-overlay');
+  const result = document.getElementById('skill-confirm-result');
+  return !!(overlay && result
+    && !overlay.classList.contains('hidden')
+    && !result.classList.contains('hidden'));
+}
+
+function faceVisible(face) {
+  if (!face || !face.dice) return false;
+  return face.dice.closest('.hidden') === null;
+}
+
+function resetFace(face) {
+  if (!face) return;
+  if (face.dice) face.dice.innerHTML = '';
+  if (face.count) {
+    face.count.textContent = '—';
+    face.count.classList.remove('pop');
+  }
+  if (face.label) {
+    face.label.textContent = '';
+    face.label.className = 'result-label';
+  }
+  if (face.copy) face.copy.classList.add('hidden');
+}
+
+function skillLine(report) {
+  const bonus = report.bonus > 0 ? `（ボーナス+${report.bonus}）` : '';
+  const name = report.label ? `〈${report.label}〉` : '判定';
+  return `${name} ${report.count}d10(判${report.target})${bonus}`;
+}
+
+function pickAnimFace(faces) {
+  if (state.mode !== 'lively') return null;
+  if (isSkillSheetResultOpen() && faceVisible(faces.sheet)) return faces.sheet;
+  const judgmentTab = document.getElementById('tab-emoklore');
+  if (judgmentTab && !judgmentTab.classList.contains('hidden') && faceVisible(faces.judgment)) {
+    return faces.judgment;
+  }
+  const charaTab = document.getElementById('tab-chara');
+  if (charaTab && !charaTab.classList.contains('hidden') && faceVisible(faces.chara)) {
+    return faces.chara;
+  }
+  return null;
+}
+
 function rollEmoklore(skillLabel) {
   const btn = document.getElementById('roll-btn');
-  if (btn.disabled) return;
+  if (btn.disabled) {
+    pendingBonus = 0;
+    rollFromChara = false;
+    return;
+  }
   btn.disabled = true;
 
-  const count   = state.diceCount;
-  const target  = state.targetValue;
+  const count = state.diceCount;
+  const target = state.targetValue;
   const results = rollDice(count, 10);
   const successes = countSuccesses(results, target);
-  const { label, cls } = getResultInfo(successes);
-  const prefix = (typeof skillLabel === 'string' && skillLabel) ? skillLabel + ' ' : '';
+  const info = getResultInfo(successes);
+  const name = resolveRollLabel(skillLabel);
+  const bonus = pendingBonus;
+  const fromChara = rollFromChara;
+  pendingBonus = 0;
+  rollFromChara = false;
+
+  const body = formatHistoryBody(count, target, info.label, successes);
+  const report = {
+    label: name,
+    count,
+    target,
+    faces: results.slice(),
+    successes,
+    resultLabel: info.label,
+    cls: info.cls,
+    bonus,
+    body,
+    text: `${name ? `〈${name}〉 ` : ''}${body}`,
+  };
+  report.copy = buildChatText(report);
+  state.lastReport = report;
 
   playRollSound();
 
-  const resultArea    = document.getElementById('emoklore-result');
-  const diceDisplay   = document.getElementById('dice-display');
-  const successCountEl = document.getElementById('success-count');
-  const resultLabelEl  = document.getElementById('result-label');
-
-  // Show / animate result container
+  const faces = emokloreFaces();
+  const resultArea = document.getElementById('emoklore-result');
+  const resultSkill = document.getElementById('result-skill');
   resultArea.classList.remove('hidden', 'entering');
-  void resultArea.offsetWidth; // reflow to restart animation
+  void resultArea.offsetWidth;
   resultArea.classList.add('entering');
 
-  // Reset sub-elements
-  successCountEl.textContent = '—';
-  successCountEl.style.color = '';
-  resultLabelEl.textContent  = '';
-  resultLabelEl.className    = 'result-label';
-
-  if (state.mode === 'lively') {
-    // Build rolling dice
-    diceDisplay.innerHTML = '';
-    let tumbledCount = 0;
-
-    const cyclers = [];
-    const dieEls = results.map((_, i) => {
-      const el = document.createElement('div');
-      el.className = 'die rolling';
-      el.style.animationDelay = `${i * 60}ms`;
-      el.textContent = rollDie(10);
-      diceDisplay.appendChild(el);
-      cyclers.push(setInterval(() => { el.textContent = rollDie(10); }, 70));
-      return el;
-    });
-
-    // 各ダイスはdiceTumble終了次第すぐ数字を表示（ポップなし）
-    dieEls.forEach((el, i) => {
-      el.addEventListener('animationend', () => {
-        clearInterval(cyclers[i]);
-
-        const v    = results[i];
-        const dcls = classifyDie(v, target);
-        el.textContent = '';
-        el.className   = `die ${dcls}`;
-        el.textContent = v;
-        if (dcls === 'critical' || dcls === 'error') {
-          const badge = document.createElement('span');
-          badge.className = 'die-badge';
-          badge.textContent = dcls === 'critical' ? '★' : '✕';
-          el.appendChild(badge);
-        }
-
-        tumbledCount++;
-        if (tumbledCount < count) return;
-
-        // 全数字が揃ったら成功数を表示
-        setTimeout(() => {
-          successCountEl.textContent = successes;
-          successCountEl.classList.add('pop');
-          successCountEl.addEventListener('animationend',
-            () => successCountEl.classList.remove('pop'), { once: true });
-
-          setTimeout(() => {
-            resultLabelEl.textContent = label;
-            resultLabelEl.className = `result-label ${cls} visible`;
-            playResultSound(cls);
-            btn.disabled = false;
-
-            const sign = successes > 0 ? '+' : '';
-            addHistory(`${prefix}${count}d10(判${target}) → ${label} (${sign}${successes})`);
-          }, 240);
-        }, 160);
-      }, { once: true });
-    });
-
-  } else {
-    // Simple mode: instant
-    diceDisplay.innerHTML = '';
-    results.forEach(v => diceDisplay.appendChild(makeDieEl(v, classifyDie(v, target))));
-
-    successCountEl.textContent = successes;
-    resultLabelEl.textContent  = label;
-    resultLabelEl.className    = `result-label ${cls} visible`;
-    playResultSound(cls);
-    btn.disabled = false;
-
-    const sign = successes > 0 ? '+' : '';
-    addHistory(`${prefix}${count}d10(判${target}) → ${label} (${sign}${successes})`);
+  resetFace(faces.judgment);
+  if (resultSkill) {
+    resultSkill.textContent = name ? `〈${name}〉` : '';
+    resultSkill.classList.toggle('hidden', !name);
   }
+  if (isSkillSheetResultOpen()) resetFace(faces.sheet);
+
+  const host = pickAnimFace(faces);
+  let settled = false;
+
+  const paintFaces = () => {
+    const open = [faces.judgment];
+    if (fromChara) open.push(faces.chara);
+    if (isSkillSheetResultOpen()) open.push(faces.sheet);
+    open.forEach(face => {
+      if (!face) return;
+      if (face !== host) fillDiceFinal(face.dice, results, target);
+      if (face.count) face.count.textContent = String(successes);
+      if (face.label) {
+        face.label.textContent = info.label;
+        face.label.className = `result-label ${info.cls} visible`;
+      }
+      if (face.copy) face.copy.classList.remove('hidden');
+    });
+    if (fromChara) {
+      const title = document.getElementById('chara-roll-title');
+      const card = document.getElementById('chara-roll-result');
+      if (title) title.textContent = skillLine(report);
+      if (card) card.classList.remove('hidden');
+    }
+    const sheetCopy = document.getElementById('sheet-copy-btn');
+    if (isSkillSheetResultOpen() && sheetCopy) sheetCopy.focus();
+  };
+
+  const settle = () => {
+    if (settled) return;
+    settled = true;
+    paintFaces();
+    playResultSound(info.cls);
+    btn.disabled = false;
+    addHistory(name
+      ? { label: name, body, text: report.text, copy: report.copy }
+      : { text: report.text, copy: report.copy });
+  };
+
+  if (!host) {
+    settle();
+    return;
+  }
+
+  animateDice(host.dice, results, target, () => {
+    if (!faceVisible(host)) {
+      settle();
+      return;
+    }
+    setTimeout(() => {
+      if (settled) return;
+      if (host.count) {
+        host.count.textContent = String(successes);
+        host.count.classList.add('pop');
+        host.count.addEventListener('animationend',
+          () => host.count.classList.remove('pop'), { once: true });
+      }
+      setTimeout(settle, 240);
+    }, 160);
+  });
 }
 
 // ── Extra dice roll ────────────────────────────────────────────────────
@@ -1524,7 +1781,85 @@ function rollSkill(skill, level, displayName, pickKey) {
   document.getElementById('diceCount-display').textContent = dice;
   document.getElementById('targetValue-display').textContent = judgment;
   switchToTab('emoklore');
-  rollEmoklore(`〈${displayName}〉`);
+  rollEmoklore(displayName);
+}
+
+const BONUS_MAX = 10;
+let skillConfirm = null;
+
+function renderBonusPreview() {
+  if (!skillConfirm) return;
+  const { baseDice, judgment, bonus } = skillConfirm;
+  document.getElementById('bonus-display').textContent = `+${bonus}`;
+  document.getElementById('skill-confirm-base').textContent = String(baseDice);
+  document.getElementById('skill-confirm-judg').textContent = String(judgment);
+  document.getElementById('skill-confirm-total').textContent = String(baseDice + bonus);
+  document.getElementById('skill-confirm-total-judg').textContent = String(judgment);
+  document.getElementById('bonus-minus').disabled = bonus <= 0;
+  document.getElementById('bonus-plus').disabled = bonus >= BONUS_MAX;
+}
+
+function openSkillConfirm(skill, level, displayName, pickKey) {
+  if (!skill || skill.type === 'infinity') return;
+  if (document.getElementById('roll-btn').disabled) return;
+  const baseDice = skillDice(skill, level);
+  const usedKey = effectiveAbilityKey(skill, pickKey);
+  const judgment = Math.min(10, Math.max(1, skillJudgment(skill, level, usedKey)));
+  skillConfirm = { skill, level, displayName, pickKey, baseDice, judgment, bonus: 0 };
+  document.getElementById('skill-confirm-preview').classList.remove('hidden');
+  document.getElementById('skill-confirm-result').classList.add('hidden');
+  document.getElementById('skill-confirm-title').textContent = `〈${displayName}〉`;
+  renderBonusPreview();
+  document.getElementById('skill-confirm-overlay').classList.remove('hidden');
+  document.getElementById('skill-confirm-roll').focus();
+}
+
+function closeSkillConfirm() {
+  const overlay = document.getElementById('skill-confirm-overlay');
+  if (overlay) overlay.classList.add('hidden');
+  skillConfirm = null;
+}
+
+function commitSkillConfirm() {
+  if (!skillConfirm || skillConfirm.committed) return;
+  if (document.getElementById('roll-btn').disabled) return;
+  skillConfirm.committed = true;
+  const c = skillConfirm;
+  const total = c.baseDice + c.bonus;
+  state.diceCount = total;
+  state.targetValue = c.judgment;
+  pendingBonus = c.bonus;
+  document.getElementById('diceCount-display').textContent = String(total);
+  document.getElementById('targetValue-display').textContent = String(c.judgment);
+  document.getElementById('skill-confirm-preview').classList.add('hidden');
+  document.getElementById('skill-confirm-result').classList.remove('hidden');
+  document.getElementById('skill-confirm-formula').textContent =
+    `${total}d10(判${c.judgment})` + (c.bonus > 0 ? ` ・ ボーナス+${c.bonus}` : '');
+  rollFromChara = true;
+  rollEmoklore(c.displayName);
+}
+
+function setupSkillConfirm() {
+  const overlay = document.getElementById('skill-confirm-overlay');
+  if (!overlay) return;
+  document.getElementById('skill-confirm-close').addEventListener('click', closeSkillConfirm);
+  document.getElementById('skill-confirm-cancel').addEventListener('click', closeSkillConfirm);
+  document.getElementById('sheet-close-done').addEventListener('click', closeSkillConfirm);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeSkillConfirm(); });
+  document.getElementById('bonus-minus').addEventListener('click', () => {
+    if (!skillConfirm || skillConfirm.bonus <= 0) return;
+    skillConfirm.bonus -= 1;
+    renderBonusPreview();
+  });
+  document.getElementById('bonus-plus').addEventListener('click', () => {
+    if (!skillConfirm || skillConfirm.bonus >= BONUS_MAX) return;
+    skillConfirm.bonus += 1;
+    renderBonusPreview();
+  });
+  document.getElementById('skill-confirm-roll').addEventListener('click', commitSkillConfirm);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !overlay.classList.contains('hidden')) closeSkillConfirm();
+  });
 }
 
 function setAbility(key, delta) {
@@ -1832,7 +2167,7 @@ function setupChara() {
     if (btn.dataset.skillRoll) {
       const s = SKILL_BY_ID[btn.dataset.skillRoll];
       const lv = s.type === 'base' ? 1 : (chara.skills[s.id] || 0);
-      rollSkill(s, lv, s.id, `skill:${s.id}`);
+      openSkillConfirm(s, lv, s.id, `skill:${s.id}`);
       return;
     }
     if (btn.dataset.namedAdd)  { addNamed(btn.dataset.namedAdd); return; }
@@ -1840,7 +2175,10 @@ function setupChara() {
     if (btn.dataset.namedLv)   { setNamedLevel(parseInt(btn.dataset.namedLv, 10), parseInt(btn.dataset.delta, 10)); return; }
     if (btn.dataset.namedRoll) {
       const n = chara.named.find(x => x.uid === parseInt(btn.dataset.namedRoll, 10));
-      if (n) { const s = SKILL_BY_ID[n.base]; rollSkill(s, n.level, n.name ? `${s.id}：${n.name}` : s.id, `named:${n.uid}`); }
+      if (n) {
+        const s = SKILL_BY_ID[n.base];
+        openSkillConfirm(s, n.level, n.name ? `${s.id}：${n.name}` : s.id, `named:${n.uid}`);
+      }
       return;
     }
   });
@@ -1871,6 +2209,9 @@ function init() {
   setupInstallButton();
   setupReset();
   setupDataTransfer();
+
+  setupRollLabel();
+  setupSkillConfirm();
 
   document.getElementById('roll-btn').addEventListener('click', rollEmoklore);
   document.getElementById('extra-roll-btn').addEventListener('click', rollExtra);
